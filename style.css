@@ -2227,6 +2227,217 @@
 .freq-map-type-active {
   background: rgba(74,124,89,0.15); border-color: #4a7c59; color: #4a7c59;
 }
+/* ══ BLOCK_25 频道文库 ══ */
+
+/* ── Header 按钮组 ── */
+.freq-novel-header-btns {
+  display: flex; gap: 6px; align-items: center; margin-left: auto;
+}
+.freq-novel-icon-btn {
+  background: none; border: 1px solid #2a2a1a; border-radius: 6px;
+  color: #8b6914; font-size: 12px; padding: 3px 8px; height: 26px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, border-color 0.15s; white-space: nowrap;
+}
+.freq-novel-icon-btn:hover { background: rgba(139,105,20,0.15); border-color: #8b6914; }
+
+/* ── 主体容器 ── */
+.freq-novel-body {
+  padding: 8px !important; display: flex; flex-direction: column; gap: 6px;
+}
+
+/* ── 分区列表 ── */
+.freq-novel-boards-list { display: flex; flex-direction: column; gap: 6px; }
+.freq-novel-board-item {
+  display: flex; align-items: center; gap: 10px;
+  background: #0d0d0d; border: 1px solid #2a2a1a; border-radius: 10px;
+  padding: 10px 12px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.freq-novel-board-item:hover { background: #111; border-color: #8b6914; }
+.freq-novel-board-icon { font-size: 22px; flex-shrink: 0; }
+.freq-novel-board-info { flex: 1; min-width: 0; }
+.freq-novel-board-name { font-size: 13px; color: #ccc; font-weight: bold; margin-bottom: 2px; }
+.freq-novel-board-desc { font-size: 10px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.freq-novel-board-stats { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 10px; color: #444; flex-shrink: 0; }
+
+/* ── 区块标题 ── */
+.freq-novel-section-title {
+  font-size: 10px; color: #8b6914; font-weight: bold;
+  letter-spacing: 1px; margin-bottom: 4px; margin-top: 8px;
+}
+
+/* ── 系列列表 ── */
+.freq-novel-series-list { display: flex; flex-direction: column; gap: 6px; }
+.freq-novel-series-item {
+  display: flex; align-items: center; gap: 10px;
+  background: #0d0d0d; border: 1px solid #2a2a1a; border-radius: 10px;
+  padding: 10px 12px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.freq-novel-series-item:hover { background: #111; border-color: #8b6914; }
+.freq-novel-series-cover { font-size: 24px; flex-shrink: 0; }
+.freq-novel-series-info { flex: 1; min-width: 0; }
+.freq-novel-series-title { font-size: 13px; color: #ccc; font-weight: bold; margin-bottom: 4px; }
+.freq-novel-series-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.freq-novel-series-count { font-size: 10px; color: #444; }
+
+/* ── 系列详情头部卡片 ── */
+.freq-novel-series-header-card {
+  background: #0d0d0d; border: 1px solid #2a2a1a; border-radius: 10px;
+  padding: 12px; margin-bottom: 4px;
+}
+.freq-novel-series-header-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.freq-novel-series-header-desc { font-size: 11px; color: #777; line-height: 1.6; margin-bottom: 8px; }
+.freq-novel-series-status-btns { display: flex; gap: 6px; }
+.freq-novel-status-change-btn {
+  background: #111; border: 1px solid #2a2a2a; border-radius: 6px;
+  color: #555; font-size: 10px; padding: 4px 10px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.freq-novel-status-change-btn:hover { background: #161616; color: #aaa; }
+.freq-novel-status-change-active { background: rgba(139,105,20,0.15); border-color: #8b6914; color: #8b6914; }
+
+/* ── 章节列表 ── */
+.freq-novel-chapters-list { display: flex; flex-direction: column; gap: 6px; }
+.freq-novel-chapter-item {
+  background: #0d0d0d; border: 1px solid #2a2a1a; border-radius: 8px;
+  padding: 8px 12px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.freq-novel-chapter-item:hover { background: #111; border-color: #8b6914; }
+.freq-novel-chapter-order { font-size: 10px; color: #8b6914; margin-bottom: 2px; display: block; }
+.freq-novel-chapter-title { font-size: 13px; color: #ccc; margin-bottom: 4px; }
+.freq-novel-chapter-meta { display: flex; align-items: center; gap: 8px; font-size: 10px; color: #444; }
+
+/* ── 作者标签 ── */
+.freq-novel-author-tag {
+  font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: bold;
+}
+.freq-novel-author-tag--user { background: rgba(91,141,217,0.15); color: #5b8dd9; }
+.freq-novel-author-tag--char { background: rgba(163,45,45,0.15); color: #A32D2D; }
+.freq-novel-author-tag--npc  { background: rgba(123,94,167,0.15); color: #7b5ea7; }
+
+/* ── 状态标签 ── */
+.freq-novel-status-tag {
+  font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: bold;
+}
+.freq-novel-status--ongoing   { background: rgba(74,124,89,0.15); color: #4a7c59; }
+.freq-novel-status--completed { background: rgba(139,105,20,0.15); color: #8b6914; }
+.freq-novel-status--hiatus    { background: rgba(100,100,100,0.15); color: #666; }
+
+/* ── 分区操作按钮组 ── */
+.freq-novel-board-actions {
+  display: flex; gap: 8px; margin-top: 10px;
+}
+.freq-novel-board-actions .freq-studio-action-btn { flex: 1; }
+.freq-novel-ai-action-btn {
+  background: rgba(139,105,20,0.15) !important;
+  border-color: #8b6914 !important;
+  color: #8b6914 !important;
+}
+.freq-novel-ai-action-btn:hover {
+  background: rgba(139,105,20,0.3) !important;
+}
+.freq-novel-delete-board-btn { margin-top: 12px; width: 100%; }
+
+/* ── 表单组件 ── */
+.freq-novel-write-form {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.freq-novel-form-group {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.freq-novel-form-label {
+  font-size: 11px; color: #8b6914; font-weight: bold;
+}
+.freq-novel-select {
+  background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px;
+  color: #aaa; font-size: 12px; padding: 7px 10px;outline: none; appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.freq-novel-select:focus { border-color: #8b6914; }
+.freq-novel-write-textarea { min-height: 180px; resize: vertical; }
+
+/* ── 阅读视图 ── */
+.freq-novel-read-body {
+  padding: 10px 12px !important;
+}
+.freq-novel-read-header-title {
+  font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.freq-novel-read-meta {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+}
+.freq-novel-read-wordcount { font-size: 10px; color: #555; }
+.freq-novel-read-date { font-size: 10px; color: #444; }
+.freq-novel-read-title {
+  font-size: 16px; color: #d4a843; font-weight: bold;margin: 0 0 12px 0; line-height: 1.4;
+}
+.freq-novel-read-content {
+  font-size: 13px; color: #bbb; line-height: 1.8;
+  padding: 12px 0; border-top: 1px solid #1a1a1a;
+  border-bottom: 1px solid #1a1a1a; margin-bottom: 16px;
+}
+.freq-novel-read-para {
+  margin: 0 0 1em 0; text-indent: 2em; word-break: break-word;
+}
+.freq-novel-read-para:last-child { margin-bottom: 0; }
+
+/* ── 评论区 ── */
+.freq-novel-comment-section {
+  margin-top: 8px;
+}
+.freq-novel-comment-item {
+  background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 8px;
+  padding: 8px 10px; margin-bottom: 6px;
+}
+.freq-novel-comment-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;
+}
+.freq-novel-comment-time { font-size: 9px; color: #333; }
+.freq-novel-comment-body {
+  font-size: 12px; color: #999; line-height: 1.6; word-break: break-word;
+}
+.freq-novel-no-comment {
+  font-size: 11px; color: #333; padding: 12px 0; text-align: center;
+}
+.freq-novel-comment-form {
+  margin-top: 10px;
+}
+
+/* ── 召唤栏 ── */
+.freq-novel-summon-bar {
+  display: flex; gap: 8px; align-items: center; margin-top: 10px;
+}
+.freq-novel-char-select {
+  flex: 1;
+  background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 6px;
+  color: #aaa; font-size: 11px; padding: 6px 8px;
+  outline: none; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  cursor: pointer; transition: border-color 0.15s;
+}
+.freq-novel-char-select:focus { border-color: #8b6914; }
+.freq-novel-summon-btn {
+  background: rgba(139,105,20,0.15); border: 1px solid #8b6914;
+  color: #8b6914; font-size: 11px; padding: 6px 14px;
+  border-radius: 6px; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s;
+}
+.freq-novel-summon-btn:hover { background: rgba(139,105,20,0.3); }
+.freq-novel-summon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#freq-novel-summon-status {
+  font-size: 10px; color: #8b6914; text-align: center; min-height: 16px; margin-top: 4px;
+}
+
 
 
 
