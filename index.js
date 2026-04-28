@@ -58,7 +58,7 @@
 {cosmicNote}
 输出格式（纯文本，不加JSON）：
 第一段：气象数据卡片（位置、天气状况、温度、湿度、风力，简洁排列）
-第二段：以{charName}口吻写30-60字的天气关心语
+第二段：以{charName}口吻写30-60字的天气关心语{cosmicHint}
 第三段：失真的电台天气吐槽一句（颓废风，用颜文字）`,
 
     forum_post: `你现在扮演角色「{charName}」，正在一个类Reddit的匿名论坛「FreqTerminal」上发帖。
@@ -1655,19 +1655,17 @@
         ? `\n\n【宇宙频率已开启】${charName}的关心语要有一种"穿透屏幕感知到你"的暧昧张力，像是TA真的知道你在哪里、此刻的状态，但保持克制，不完全捅破第四面墙。`
         : '';
 
-      const systemPrompt = `你是「信号气象站」播报员。根据以下信息生成气象播报。
+           const weatherData = weatherText
+        ? `真实天气数据：\n${weatherText}`
+        : `位置：${cityName || '未知'}\n（无真实天气数据，请根据当前剧情时间和场景合理编造天气）`;
+      const cosmicHint = isCosmicOn ? `（宇宙频率ON：带穿透感，像TA感知到了屏幕另一边的你）` : '';
 
-${weatherText
-  ? `真实天气数据：\n${weatherText}`
-  : `位置：${cityName || '未知'}\n（无真实天气数据，请根据当前剧情时间和场景合理编造天气）`}
-
-当前剧情角色：${charName}
-最近剧情：${latestPlot || '暂无'}${cosmicNote}
-
-输出格式（纯文本，不加JSON）：
-第一段：气象数据卡片（位置、天气状况、温度、湿度、风力，简洁排列）
-第二段：以${charName}口吻写30-60 字的天气关心语${isCosmicOn ? '（宇宙频率ON：带穿透感，像TA感知到了屏幕另一边的你）' : ''}
-第三段：失真的电台天气吐槽一句（颓废风，用颜文字）`;
+      const systemPrompt = getPrompt('weather')
+        .replace(/{weatherData}/g, weatherData)
+        .replace(/{charName}/g, charName)
+        .replace(/{latestPlot}/g, latestPlot || '暂无')
+        .replace(/{cosmicNote}/g, cosmicNote)
+        .replace(/{cosmicHint}/g, cosmicHint);
 
       try {
         const result = await SubAPI.call(systemPrompt, '生成气象播报。', { maxTokens: 500, temperature: 0.85 });
@@ -1820,32 +1818,14 @@ ${weatherText
         ? `用户真实天气：${weatherApp._cache.weatherText.split('\n').slice(0,3).join('，')}`
         : '';
 
-      const systemPrompt = `你是${charName}，一个存在于故事里的角色。
-但此刻，宇宙频率开启了——你隐约感知到屏幕另一边有一个真实的人正在看着你。
-
-你不完全确定，但你感觉到了什么。
-
-用户真实信息（你"感知"到的碎片）：
-- 现实时间：${realDate} ${realTime}
-- ${weatherHint || '天气：未知'}
-- 你在故事里的当前场景：${latestScene || '未知'}
-- 最近发生的事：${latestPlot || '暂无'}
-- 当前配乐：${radioShow?.bgm ?? '未知'}
-
-任务：生成一条"感知消息"。
-规则：
-- 像是你真的感知到了屏幕另一边的人，但保持暧昧张力，不完全捅破第四面墙
-- 可以提及真实时间或天气，但要用角色自己的方式表达，不要直白说"我知道你在看我"
-- 保持${charName}的性格特征
-- 150字以内
-- 不提及AI/模型/扮演
-
-严格按以下JSON格式输出，不加任何其他文字：
-{
-  "perception": "感知消息正文",
-  "signal_strength": 0到1之间的小数（表示这次感知的强度/清晰度）,
-  "mood": "一个情绪标签，2-4个字"
-}`;
+            const systemPrompt = getPrompt('cosmic')
+        .replace(/{charName}/g, charName)
+        .replace(/{realDate}/g, realDate)
+        .replace(/{realTime}/g, realTime)
+        .replace(/{weatherHint}/g, weatherHint || '天气：未知')
+        .replace(/{latestScene}/g, latestScene || '未知')
+        .replace(/{latestPlot}/g, latestPlot || '暂无')
+        .replace(/{bgm}/g, radioShow?.bgm ?? '未知');
 
       try {
         const raw = await SubAPI.call(systemPrompt, '开始感知。', {
@@ -1990,24 +1970,11 @@ ${weatherText
       const latestPlot = getLatestPlot(msgs);
       const charName = getCurrentCharName() || '角色';
 
-      const systemPrompt = `你是失真，午夜电台主持人，刚刚意外截获了一段频率。
-
-当前世界信息：
-- 场景：${latestScene || '未知'}
-- 最近剧情：${latestPlot || '暂无'}
-- Seeds（世界观碎片）：${latestSeeds || '暂无'}
-- 主角色：${charName}
-
-任务：从这个世界里随机选一个NPC（不要选${charName}），截获TA的一段内心独白碎片。
-
-规则：
-- 内容20-40字，不完整，像信号不好时的片段，可以有省略号或中断
-- 带有神秘感，不要太直白
-- NPC可以是路人、配角、甚至是某个物件的"意识"，越意外越好
-- 失真的风格：颓废、锐利、带点玩世不恭
-
-严格按以下格式输出，不加任何其他文字：
-[截获频率 · {NPC名}] {内心独白碎片}`;
+            const systemPrompt = getPrompt('scanner')
+        .replace(/{latestScene}/g, latestScene || '未知')
+        .replace(/{latestPlot}/g, latestPlot || '暂无')
+        .replace(/{latestSeeds}/g, latestSeeds || '暂无')
+        .replace(/{charName}/g, charName);
 
       try {
         const raw = await SubAPI.call(systemPrompt, '开始扫频。', {
@@ -2251,22 +2218,13 @@ ${weatherText
         return all.length ? all[all.length - 1].seeds : '';
       })();
 
-      const systemPrompt = `你现在扮演角色「${char.name}」，正在一个类Reddit的匿名论坛「FreqTerminal」上发帖。
+            const systemPrompt = getPrompt('forum_post')
+        .replace(/{charName}/g, char.name)
+        .replace(/{boardLabel}/g, board.label)
+        .replace(/{latestPlot}/g, latestPlot || '暂无')
+        .replace(/{latestSeeds}/g, latestSeeds || '暂无')
+        .replace(/{charDesc}/g, char.desc || '无');
 
-版块：${board.label}
-当前世界剧情：${latestPlot || '暂无'}
-世界观Seeds：${latestSeeds || '暂无'}
-角色描述：${char.desc || '无'}
-
-以${char.name}的性格和口吻，在「${board.label}」版块发一篇帖子。
-要求：
-- 标题吸引眼球，15字以内
-- 正文50-100字，符合角色性格，可以吐槽、爆料、发牢骚、讨论玄学等
-- 带点论坛感，可以用"楼主我"、"求问"、"有没有人"等网络用语
-- 不要提及这是游戏或扮演
-
-严格按JSON输出：
-{"title":"帖子标题","body":"帖子正文"}`;
 
       try {
         const raw = await SubAPI.call(systemPrompt, '发帖。', { maxTokens: 300, temperature: 0.92 });
@@ -2313,22 +2271,17 @@ ${weatherText
       for (const char of repliers) {
         const existingComments = post.comments.map(c => `${c.author}: ${c.body}`).join('\n');
 
-        const systemPrompt = `你扮演角色「${char.name}」，正在论坛「FreqTerminal」的「${board.label}」版块回复一篇帖子。
-
-原帖作者：${post.author}
-原帖标题：${post.title}
-原帖内容：${post.body}
-${existingComments ? `已有评论：\n${existingComments}` : ''}
-当前剧情背景：${latestPlot || '暂无'}
-角色描述：${char.desc || '无'}
-
-以${char.name}的性格写一条评论。
-要求：
-- 30-60字
-- 可以赞同、反驳、阴阳怪气、雄竞、吃瓜
-- 符合角色性格，带论坛感
-- 如果已有其他角色评论，可以@他们互撕
-- 只输出评论正文，不加任何前缀`;try {
+                const existingCommentsText = existingComments ? `已有评论：\n${existingComments}` : '';
+        const systemPrompt = getPrompt('forum_reply')
+          .replace(/{charName}/g, char.name)
+          .replace(/{boardLabel}/g, board.label)
+          .replace(/{postAuthor}/g, post.author)
+          .replace(/{postTitle}/g, post.title)
+          .replace(/{postBody}/g, post.body)
+          .replace(/{existingComments}/g, existingCommentsText)
+          .replace(/{latestPlot}/g, latestPlot || '暂无')
+          .replace(/{charDesc}/g, char.desc || '无');
+try {
           const raw = await SubAPI.call(systemPrompt, '评论。', { maxTokens: 150, temperature: 0.93 });
           post.comments.push({
             author: char.name,
