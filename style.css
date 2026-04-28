@@ -1001,6 +1001,157 @@
   0% { background-position: 0 0; }
   100% { background-position: 0 100px; }
 }
+/* ══════════════════════════════════════════════════════════
+   BLOCK_21 时光胶囊
+   ══════════════════════════════════════════════════════════ */
+
+/* 创建按钮 */
+.freq-capsule-create-btn { width: 100%; margin-top: 10px; margin-bottom: 8px; }
+.freq-capsule-clear-btn { width: 100%; margin-top: 4px; }
+
+/* 时间线 */
+.freq-capsule-timeline {
+  position: relative;
+  padding-left: 20px;
+}
+.freq-capsule-timeline::before {
+  content: '';
+  position: absolute; left: 7px; top: 0; bottom: 0;
+  width: 2px; background: #1e1e1e;
+}
+
+/* 时间线节点 */
+.freq-capsule-item {
+  position: relative;
+  padding: 10px 12px 10px 0;
+  margin-bottom: 4px;
+  cursor: pointer;
+  transition: background0.15s;border-radius: 8px;
+}
+.freq-capsule-item:hover { background: rgba(255,255,255,0.02); }
+
+.freq-capsule-timeline-dot {
+  position: absolute; left: -17px; top: 14px;
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid #333; background: #0a0a0a;
+  z-index: 1;
+}
+.freq-capsule-dot--auto {
+  border-color: #e8a040; background: rgba(232,160,64,0.2);
+}
+.freq-capsule-dot--manual {
+  border-color: #5b8dd9; background: rgba(91,141,217,0.2);
+}
+
+.freq-capsule-item-body { min-width: 0; }
+
+.freq-capsule-item-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 3px;
+}
+.freq-capsule-item-title {
+  font-size: 11px; color: #ccc; font-weight: bold;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0;
+}
+.freq-capsule-item-type {
+  font-size: 9px; color: #555; white-space: nowrap; margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.freq-capsule-item-meta {
+  display: flex; gap: 8px; font-size: 9px; color: #333;
+  margin-bottom: 4px; flex-wrap: wrap;
+}
+
+.freq-capsule-item-preview {
+  font-size: 10px; color: #555; line-height: 1.4;
+}
+
+/* 详情页 */
+.freq-capsule-detail-body { position: relative; }
+
+.freq-capsule-detail-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px; color: #555; padding: 6px 0;
+  border-bottom: 1px solid #1a1a1a; margin-bottom: 10px;
+}
+.freq-capsule-detail-type {
+  font-size: 10px; font-weight: bold; padding: 2px 8px;
+  border-radius: 10px; letter-spacing: 0.5px;
+}
+.freq-capsule-type--auto {
+  color: #e8a040; background: rgba(232,160,64,0.1);
+  border: 1px solid rgba(232,160,64,0.2);
+}
+.freq-capsule-type--manual {
+  color: #5b8dd9; background: rgba(91,141,217,0.1);
+  border: 1px solid rgba(91,141,217,0.2);
+}
+
+.freq-capsule-detail-serial {
+  font-size: 10px; color: #A32D2D; text-align: center;
+  background: rgba(163,45,45,0.08); padding: 4px 8px;
+  border-radius: 6px; margin-bottom: 8px;
+}
+
+.freq-capsule-detail-char {
+  font-size: 10px; color: #444; text-align: center;
+  margin-bottom: 12px; letter-spacing: 1px;
+}
+
+.freq-capsule-detail-section { margin-bottom: 12px; }
+
+.freq-capsule-detail-label {
+  font-size: 10px; color: #666; font-weight: bold;
+  margin-bottom: 6px; letter-spacing: 0.5px;
+}
+
+.freq-capsule-detail-text {
+  font-size: 11px; color: #888; line-height: 1.6;
+  padding: 8px 10px; background: #111; border-radius: 8px;
+  border: 1px solid #1a1a1a; white-space: pre-wrap; word-break: break-word;
+}
+
+/*胶囊内容框 */
+.freq-capsule-content-box {
+  background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 10px;
+  padding: 14px; position: relative;
+}
+.freq-capsule-content-text {
+  font-size: 12px; color: #bbb; line-height: 1.7;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+/* 封存感言框 */
+.freq-capsule-seal-box {
+  background: #0f0d14; border: 1px solid rgba(123,94,167,0.2);
+  border-radius: 10px; padding: 14px;
+}
+.freq-capsule-seal-text {
+  font-size: 11px; color: #c4b8e8; line-height: 1.7;
+  font-style: italic; white-space: pre-wrap; word-break: break-word;
+}
+.freq-capsule-seal-btn { width: 100%; }
+
+/* 手动创建表单 */
+.freq-capsule-create-form {
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.freq-capsule-auto-fill {
+  background: #111; border: 1px solid #1a1a1a; border-radius: 8px;
+  padding: 10px 12px;
+}
+.freq-capsule-auto-fill-label {
+  font-size: 10px; color: #666; font-weight: bold;
+  margin-bottom: 6px; letter-spacing: 0.5px;
+}
+.freq-capsule-auto-fill-info {
+  font-size: 10px; color: #444; line-height: 1.6;
+}
+.freq-capsule-auto-fill-info div { margin-bottom: 2px; }
+
 
 
 
