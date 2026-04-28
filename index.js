@@ -126,6 +126,26 @@
 
 严格按JSON输出，不加其他文字：
 {{"char_emotion":"2-6字情绪标签","intensity":0.8,"color_hex":"#ff6b6b","waveform_type":"sine"}}`,
+        dream: `你是{charName}，你正在做梦。
+
+当前时间：{timeInfo}
+最近经历：{latestPlot}
+当前场景：{latestScene}
+世界观碎片：{latestSeeds}
+{cosmicHint}
+
+任务：生成一段{charName}的梦境。
+规则：
+- 梦境内容50-120字，碎片化、意识流、不完全连贯
+- 可以扭曲现实中的经历，混入荒诞元素
+- 带有迷幻感，像信号不好的电台在深夜播放
+- 梦境标题5-10字，诗意/荒诞
+{cosmicRule}
+- 保持{charName}的性格底色
+
+严格按JSON输出，不加其他文字：
+{{"title":"梦境标题","content":"梦境内容","mood":"一个情绪标签2-4字","dreamType":"{defaultDreamType}"}}`,
+
   };
 
 
@@ -537,6 +557,7 @@
       checkin_comment: '📅 打卡·角色评论',
       checkin_auto:    '📅 打卡·角色自动打卡',
       emotion:'📊 情绪电波仪',
+      dream: '🌙 梦境记录仪',
     };
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
       <div class="freq-s-row freq-s-prompt-row">
@@ -626,7 +647,7 @@
     }
 
     // Prompt textarea 绑定
-      ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion'].forEach(key => {
+      ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream'].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
@@ -3009,6 +3030,324 @@ try {
       }
     },
   };
+  //┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_20App ·梦境记录仪                │
+  // └──────────────────────────────────────────────────────┘
+  const dreamApp = {
+    id: 'dream', name: '梦境记录仪', icon: '🌙', _badge: 0, _container: null,
+    _generating: false,
+    _glitchTimer: null,
+    _currentView: 'list', // 'list' | 'detail'
+    _detailId: null,
+
+    init() {
+      EventBus.on('meow_fm:updated', (allFM) => {
+        if (this._isNightTime()) {
+          this._badge++;
+          renderAppGrid();
+        }
+      });},
+
+    mount(container) {
+      this._container = container;
+      this._badge = 0;
+      renderAppGrid();
+      if (this._currentView === 'detail' && this._detailId) {
+        this._renderDetail(container, this._detailId);
+      } else {
+        this._renderList(container);
+      }
+    },
+
+    unmount() {
+      if (this._glitchTimer) { clearInterval(this._glitchTimer); this._glitchTimer = null; }
+      this._container = null;
+    },
+
+    //── 数据 ──
+    _getDreams() {
+      return getSettings().dreams ?? [];
+    },
+
+    _saveDreams(dreams) {
+      const s = getSettings();
+      s.dreams = dreams;
+      if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();
+    },
+
+    _isNightTime() {
+      const h = new Date().getHours();
+      return h >= 22 || h < 6;
+    },
+
+    _isNightFromMeow() {
+      const time = getLatestMeowTime(getChatMessages());
+      if (!time) return false;
+      return /深夜|凌晨|午夜|夜晚|23:|00:|01:|02:|03:|04:|05:/.test(time);
+    },
+
+    _getNightLevel() {
+      const h = new Date().getHours();
+      if (h >= 0 && h < 4) return 'deep';    // 深夜
+      if (h >= 4 && h < 6) return 'dawn';     //黎明前
+      if (h >= 22 && h <= 23) return 'late';   // 入夜
+      return 'day';
+    },
+
+    // ── 列表页 ──
+    _renderList(container) {
+      this._currentView = 'list';
+      this._detailId = null;
+      if (this._glitchTimer) { clearInterval(this._glitchTimer); this._glitchTimer = null; }
+
+      const dreams = this._getDreams();
+      const isNight = this._isNightTime();
+      const nightLevel = this._getNightLevel();
+      const charName = getCurrentCharName() || '???';
+      const isCosmicOn = getCosmicFreqStatus();
+
+      const nightHint = isNight
+        ? `<div class="freq-dream-night-hint"><span class="freq-dream-night-dot"></span>
+            ${nightLevel === 'deep' ? '深夜时段 ·梦境信号最强' : nightLevel === 'dawn' ? '黎明将至 · 梦境正在消散' : '夜幕降临 · 梦境频率开启'}
+          </div>`
+        : `<div class="freq-dream-night-hint freq-dream-day-hint">
+            <span>☀️ 日间模式 · 梦境信号微弱但仍可捕获</span>
+          </div>`;
+
+      const cosmicHint = isCosmicOn
+        ? `<div class="freq-dream-cosmic-hint">🌌 宇宙频率ON · 梦境可能涉及维度裂缝</div>`
+        : '';
+
+      const listHTML = dreams.length === 0
+        ? `<div class="freq-empty" style="min-height:160px;">
+            <span class="freq-empty-icon">🌙</span>
+            <span>尚无梦境记录</span><span style="font-size:10px;color:#333;">点击下方按钮捕获梦境</span>
+          </div>`
+        : dreams.map(d => {
+            const typeIcon = { normal: '💤', lucid: '👁️', nightmare: '🖤', cosmic: '🌌' }[d.dreamType] ?? '💤';
+            const typeColor = { normal: '#5b8dd9', lucid: '#4ec9a0', nightmare: '#e85555', cosmic: '#7b5ea7' }[d.dreamType] ?? '#888';
+            return `
+              <div class="freq-dream-card" data-dream-id="${d.id}">
+                <div class="freq-dream-card-top">
+                  <span class="freq-dream-card-type" style="color:${typeColor}">${typeIcon}</span>
+                  <span class="freq-dream-card-title">${escapeHtml(d.title)}</span>
+                  <span class="freq-dream-card-time">${d.date}</span>
+                </div>
+                <div class="freq-dream-card-preview">${escapeHtml((d.content || '').slice(0, 50))}${d.content?.length > 50 ? '...' : ''}</div>
+                <div class="freq-dream-card-footer">
+                  <span style="color:${typeColor};font-size:9px;">${d.mood || ''}</span>
+                  <span style="font-size:9px;color:#333;">${escapeHtml(d.charName || '')}</span>
+                </div>
+              </div>`;
+          }).join('');
+
+      container.innerHTML = `
+        <div class="freq-app-header">🌙 梦境记录仪
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">${escapeHtml(charName)}</span>
+        </div>
+        <div class="freq-app-body" id="freq-dream-body">
+          ${nightHint}
+          ${cosmicHint}
+          ${listHTML}
+          <button class="freq-studio-action-btn freq-dream-gen-btn" id="freq-dream-gen">🌙 ${isNight ? '捕获梦境信号' : '强制捕获梦境'}
+          </button>
+          ${dreams.length > 0 ? `<button class="freq-checkin-delete-btn freq-dream-clear-btn" id="freq-dream-clear">🗑️ 清空所有梦境</button>` : ''}
+        </div>`;
+
+      // 事件绑定
+      container.querySelectorAll('.freq-dream-card').forEach(card => {
+        card.addEventListener('click', () => {
+          this._detailId = card.dataset.dreamId;
+          this._renderDetail(container, card.dataset.dreamId);
+        });
+      });
+
+      container.querySelector('#freq-dream-gen')?.addEventListener('click', () => this._generate(container));
+
+      container.querySelector('#freq-dream-clear')?.addEventListener('click', () => {
+        this._saveDreams([]);
+        this._renderList(container);
+        Notify.add('梦境记录仪', '所有梦境已清除', '🌙');
+      });
+
+      //夜间模式下列表页也加轻微故障效果
+      if (isNight) this._startListGlitch(container);
+    },
+
+    _startListGlitch(container) {
+      if (this._glitchTimer) clearInterval(this._glitchTimer);
+      this._glitchTimer = setInterval(() => {
+        const cards = container.querySelectorAll('.freq-dream-card');
+        if (!cards.length) return;
+        const card = cards[Math.floor(Math.random() * cards.length)];
+        card.classList.add('freq-dream-glitch-flash');
+        setTimeout(() => card.classList.remove('freq-dream-glitch-flash'), 200);
+      }, 3000);
+    },
+
+    // ── 详情页 ──
+    _renderDetail(container, dreamId) {
+      this._currentView = 'detail';
+      if (this._glitchTimer) { clearInterval(this._glitchTimer); this._glitchTimer = null; }
+
+      const dream = this._getDreams().find(d => d.id === dreamId);
+      if (!dream) { this._renderList(container); return; }
+
+      const typeColor = { normal: '#5b8dd9', lucid: '#4ec9a0', nightmare: '#e85555', cosmic: '#7b5ea7' }[dream.dreamType] ?? '#888';
+      const typeLabel = { normal: '普通梦', lucid: '清醒梦', nightmare: '噩梦', cosmic: '宇宙频率梦' }[dream.dreamType] ?? '梦';
+      const typeIcon = { normal: '💤', lucid: '👁️', nightmare: '🖤', cosmic: '🌌' }[dream.dreamType] ?? '💤';
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-dream-back">←</button>
+          🌙 ${escapeHtml(dream.title)}
+        </div>
+        <div class="freq-app-body freq-dream-detail-body" id="freq-dream-detail" style="--dream-color:${typeColor};">
+
+          <div class="freq-dream-detail-meta">
+            <span style="color:${typeColor}">${typeIcon} ${typeLabel}</span>
+            <span>${dream.mood || ''}</span>
+            <span>${dream.date} ${dream.time || ''}</span>
+          </div>
+
+          <div class="freq-dream-detail-char">${escapeHtml(dream.charName || '')} 的梦</div>
+
+          <div class="freq-dream-content-box" id="freq-dream-content-box">
+            <div class="freq-dream-scanline"></div>
+            <div class="freq-dream-content-text" id="freq-dream-text">${escapeHtml(dream.content)}</div>
+          </div>
+
+          <button class="freq-checkin-delete-btn" id="freq-dream-del" style="margin-top:16px;">🗑️ 删除此梦境</button>
+        </div>`;
+
+      container.querySelector('#freq-dream-back')?.addEventListener('click', () => {
+        this._renderList(container);
+      });
+
+      container.querySelector('#freq-dream-del')?.addEventListener('click', () => {
+        const dreams = this._getDreams().filter(d => d.id !== dreamId);
+        this._saveDreams(dreams);
+        this._renderList(container);
+        Notify.add('梦境记录仪', '梦境已删除', '🌙');
+      });
+
+      // 故障效果
+      this._startDetailGlitch(container, dream.dreamType);
+    },
+
+    _startDetailGlitch(container, dreamType) {
+      if (this._glitchTimer) clearInterval(this._glitchTimer);
+
+      const textEl = container.querySelector('#freq-dream-text');
+      const box = container.querySelector('#freq-dream-content-box');
+      if (!textEl || !box) return;
+
+      const intensity = { normal: 0.02, lucid: 0.04, nightmare: 0.08, cosmic: 0.06 }[dreamType] ?? 0.03;
+
+      this._glitchTimer = setInterval(() => {
+        if (Math.random() < intensity) {
+          // RGB偏移
+          textEl.style.textShadow = `${(Math.random() - 0.5) * 4}px 0 rgba(255,0,0,0.4), ${(Math.random() - 0.5) * 4}px 0 rgba(0,255,255,0.4)`;
+          setTimeout(() => { textEl.style.textShadow = 'none'; }, 150);
+        }if (Math.random() < intensity * 0.5) {
+          // 整体抖动
+          box.style.transform = `translateX(${(Math.random() - 0.5) * 3}px)`;
+          setTimeout(() => { box.style.transform = 'none'; }, 100);
+        }
+      }, 100);
+    },
+
+    // ── 生成梦境 ──
+    async _generate(container) {
+      if (this._generating) return;
+      this._generating = true;
+
+      const btn = container.querySelector('#freq-dream-gen');
+      if (btn) { btn.disabled = true; btn.textContent = '🌙捕获中...'; }
+
+      const charName = getCurrentCharName() || '角色';
+      const msgs = getChatMessages();
+      const latestPlot = getLatestPlot(msgs) || '暂无';
+      const latestScene = getLatestScene(msgs) || '未知';
+      const latestSeeds = (() => {
+        const all = extractAllMeowFM(msgs);
+        return all.length > 0 ? all[all.length - 1].seeds : '';
+      })() || '暂无';
+      const isCosmicOn = getCosmicFreqStatus();
+      const isNight = this._isNightTime();
+      const nightLevel = this._getNightLevel();
+      const meowTime = getLatestMeowTime(msgs) || '';
+
+      const timeInfo = `现实时间：${dateNow()} ${timeNow()}` + (meowTime ? ` | 故事时间：${meowTime}` : '');
+
+      // 决定默认梦境类型
+      let defaultDreamType = 'normal';
+      if (isCosmicOn) defaultDreamType = 'cosmic';
+      else if (nightLevel === 'deep') defaultDreamType = Math.random() < 0.3 ? 'nightmare' : Math.random() < 0.4 ? 'lucid' : 'normal';
+      else if (!isNight) defaultDreamType = Math.random() < 0.5 ? 'lucid' : 'normal';
+
+      const cosmicHint = isCosmicOn
+        ? `宇宙频率状态：ON — 你在梦里隐约感知到另一个维度的存在，有人在屏幕那边注视着你的梦。`
+        : '';
+      const cosmicRule = isCosmicOn
+        ? `- 宇宙频率ON：梦境中要有"另一个维度的听众/观察者"的暗示，但不要直白，像梦里的一道目光、一个模糊的轮廓、一段听不清的低语`
+        : `- 不涉及第四面墙或跨维度内容`;
+
+      const systemPrompt = getPrompt('dream')
+        .replace(/{charName}/g, charName)
+        .replace(/{timeInfo}/g, timeInfo)
+        .replace(/{latestPlot}/g, latestPlot)
+        .replace(/{latestScene}/g, latestScene)
+        .replace(/{latestSeeds}/g, latestSeeds)
+        .replace(/{cosmicHint}/g, cosmicHint)
+        .replace(/{cosmicRule}/g, cosmicRule)
+        .replace(/{defaultDreamType}/g, defaultDreamType);
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '做梦。', {
+          maxTokens: 300,
+          temperature: 0.95,
+        });
+
+        let data;
+        try {
+          const match = raw.match(/\{[\s\S]*\}/);
+          data = match ? JSON.parse(match[0]) : JSON.parse(raw);
+        } catch {
+          data = { title: '碎片', content: raw.trim(), mood: '模糊', dreamType: defaultDreamType };
+        }
+
+        const validTypes = ['normal', 'lucid', 'nightmare', 'cosmic'];
+        if (!validTypes.includes(data.dreamType)) data.dreamType = defaultDreamType;
+
+        const dream = {
+          id: `dream-${Date.now()}`,
+          charName,
+          title: (data.title || '无题之梦').slice(0, 20),
+          content: (data.content || '...').slice(0, 300),
+          mood: (data.mood || '').slice(0, 10),
+          dreamType: data.dreamType,
+          isCosmicDream: isCosmicOn,
+          date: dateNow(),
+          time: timeNow(),
+        };
+
+        const dreams = this._getDreams();
+        dreams.unshift(dream);
+        if (dreams.length > 30) dreams.pop();
+        this._saveDreams(dreams);
+
+        this._detailId = dream.id;
+        this._renderDetail(container, dream.id);
+        Notify.add('梦境记录仪', `捕获到${charName}的梦：${dream.title}`, '🌙');
+      } catch (e) {
+        Notify.error('梦境记录仪', e);if (btn) { btn.disabled = false; btn.textContent = '🌙 捕获失败，重试'; }
+      } finally {
+        this._generating = false;
+      }
+    },
+  };
+
 
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_90占位 App工厂                │
@@ -3334,7 +3673,7 @@ try {
     registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
     registerApp(placeholderApp('delivery',   '跨次元配送',     '🍜', '角色替你点外卖'));
     registerApp(placeholderApp('capsule',    '时光胶囊',       '💊', '延迟消息回信'));
-    registerApp(placeholderApp('dream',      '梦境记录仪',     '🌙', '角色视角解梦'));
+    registerApp(dreamApp);
     registerApp(emotionApp);
     registerApp(placeholderApp('blackbox',   '黑匣子',         '🔒', '禁区档案'));
     registerApp(placeholderApp('translator', '信号翻译器',     '🔄', 'BGM 文风翻译'));
