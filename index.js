@@ -213,7 +213,12 @@
     }
     return window.extension_settings[EXTENSION_NAME];
   }
+      if (!window.extension_settings[EXTENSION_NAME].dreams) {
+      window.extension_settings[EXTENSION_NAME].dreams = [];
+    }
 
+
+  
 
   function saveSettings(patch) {
     Object.assign(getSettings(), patch);
