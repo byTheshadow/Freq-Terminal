@@ -1553,5 +1553,119 @@ ${weatherText ? `真实天气数据：\n${weatherText}` : `城市：${city}\n（
   padding: 12px; animation: freq-fade-in 0.3s ease;
 }
 .freq-weather-line { font-size: 11px; color: #bbb; line-height: 1.6; margin-bottom: 2px; }
+  // │ BLOCK_90  占位 App工厂                              │
+  // └──────────────────────────────────────────────────────┘
+  function placeholderApp(id, name, icon, desc) {
+    return {
+      id, name, icon, _badge: 0,
+      init() {},
+      mount(container) {
+        container.innerHTML = `
+          <div class="freq-app-header">${icon} ${name}</div>
+          <div class="freq-app-body">
+            <div class="freq-empty">
+              <span class="freq-empty-icon">${icon}</span>
+              <span>${desc}</span>
+              <span style="font-size:10px;color:#333;">即将开放...</span>
+            </div>
+          </div>`;
+      },
+      unmount() {},};
+  }
+
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_99  初始化入口                                 │
+  // └──────────────────────────────────────────────────────┘
+  function init() {
+    LOG('Initializing v0.3.0...');
+
+    // 1. 加载设置面板独立样式
+    loadSettingsCSS();
+
+    // 2. 注入设置面板
+    const injectSettings = () => {
+      const target = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
+      if (target && !document.getElementById('freq-terminal-settings')) {
+        const wrapper = document.createElement('div');
+        wrapper.id = 'freq-terminal-settings';
+        wrapper.innerHTML = buildSettingsHTML();
+        target.appendChild(wrapper);
+        bindSettingsEvents();LOG('Settings panel injected');
+        return true;
+      }
+      return false;
+    };
+    if (!injectSettings()) {
+      const ri = setInterval(() => { if (injectSettings()) clearInterval(ri); }, 1000);setTimeout(() => clearInterval(ri), 15000);
+    }
+
+    // 3. 手机外壳
+    const root = document.createElement('div');
+    root.id = 'freq-terminal-root';
+    root.innerHTML = buildPhoneHTML();
+    document.body.appendChild(root);
+
+    document.getElementById('freq-fab')?.addEventListener('click', togglePhone);
+    document.getElementById('freq-close-btn')?.addEventListener('click', togglePhone);
+    document.getElementById('freq-home-btn')?.addEventListener('click', goHome);
+    document.getElementById('freq-notif-btn')?.addEventListener('click', () => openApp('notif-center'));
+
+    updateClock();
+    setInterval(updateClock, 30000);
+
+    // 4. 注册 App（顺序 = 手机主屏图标顺序）
+    registerApp(archiveApp);        // 📡 电台归档
+    registerApp(studioApp);         // 🎙️ 后台录音室
+    registerApp(momentsApp);        // 📱 朋友圈·电波
+    registerApp(weatherApp);        // 🌦️ 信号气象站
+    registerApp(notifCenterApp);    // 🔔 通知中心
+
+    registerApp(placeholderApp('scanner','弦外之音','📡', '随机截获NPC 内心独白'));
+    registerApp(placeholderApp('cosmic',     '宇宙频率',       '🌌', '穿透第四面墙的感知'));
+    registerApp(placeholderApp('checkin',    '打卡日志',       '📅', '角色陪跑打卡'));
+    registerApp(placeholderApp('calendar',   '双线轨道',       '🗓️', 'User + Char 日程'));
+    registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
+    registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
+    registerApp(placeholderApp('delivery',   '跨次元配送',     '🍜', '角色替你点外卖'));
+    registerApp(placeholderApp('forum',      '频道留言板',     '💬', '多角色发帖互撕'));
+    registerApp(placeholderApp('capsule',    '时光胶囊',       '💊', '延迟消息回信'));
+    registerApp(placeholderApp('dream',      '梦境记录仪',     '🌙', '角色视角解梦'));
+    registerApp(placeholderApp('emotion',    '情绪电波仪',     '📊', '情绪波形可视化'));
+    registerApp(placeholderApp('blackbox',   '黑匣子',         '🔒', '禁区档案'));
+    registerApp(placeholderApp('translator', '信号翻译器',     '🔄', 'BGM 文风翻译'));
+
+    // 5. 初始化所有 App
+    appRegistry.forEach(app => { if (app.init) app.init(); });
+
+    // 6. 监听 ST 新消息
+    try {
+      const ctx = getContext();
+      if (ctx?.eventSource) {
+        const et = ctx.event_types || window.event_types;
+        if (et?.MESSAGE_RECEIVED) {
+          ctx.eventSource.on(et.MESSAGE_RECEIVED, () => {
+            const msgs = getChatMessages();
+            if (msgs.length === 0) return;
+            const text = msgs[msgs.length - 1].mes ?? '';
+            if (/<meow_FM>/i.test(text)) EventBus.emit('meow_fm:updated', extractAllMeowFM(msgs));
+            if (/<radio_show>/i.test(text)) EventBus.emit('radio_show:updated', extractRadioShow(msgs));
+          });
+          LOG('Message listener registered');
+        }
+      }
+    } catch (e) {WARN('Could not register message listener:', e);
+    }
+
+    LOG('Ready✓');
+  }
+
+  // 启动
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => jQuery(init));
+  } else {
+    jQuery(init);
+  }
+
+})();
 
 
