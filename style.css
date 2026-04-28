@@ -890,6 +890,117 @@
 .freq-emo-history-type { font-size: 9px; color: #444; white-space: nowrap; }
 .freq-emo-history-pct { font-size: 9px; color: #555; white-space: nowrap; min-width: 24px; text-align: right; }
 .freq-emo-history-time { font-size: 9px; color: #2a2a2a; white-space: nowrap; }
+/* ══════════════════════════════════════════════════════════
+   BLOCK_20 梦境记录仪
+   ══════════════════════════════════════════════════════════ */
+
+/*夜间提示 */
+.freq-dream-night-hint {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px; margin-bottom: 8px;
+  background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 8px;
+  font-size: 10px; color: #7b5ea7;
+}
+.freq-dream-day-hint { color: #444; }
+.freq-dream-night-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #7b5ea7; flex-shrink: 0;animation: freq-dream-dot-pulse 2s ease-in-out infinite;
+}
+@keyframes freq-dream-dot-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px #7b5ea7; }
+  50% { opacity: 0.4; box-shadow: 0 0 8px #7b5ea7; }
+}
+.freq-dream-cosmic-hint {
+  font-size: 10px; color: #7b5ea7; padding: 6px 10px;
+  background: rgba(123,94,167,0.08); border: 1px solid rgba(123,94,167,0.15);
+  border-radius: 6px; margin-bottom: 8px;animation: freq-dream-cosmic-glow 3s ease-in-out infinite;
+}
+@keyframes freq-dream-cosmic-glow {
+  0%, 100% { border-color: rgba(123,94,167,0.15); }
+  50% { border-color: rgba(123,94,167,0.35); }
+}
+
+/* 梦境卡片 */
+.freq-dream-card {
+  background: #111; border: 1px solid #1a1a1a; border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 6px; cursor: pointer;
+  transition: border-color 0.2s, background0.2s, transform 0.15s;
+}
+.freq-dream-card:hover { border-color: #2a2a2a; background: #161616; }
+.freq-dream-card-top {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+}
+.freq-dream-card-type { font-size: 12px; flex-shrink: 0; }
+.freq-dream-card-title {
+  font-size: 11px; color: #bbb; font-weight: bold;
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.freq-dream-card-time { font-size: 9px; color: #2a2a2a; white-space: nowrap; }
+.freq-dream-card-preview {
+  font-size: 10px; color: #444; line-height: 1.5;
+  margin-bottom: 4px;
+}
+.freq-dream-card-footer {
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+/* 故障闪烁 */
+.freq-dream-glitch-flash {
+  animation: freq-dream-glitch 0.2s linear;
+}
+@keyframes freq-dream-glitch {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-2px); filter: hue-rotate(30deg); }
+  50% { transform: translateX(2px); }
+  75% { transform: translateX(-1px); filter: hue-rotate(-20deg); }
+  100% { transform: translateX(0); filter: none; }
+}
+
+/* 生成按钮 */
+.freq-dream-gen-btn { width: 100%; margin-top: 10px; margin-bottom: 8px; }
+.freq-dream-clear-btn { width: 100%; margin-top: 4px; }
+
+/* 详情页 */
+.freq-dream-detail-body { position: relative; }
+.freq-dream-detail-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px; color: #555; padding: 8px 0;
+  border-bottom: 1px solid #1a1a1a; margin-bottom: 10px;
+}
+.freq-dream-detail-char {
+  font-size: 10px; color: #333; text-align: center; margin-bottom: 12px;
+  letter-spacing: 2px;
+}
+
+/* 梦境内容框 */
+.freq-dream-content-box {
+  background: #0a0a0a; border: 1px solid #1a1a1a; border-radius: 10px;
+  padding: 16px; position: relative; overflow: hidden;
+  min-height: 120px;
+}
+.freq-dream-content-text {
+  font-size: 12px; color: #999; line-height: 1.8;
+  letter-spacing: 0.5px; word-break: break-word;
+  position: relative; z-index: 1;transition: text-shadow 0.15s;
+}
+
+/* 扫描线 */
+.freq-dream-scanline {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255,255,255,0.01) 2px,
+    rgba(255,255,255,0.01) 4px
+  );
+  pointer-events: none; z-index: 2;
+  animation: freq-dream-scan 8s linear infinite;
+}
+@keyframes freq-dream-scan {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100px; }
+}
 
 
 
