@@ -334,5 +334,14 @@
   padding: 12px; animation: freq-fade-in 0.3s ease;
 }
 .freq-weather-line { font-size: 11px; color: #bbb; line-height: 1.6; margin-bottom: 2px; }
+.freq-weather-card--cosmic {
+  border-color: rgba(123,94,167,0.4);
+  background: linear-gradient(180deg, #161616 0%, #130f1a 100%);
+}
+.freq-weather-cosmic-tag {
+  font-size: 10px; color: #7b5ea7; margin-bottom: 8px;
+  letter-spacing: 1px; opacity: 0.8;
+}
+
 
 
