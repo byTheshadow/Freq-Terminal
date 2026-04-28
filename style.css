@@ -1151,6 +1151,282 @@
   font-size: 10px; color: #444; line-height: 1.6;
 }
 .freq-capsule-auto-fill-info div { margin-bottom: 2px; }
+/* ══════════════════════════════════════════════════════════
+   BLOCK_22跨次元配送
+   ══════════════════════════════════════════════════════════ */
+
+/*首页英雄区*/
+.freq-delivery-hero {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px 0 16px; text-align: center;
+}
+.freq-delivery-hero-icon {
+  font-size: 48px; margin-bottom: 8px;
+  animation: freq-delivery-float 3s ease-in-out infinite;
+}
+@keyframes freq-delivery-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.freq-delivery-hero-title {
+  font-size: 14px; color: #ddd; font-weight: bold;
+  letter-spacing: 2px; margin-bottom: 6px;
+}
+.freq-delivery-hero-desc {
+  font-size: 11px; color: #555; line-height: 1.6;
+}
+
+/* 点单按钮 */
+.freq-delivery-order-btn { width: 100%; margin-bottom: 8px; }
+.freq-delivery-history-btn { width: 100%; margin-bottom: 8px; }
+
+/* 底部提示 */
+.freq-delivery-footer-note {
+  font-size: 10px; color: #333; text-align: center;
+  line-height: 1.6; margin-top: 16px; padding: 8px;
+  border-top: 1px solid #1a1a1a;
+}
+.freq-delivery-no-history {
+  text-align: center; padding: 12px 0;
+}
+
+/* 加载状态 */
+.freq-delivery-loading {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 260px; gap: 12px;
+}
+.freq-delivery-loading-icon {
+  font-size: 40px;
+  animation: freq-delivery-float 2s ease-in-out infinite;
+}
+.freq-delivery-loading-sub {
+  font-size: 10px; color: #333;
+}
+
+/* 餐厅标签 */
+.freq-delivery-restaurant-tag {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: #888; margin-bottom: 12px;
+  padding: 6px 10px; background: #111; border-radius: 8px;
+  border: 1px solid #1a1a1a;
+}
+.freq-delivery-chef-icon { font-size: 16px; }
+
+/* 菜单列表 */
+.freq-delivery-menu-list {
+  display: flex; flex-direction: column; gap: 8px;
+  margin-bottom: 12px;
+}
+.freq-delivery-menu-item {
+  background: #161616; border: 1px solid #222; border-radius: 10px;
+  padding: 10px 12px; transition: border-color 0.15s;
+}
+.freq-delivery-menu-item:hover { border-color: #333; }
+.freq-delivery-menu-item-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.freq-delivery-menu-item-name {
+  font-size: 12px; color: #ddd; font-weight: bold;
+}
+.freq-delivery-menu-item-price {
+  font-size: 11px; color: #e8a040; font-weight: bold;white-space: nowrap;
+}
+.freq-delivery-menu-item-desc {
+  font-size: 10px; color: #888; line-height: 1.5;
+  font-style: italic;
+}
+
+/* 合计行 */
+.freq-delivery-total-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; margin-bottom: 12px;
+  border-top: 1px solid #1e1e1e;
+  font-size: 12px; color: #aaa;
+}
+.freq-delivery-total-price {
+  font-size: 14px; color: #e8a040; font-weight: bold;
+}
+
+/* 确认按钮 */
+.freq-delivery-confirm-btn { width: 100%; }
+
+/* ── 配送中── */
+.freq-delivery-delivering-box {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 20px 0; text-align: center;
+}
+.freq-delivery-delivering-icon {
+  font-size: 40px; margin-bottom: 8px;
+  animation: freq-delivery-ride 1.5s ease-in-out infinite;
+}
+@keyframes freq-delivery-ride {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(4px) rotate(2deg); }
+  75% { transform: translateX(-4px) rotate(-2deg); }
+}
+.freq-delivery-delivering-restaurant {
+  font-size: 12px; color: #888; margin-bottom: 16px;
+}
+
+/* 进度条 */
+.freq-delivery-progress-wrap {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.freq-delivery-progress-bar {
+  flex: 1; height: 6px; background: #1e1e1e;
+  border-radius: 3px; overflow: hidden;
+}
+.freq-delivery-progress-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, #A32D2D, #e8a040);
+  transition: width 0.8s ease;
+}
+.freq-delivery-progress-pct {
+  font-size: 11px; color: #e8a040; font-weight: bold;
+  min-width: 32px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 阶段文字 */
+.freq-delivery-stage-text {
+  font-size: 11px; color: #888; margin-bottom: 16px;
+  min-height: 18px;
+  animation: freq-pulse 1.5s ease-in-out infinite;
+}
+
+/* 菜品标签 */
+.freq-delivery-items-summary {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  justify-content: center;
+}
+.freq-delivery-item-tag {
+  font-size: 10px; color: #666; padding: 3px 8px;
+  background: #161616; border: 1px solid #222;
+  border-radius: 10px;
+}
+
+/* ── 送达页 ── */
+.freq-delivery-delivered-box {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+}
+.freq-delivery-delivered-icon {
+  font-size: 40px; margin-bottom: 8px;
+  animation: freq-fade-in 0.5s ease;
+}
+.freq-delivery-delivered-restaurant {
+  font-size: 14px; color: #ddd; font-weight: bold;
+  margin-bottom: 12px;
+}
+.freq-delivery-delivered-items {
+  width: 100%; text-align: left; margin-bottom: 12px;
+}
+.freq-delivery-delivered-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid #1a1a1a;
+  font-size: 11px;
+}
+.freq-delivery-delivered-item-name { color: #bbb; }
+.freq-delivery-delivered-item-price { color: #e8a040; font-weight: bold; }
+.freq-delivery-delivered-total {
+  display: flex; justify-content: space-between;
+  padding: 8px 0; font-size: 12px; color: #aaa; font-weight: bold;
+}
+.freq-delivery-delivered-total span { color: #e8a040; }
+
+/* 送餐台词框 */
+.freq-delivery-comment-box {
+  width: 100%; text-align: left;
+  background: #0f0d14; border: 1px solid rgba(163, 45, 45, 0.25);
+  border-radius: 10px; padding: 12px; margin-bottom: 12px;
+}
+.freq-delivery-comment-char {
+  font-size: 10px; color: #A32D2D; font-weight: bold;
+  margin-bottom: 4px;
+}
+.freq-delivery-comment-text {
+  font-size: 12px; color: #ccc; line-height: 1.7;
+  font-style: italic; word-break: break-word;
+}
+
+/* ── 历史订单 ── */
+.freq-delivery-history-card {
+  background: #161616; border: 1px solid #222; border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 6px; cursor: pointer;
+  transition: border-color 0.15s, background0.15s;
+}
+.freq-delivery-history-card:hover { border-color: #333; background: #1a1a1a; }
+.freq-delivery-history-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.freq-delivery-history-card-restaurant {
+  font-size: 12px; color: #ddd; font-weight: bold;
+}
+.freq-delivery-history-card-price {
+  font-size: 11px; color: #e8a040; font-weight: bold;
+}
+.freq-delivery-history-card-meta {
+  display: flex; gap: 8px; font-size: 9px; color: #444;
+  margin-bottom: 4px;
+}
+.freq-delivery-history-card-items {
+  font-size: 10px; color: #555; line-height: 1.4;
+}
+
+/* ── 订单详情 ── */
+.freq-delivery-detail-body { position: relative; }
+.freq-delivery-detail-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px; color: #555; padding: 6px 0;
+  border-bottom: 1px solid #1a1a1a; margin-bottom: 10px;
+}
+.freq-delivery-detail-status {
+  font-size: 10px; font-weight: bold; color: #4ec9a0;
+  padding: 2px 8px; border-radius: 10px;
+  background: rgba(78, 201, 160, 0.1);
+  border: 1px solid rgba(78, 201, 160, 0.2);
+}
+.freq-delivery-detail-char {
+  font-size: 10px; color: #444; text-align: center;
+  margin-bottom: 12px; letter-spacing: 1px;
+}
+.freq-delivery-detail-section { margin-bottom: 12px; }
+.freq-delivery-detail-label {
+  font-size: 10px; color: #666; font-weight: bold;
+  margin-bottom: 6px; letter-spacing: 0.5px;
+}
+.freq-delivery-detail-item {
+  background: #111; border: 1px solid #1a1a1a; border-radius: 8px;
+  padding: 8px 10px; margin-bottom: 4px;
+}
+.freq-delivery-detail-item-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 3px;
+}
+.freq-delivery-detail-item-name {
+  font-size: 11px; color: #ccc; font-weight: bold;
+}
+.freq-delivery-detail-item-price {
+  font-size: 10px; color: #e8a040; font-weight: bold;
+}
+.freq-delivery-detail-item-desc {
+  font-size: 10px; color: #666; font-style: italic; line-height: 1.4;
+}
+.freq-delivery-detail-total {
+  display: flex; justify-content: space-between;
+  padding: 8px 0; font-size: 12px; color: #aaa; font-weight: bold;
+  border-top: 1px solid #1e1e1e; margin-top: 4px;
+}
+.freq-delivery-detail-total span { color: #e8a040; }
+.freq-delivery-detail-info {
+  font-size: 10px; color: #555; line-height: 1.8;
+  padding: 8px 10px; background: #111; border-radius: 8px;
+  border: 1px solid #1a1a1a;
+}
+
 
 
 
