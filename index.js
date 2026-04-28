@@ -204,21 +204,18 @@
         prompts: {},
       };
     }
-    // 兼容旧存档没有 prompts 字段的情况
-        if (!window.extension_settings[EXTENSION_NAME].checkins) {
+    // ✅ FIX Bug1: 所有初始化块统一放在函数内，避免函数外提前访问报 TypeError
+    if (!window.extension_settings[EXTENSION_NAME].checkins) {
       window.extension_settings[EXTENSION_NAME].checkins = { goals: [] };
     }
     if (!window.extension_settings[EXTENSION_NAME].prompts) {
       window.extension_settings[EXTENSION_NAME].prompts = {};
     }
-    return window.extension_settings[EXTENSION_NAME];
-  }
-      if (!window.extension_settings[EXTENSION_NAME].dreams) {
+    if (!window.extension_settings[EXTENSION_NAME].dreams) {
       window.extension_settings[EXTENSION_NAME].dreams = [];
     }
-
-
-  
+    return window.extension_settings[EXTENSION_NAME];
+  }
 
   function saveSettings(patch) {
     Object.assign(getSettings(), patch);
@@ -754,8 +751,9 @@
   background: none; border: none; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 8px 2px; border-radius: 12px; position: relative;
-  transition: background0.15s; color: inherit;
+  transition: background 0.15s; color: inherit;
 }
+/* ✅ FIX Bug2: 原代码 "background0.15s" 缺少空格，已修正为 "background 0.15s" */
 .freq-app-icon:hover { background: rgba(255,255,255,0.06); }
 .freq-app-icon-emoji { font-size: 26px; line-height: 1; }
 .freq-app-icon-name {
@@ -2396,6 +2394,7 @@ try {
       }
     },
 
+    // ✅ FIX Bug4: 用 data attribute 标记已绑定，防止 submitBtn/charReplyBtn 重复绑定事件
     _openReply(postId, container) {
       const post = this._posts.find(p => p.id === postId);
       if (!post) return;
@@ -2404,13 +2403,22 @@ try {
       if (bodyEl) {
         const posts = this._posts.filter(p => p.board === this._currentBoard);
         bodyEl.innerHTML = posts.map(p => this._postHTML(p)).join('');
-      }const replyBox = container.querySelector(`#freq-forum-reply-${postId}`);
+      }
+      const replyBox = container.querySelector(`#freq-forum-reply-${postId}`);
       if (replyBox) replyBox.style.display = 'block';
 
       const submitBtn = container.querySelector(`[data-reply-submit="${postId}"]`);
       const charReplyBtn = container.querySelector(`[data-char-reply="${postId}"]`);
-      submitBtn?.addEventListener('click', () => this._submitUserReply(postId, container));
-      charReplyBtn?.addEventListener('click', () => this._charReplyToPost(postId, container));
+
+      // 用 dataset 标记避免重复绑定
+      if (submitBtn && !submitBtn.dataset.bound) {
+        submitBtn.dataset.bound = '1';
+        submitBtn.addEventListener('click', () => this._submitUserReply(postId, container));
+      }
+      if (charReplyBtn && !charReplyBtn.dataset.bound) {
+        charReplyBtn.dataset.bound = '1';
+        charReplyBtn.addEventListener('click', () => this._charReplyToPost(postId, container));
+      }
     },
 
     _submitUserReply(postId, container) {
@@ -2452,7 +2460,7 @@ try {
   const checkinApp = {
     id: 'checkin', name: '打卡日志', icon: '📅', _badge: 0, _container: null,
     _currentGoalId: null,
-    _viewMonth: null, // {year, month} 当前日历显示的月份
+    _viewMonth: null,
 
     init() {
       EventBus.on('meow_fm:updated', () => {
@@ -2473,7 +2481,6 @@ try {
 
     unmount() { this._container = null; },
 
-    //── 数据操作 ──
     _getGoals() {
       return getSettings().checkins?.goals ?? [];
     },
@@ -2502,7 +2509,7 @@ try {
         if ((goal.records?.[key] ?? 0) > 0) {
           streak++;
         } else if (i > 0) {
-          break; // 今天可以还没打，但昨天断了就断了
+          break;
         }
       }
       return streak;
@@ -2523,7 +2530,6 @@ try {
       return Math.round((completed / effectiveDays) * 100);
     },
 
-    // ── 目标列表页 ──
     _renderGoalList(container) {
       this._currentGoalId = null;
       const goals = this._getGoals();
@@ -2571,7 +2577,6 @@ try {
           ${cardsHTML}
         </div><div class="freq-checkin-create-overlay" id="freq-checkin-create" style="display:none;"></div>`;
 
-      // 点击卡片进入详情
       container.querySelectorAll('.freq-checkin-card').forEach(card => {
         card.addEventListener('click', () => {
           this._currentGoalId = card.dataset.goalId;
@@ -2580,13 +2585,11 @@ try {
         });
       });
 
-      // 新建按钮
       container.querySelector('#freq-checkin-add')?.addEventListener('click', () => {
         this._showCreateForm(container);
       });
     },
 
-    // ── 新建目标表单 ──
     _showCreateForm(container) {
       const overlay = container.querySelector('#freq-checkin-create');
       if (!overlay) return;
@@ -2640,7 +2643,6 @@ try {
 
       let selectedOwner = 'user';
 
-      // owner 切换
       overlay.querySelectorAll('.freq-checkin-owner-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           overlay.querySelectorAll('.freq-checkin-owner-btn').forEach(b => b.classList.remove('freq-checkin-owner-active'));
@@ -2651,12 +2653,10 @@ try {
         });
       });
 
-      // 关闭
       overlay.querySelector('#freq-checkin-form-close')?.addEventListener('click', () => {
         overlay.style.display = 'none';
       });
 
-      // 提交
       overlay.querySelector('#freq-checkin-submit')?.addEventListener('click', () => {
         const title = overlay.querySelector('#freq-checkin-title')?.value.trim();
         const target = parseInt(overlay.querySelector('#freq-checkin-target')?.value) || 1;
@@ -2677,7 +2677,7 @@ try {
           totalDays,
           startDate: this._todayStr(),
           records: {},
-          notes: {},// 日期→ 打卡感言
+          notes: {},
           comments: [],
           autoCheckin,
           createdAt: this._todayStr(),
@@ -2693,7 +2693,6 @@ try {
       });
     },
 
-    // ── 目标详情页（日历 + 打卡 + 评论）──
     _renderGoalDetail(container, goalId) {
       const goal = this._findGoal(goalId);
       if (!goal) { this._renderGoalList(container); return; }
@@ -2772,20 +2771,18 @@ try {
           </div>
         </div>`;
 
-      // 返回
       container.querySelector('#freq-checkin-back')?.addEventListener('click', () => {
         this._currentGoalId = null;
         this._renderGoalList(container);
       });
 
-      // 打卡操作（user目标）
       if (isOwner) {
         let count = todayDone;
         const countEl = container.querySelector('#freq-checkin-count');
         const doneBtn = container.querySelector('#freq-checkin-done');
 
         container.querySelector('#freq-checkin-plus')?.addEventListener('click', () => {
-          count = Math.min(count + 1, goal.target * 3); // 允许超额
+          count = Math.min(count + 1, goal.target * 3);
           if (countEl) countEl.textContent = count;
         });
         container.querySelector('#freq-checkin-minus')?.addEventListener('click', () => {
@@ -2800,34 +2797,18 @@ try {
           Notify.add('打卡日志', `「${goal.title}」打卡 ${count || 1}${goal.unit}`, '📅');
         });
       } else {
-        // 角色手动打卡
         container.querySelector('#freq-checkin-char-manual')?.addEventListener('click', () => {
           this._doCharCheckin(container, goalId);
         });
       }
 
-      // 日历月份切换
-      container.querySelector('#freq-cal-prev')?.addEventListener('click', () => {
-        this._viewMonth.month--;
-        if (this._viewMonth.month < 0) { this._viewMonth.month = 11; this._viewMonth.year--; }
-        const calEl = container.querySelector('#freq-checkin-calendar');
-        if (calEl) calEl.innerHTML = this._buildCalendar(goal);
-        this._bindCalNav(container, goal);
-      });
-      container.querySelector('#freq-cal-next')?.addEventListener('click', () => {
-        this._viewMonth.month++;
-        if (this._viewMonth.month > 11) { this._viewMonth.month = 0; this._viewMonth.year++; }
-        const calEl = container.querySelector('#freq-checkin-calendar');
-        if (calEl) calEl.innerHTML = this._buildCalendar(goal);
-        this._bindCalNav(container, goal);
-      });
+      // ✅ FIX Bug3: 日历月份切换只通过 _bindCalNav 统一绑定，不在 _renderGoalDetail 里重复绑定
+      this._bindCalNav(container, goal);
 
-      // 请求评论
       container.querySelector('#freq-checkin-get-comment')?.addEventListener('click', () => {
         this._requestComment(container, goalId);
       });
 
-      // 删除
       container.querySelector('#freq-checkin-delete')?.addEventListener('click', () => {
         const goals = this._getGoals().filter(g => g.id !== goalId);
         this._saveGoals(goals);
@@ -2837,7 +2818,15 @@ try {
       });
     },
 
+    // ✅ FIX Bug3: _bindCalNav 每次先 clone 替换节点，彻底清除旧监听器，杜绝叠加
     _bindCalNav(container, goal) {
+      ['#freq-cal-prev', '#freq-cal-next'].forEach(sel => {
+        const oldBtn = container.querySelector(sel);
+        if (!oldBtn) return;
+        const newBtn = oldBtn.cloneNode(true);
+        oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+      });
+
       container.querySelector('#freq-cal-prev')?.addEventListener('click', () => {
         this._viewMonth.month--;
         if (this._viewMonth.month < 0) { this._viewMonth.month = 11; this._viewMonth.year--; }
@@ -2854,21 +2843,19 @@ try {
       });
     },
 
-    // ── 日历构建 ──
     _buildCalendar(goal) {
       const vm = this._viewMonth;
       const year = vm.year;
       const month = vm.month;
       const today = this._todayStr();
 
-      const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+      const firstDay = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const monthLabel = `${year}年${month + 1}月`;
 
       const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
       let gridHTML = weekDays.map(d => `<div class="freq-cal-weekday">${d}</div>`).join('');
 
-      // 空白填充
       for (let i = 0; i < firstDay; i++) {
         gridHTML += `<div class="freq-cal-day freq-cal-day--empty"></div>`;
       }
@@ -2906,14 +2893,13 @@ try {
         </div>`;
     },
 
-    // ── 角色自动打卡 ──
     async _tryAutoCheckin() {
       const goals = this._getGoals().filter(g => g.owner === 'char' && g.autoCheckin);
       if (!goals.length) return;
 
       const today = this._todayStr();
       for (const goal of goals) {
-        if ((goal.records?.[today] ?? 0) > 0) continue; // 今天已打过
+        if ((goal.records?.[today] ?? 0) > 0) continue;
         try {
           await this._doCharCheckinSilent(goal);
         } catch (e) {
@@ -2963,7 +2949,6 @@ try {
       }
     },
 
-    // 手动触发角色打卡
     async _doCharCheckin(container, goalId) {
       const goal = this._findGoal(goalId);
       if (!goal) return;
@@ -2979,7 +2964,6 @@ try {
       }
     },
 
-    // ── 请求角色评论 ──
     async _requestComment(container, goalId) {
       const goal = this._findGoal(goalId);
       if (!goal) return;
@@ -2993,7 +2977,6 @@ try {
       const streak = this._calcStreak(goal);
       const rate = this._calcOverallRate(goal);
 
-      // 最近5天打卡情况
       const recentDays = [];
       for (let i = 0; i < 5; i++) {
         const d = new Date();
@@ -3044,7 +3027,7 @@ try {
     id: 'dream', name: '梦境记录仪', icon: '🌙', _badge: 0, _container: null,
     _generating: false,
     _glitchTimer: null,
-    _currentView: 'list', // 'list' | 'detail'
+    _currentView: 'list',
     _detailId: null,
 
     init() {
@@ -3071,7 +3054,6 @@ try {
       this._container = null;
     },
 
-    //── 数据 ──
     _getDreams() {
       return getSettings().dreams ?? [];
     },
@@ -3095,13 +3077,12 @@ try {
 
     _getNightLevel() {
       const h = new Date().getHours();
-      if (h >= 0 && h < 4) return 'deep';    // 深夜
-      if (h >= 4 && h < 6) return 'dawn';     //黎明前
-      if (h >= 22 && h <= 23) return 'late';   // 入夜
+      if (h >= 0 && h < 4) return 'deep';
+      if (h >= 4 && h < 6) return 'dawn';
+      if (h >= 22 && h <= 23) return 'late';
       return 'day';
     },
 
-    // ── 列表页 ──
     _renderList(container) {
       this._currentView = 'list';
       this._detailId = null;
@@ -3161,7 +3142,6 @@ try {
           ${dreams.length > 0 ? `<button class="freq-checkin-delete-btn freq-dream-clear-btn" id="freq-dream-clear">🗑️ 清空所有梦境</button>` : ''}
         </div>`;
 
-      // 事件绑定
       container.querySelectorAll('.freq-dream-card').forEach(card => {
         card.addEventListener('click', () => {
           this._detailId = card.dataset.dreamId;
@@ -3177,7 +3157,6 @@ try {
         Notify.add('梦境记录仪', '所有梦境已清除', '🌙');
       });
 
-      //夜间模式下列表页也加轻微故障效果
       if (isNight) this._startListGlitch(container);
     },
 
@@ -3192,7 +3171,6 @@ try {
       }, 3000);
     },
 
-    // ── 详情页 ──
     _renderDetail(container, dreamId) {
       this._currentView = 'detail';
       if (this._glitchTimer) { clearInterval(this._glitchTimer); this._glitchTimer = null; }
@@ -3238,7 +3216,6 @@ try {
         Notify.add('梦境记录仪', '梦境已删除', '🌙');
       });
 
-      // 故障效果
       this._startDetailGlitch(container, dream.dreamType);
     },
 
@@ -3253,18 +3230,15 @@ try {
 
       this._glitchTimer = setInterval(() => {
         if (Math.random() < intensity) {
-          // RGB偏移
           textEl.style.textShadow = `${(Math.random() - 0.5) * 4}px 0 rgba(255,0,0,0.4), ${(Math.random() - 0.5) * 4}px 0 rgba(0,255,255,0.4)`;
           setTimeout(() => { textEl.style.textShadow = 'none'; }, 150);
         }if (Math.random() < intensity * 0.5) {
-          // 整体抖动
           box.style.transform = `translateX(${(Math.random() - 0.5) * 3}px)`;
           setTimeout(() => { box.style.transform = 'none'; }, 100);
         }
       }, 100);
     },
 
-    // ── 生成梦境 ──
     async _generate(container) {
       if (this._generating) return;
       this._generating = true;
@@ -3287,7 +3261,6 @@ try {
 
       const timeInfo = `现实时间：${dateNow()} ${timeNow()}` + (meowTime ? ` | 故事时间：${meowTime}` : '');
 
-      // 决定默认梦境类型
       let defaultDreamType = 'normal';
       if (isCosmicOn) defaultDreamType = 'cosmic';
       else if (nightLevel === 'deep') defaultDreamType = Math.random() < 0.3 ? 'nightmare' : Math.random() < 0.4 ? 'lucid' : 'normal';
@@ -3380,8 +3353,8 @@ try {
   // └──────────────────────────────────────────────────────┘
   const emotionApp = {
     id: 'emotion', name: '情绪电波仪', icon: '📊', _badge: 0, _container: null,
-    _current: null,// {char_emotion, intensity, color_hex, waveform_type, time}
-    _history: [],     // 最近10条
+    _current: null,
+    _history: [],
     _scanning: false,
     _waveTimer: null,
 
@@ -3478,7 +3451,6 @@ try {
       const msgs = getChatMessages();
       const latestScene = getLatestScene(msgs);
 
-      // 取最近5条角色消息
       const recentMsgs = [];
       for (let i = msgs.length - 1; i >= 0 && recentMsgs.length < 5; i--) {
         if (!msgs[i].is_user) {
@@ -3527,7 +3499,6 @@ try {
       }
     },
 
-    //── Canvas 波形动画 ──
     _startWave(container, type, color, intensity) {
       if (this._waveTimer) { clearInterval(this._waveTimer); this._waveTimer = null; }
       const canvas = container.querySelector('#freq-emo-canvas');
@@ -3585,7 +3556,6 @@ try {
         }
         ctx.stroke();
 
-        // 第二条线（淡色副波）
         ctx.globalAlpha = 0.25;
         ctx.beginPath();
         for (let x = 0; x < w; x++) {
@@ -3710,7 +3680,7 @@ try {
     LOG('Ready✓');
   }
 
-  //启动
+  // 启动
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => jQuery(init));
   } else {
@@ -3718,4 +3688,3 @@ try {
   }
 
 })();
-
