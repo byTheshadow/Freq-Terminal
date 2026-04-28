@@ -553,6 +553,8 @@
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_07  Settings Panel —扩展设置面板              │
   // └──────────────────────────────────────────────────────┘
+    function buildSettingsHTML() {
+    const s = getSettings();
        const promptLabels = {
       cosmic:'🌌 宇宙频率·感知',
       scanner:         '📡 弦外之音',
