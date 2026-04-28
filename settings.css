@@ -1,0 +1,13 @@
+/* ══════════════════════════════════════════════════════════📻 FREQ · TERMINAL —扩展设置面板样式
+   ══════════════════════════════════════════════════════════ */
+#freq-terminal-settings { margin-top: 4px; }
+#freq-terminal-settings .inline-drawer-toggle {
+  cursor: pointer; display: flex; align-items: center;
+  justify-content: space-between; padding: 8px 4px;
+}
+.freq-settings-inner { padding: 8px 4px; }
+.freq-s-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.freq-s-row > span { font-size: 12px; color: #aaa; }
+.freq-s-row input.text_pole { font-size: 12px; }
+.freq-s-toggle { flex-direction: row; align-items: center; justify-content: space-between; }
+.freq-s-toggle input[type="checkbox"] { accent-color: #A32D2D; width: 16px; height: 16px; }
