@@ -240,6 +240,43 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
 - 符合角色性格和当前剧情氛围
 - 可以是感叹、回忆、发现、或简短的行动描述
 - 只输出正文，不加引号或前缀`,
+        // ── BLOCK_25 频道文库 ──
+    novel_generate: `你是{authorName}，正在为「{boardName}」分区创作一篇作品。
+
+分区风格：{boardStyle}
+{seriesInfo}
+当前世界信息：
+- 角色：{charName}
+- 最近剧情：{latestPlot}
+- 当前场景：{latestScene}
+- 世界观碎片：{latestSeeds}
+
+用户给出的创作方向：{userHint}
+
+任务：写一篇符合分区风格的短篇/章节。
+规则：
+- 标题10字以内，有吸引力
+- 正文300-600字，叙事流畅，带有{authorName}的个人风格
+- 符合{boardName}分区的内容基调
+- 不要提及AI/模型/扮演
+- 严格返回JSON，不加markdown代码块：
+{{"title":"标题","content":"正文内容"}}`,
+
+    novel_comment: `你是{authorName}，刚刚读完了一篇作品。
+
+作品标题：{chapterTitle}
+作品内容（节选）：
+{chapterExcerpt}
+
+作者：{chapterAuthor}
+分区：{boardName}
+
+以{authorName}的口吻写一条读后感评论（30-80字）。
+规则：
+- 可以夸赞、分析、共鸣、吐槽、提问，取决于角色性格
+- 带有{authorName}的个人语气特征
+- 不要加引号或前缀，直接输出评论正文`,
+
 
   };
 
@@ -665,6 +702,8 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
             map_generate:  '🗺️ 异界探索·世界生成',
       map_detail:    '🗺️ 异界探索·地点详情',
       map_event:     '🗺️ 异界探索·探索感想',
+            novel_generate: '📖 频道文库·AI写作',
+      novel_comment:  '📖 频道文库·NPC评论',
 
     };
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
@@ -762,7 +801,7 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
 
     // Prompt textarea绑定 —✅ BLOCK_21: 新增 capsule_seal
     ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream', 'capsule_seal', 'delivery_menu','delivery_comment', 'calendar_event',
-  'calendar_resonance','map_generate', 'map_detail', 'map_event',].forEach(key => {
+  'calendar_resonance','map_generate', 'map_detail', 'map_event','novel_generate', 'novel_comment',].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
@@ -6623,6 +6662,1037 @@ const calendarApp = {
     }
   };
   //└─ BLOCK_24 ─┘
+    // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_25  App · 频道文库                             │
+  // └──────────────────────────────────────────────────────┘
+  const novelApp = {
+    id: 'novel', name: '频道文库', icon: '📖', _badge: 0, _container: null,
+
+    // ── 视图状态 ──
+    _currentView: 'boards',   // 'boards'|'board_detail'|'series_detail'|'read'|'write'|'ai_write'|'create_board'|'create_series'
+    _currentBoardId: null,
+    _currentSeriesId: null,   // null = 独立短篇
+    _currentChapterId: null,
+    _generating: false,
+
+    // ── 默认分区 ──
+    DEFAULT_BOARDS: [
+      { id: 'romance', name: '清水恋爱', icon: '💕', desc: '纯爱向、甜文、治愈系' },
+      { id: 'haitang', name: '海棠',     icon: '🌺', desc: '你懂的' },
+      { id: 'po',      name: 'PO文',     icon: '🔥', desc: '大胆奔放、情感浓烈' },
+      { id: 'career',  name: '职场文',   icon: '💼', desc: '职场、权谋、商战' },
+      { id: 'other',   name: '其他',     icon: '📚', desc: '奇幻、悬疑、日常、世界观档案等' },
+    ],
+
+    // ── 分区风格描述（用于 prompt）──
+    BOARD_STYLES: {
+      romance: '清水纯爱风格，温柔甜蜜，注重情感细腻描写，不含露骨内容',
+      haitang: '海棠风格，情感浓烈，可含成人向内容，文笔细腻',
+      po:      'PO文风格，大胆直白，情感奔放，尺度较大',
+      career:  '职场文风格，注重权谋博弈、人物关系、职场生态',
+      other:   '自由风格，可以是奇幻、悬疑、日常、世界观档案等任意类型',
+    },
+
+    init() { /* 无需监听EventBus */ },
+
+    mount(container) {
+      this._container = container;
+      this._badge = 0;
+      renderAppGrid();
+      this._initDefaultBoards();
+      this._dispatch(container);
+    },
+
+    unmount() { this._container = null; },
+
+    // ── 视图分发 ──
+    _dispatch(container) {
+      switch (this._currentView) {
+        case 'board_detail':   this._renderBoardDetail(container);  break;
+        case 'series_detail':  this._renderSeriesDetail(container); break;
+        case 'read':           this._renderRead(container);         break;
+        case 'write':          this._renderWrite(container);        break;
+        case 'ai_write':       this._renderAiWrite(container);      break;
+        case 'create_board':   this._renderCreateBoard(container);  break;
+        case 'create_series':  this._renderCreateSeries(container); break;
+        default:               this._renderBoards(container);       break;
+      }
+    },
+
+    // ── 数据层 ──
+    _getData() {
+      const s = getSettings();
+      if (!s.novel) s.novel = { boards: [], series: [], chapters: [], comments: [] };
+      if (!s.novel.boards)   s.novel.boards   = [];
+      if (!s.novel.series)   s.novel.series   = [];
+      if (!s.novel.chapters) s.novel.chapters = [];
+      if (!s.novel.comments) s.novel.comments = [];
+      return s.novel;
+    },
+
+    _save() {
+      if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();
+    },
+
+    _initDefaultBoards() {
+      const d = this._getData();
+      if (d.boards.length === 0) {
+        this.DEFAULT_BOARDS.forEach(b => {
+          d.boards.push({ id: b.id, name: b.name, icon: b.icon, desc: b.desc, createdAt: dateNow() });
+        });
+        this._save();
+      }
+    },
+
+    _genId(prefix) {
+      return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    },
+
+    _getChars() {
+      const ctx = getContext();
+      const mainName = getCurrentCharName();
+      const userName = getUserName();
+      const chars = [];
+      if (mainName) chars.push({ name: mainName, type: 'char', desc: '' });
+      if (ctx?.characters) {
+        ctx.characters.forEach(c => {
+          const name = c.name ?? c.data?.name ?? '';
+          if (name && name !== mainName && name !== userName) {
+            chars.push({ name, type: 'npc', desc: c.data?.description?.slice(0, 100) ?? '' });
+          }
+        });
+      }
+      return chars.length ? chars : [{ name: mainName || '角色', type: 'char', desc: '' }];
+    },
+
+    // ── 主视图：分区列表 ──
+    _renderBoards(container) {
+      this._currentView = 'boards';
+      const d = this._getData();
+
+      const boardsHTML = d.boards.map(b => {
+        const seriesCount   = d.series.filter(s => s.boardId === b.id).length;
+        const chapterCount  = d.chapters.filter(c => c.boardId === b.id).length;
+        return `
+          <div class="freq-novel-board-item" data-board-id="${b.id}">
+            <span class="freq-novel-board-icon">${escapeHtml(b.icon)}</span>
+            <div class="freq-novel-board-info">
+              <div class="freq-novel-board-name">${escapeHtml(b.name)}</div>
+              <div class="freq-novel-board-desc">${escapeHtml(b.desc)}</div>
+            </div>
+            <div class="freq-novel-board-stats">
+              <span>${seriesCount} 系列</span>
+              <span>${chapterCount} 篇</span>
+            </div>
+          </div>`;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="freq-app-header">📖 频道文库
+          <div class="freq-novel-header-btns">
+            <button class="freq-novel-icon-btn" id="freq-novel-write-btn" title="手动写作">✍️</button>
+            <button class="freq-novel-icon-btn" id="freq-novel-ai-btn" title="AI写作">🤖</button>
+            <button class="freq-novel-icon-btn" id="freq-novel-add-board-btn" title="新建分区">＋</button>
+          </div>
+        </div>
+        <div class="freq-app-body freq-novel-body">
+          ${d.boards.length
+            ? `<div class="freq-novel-boards-list">${boardsHTML}</div>`
+            : `<div class="freq-empty"><span class="freq-empty-icon">📖</span><span>还没有分区</span></div>`
+          }
+        </div>`;
+
+      container.querySelectorAll('[data-board-id]').forEach(el => {
+        el.addEventListener('click', () => {
+          this._currentBoardId = el.dataset.boardId;
+          this._currentView = 'board_detail';
+          this._renderBoardDetail(container);
+        });
+      });
+
+      container.querySelector('#freq-novel-write-btn')?.addEventListener('click', () => {
+        this._currentView = 'write';
+        this._renderWrite(container);
+      });
+
+      container.querySelector('#freq-novel-ai-btn')?.addEventListener('click', () => {
+        this._currentView = 'ai_write';
+        this._renderAiWrite(container);
+      });
+
+      container.querySelector('#freq-novel-add-board-btn')?.addEventListener('click', () => {
+        this._currentView = 'create_board';
+        this._renderCreateBoard(container);
+      });
+    },
+
+    // ── 分区详情：系列列表 + 独立短篇 ──
+    _renderBoardDetail(container) {
+      this._currentView = 'board_detail';
+      const d = this._getData();
+      const board = d.boards.find(b => b.id === this._currentBoardId);
+      if (!board) { this._renderBoards(container); return; }
+
+      const seriesList   = d.series.filter(s => s.boardId === board.id);
+      const standalones  = d.chapters.filter(c => c.boardId === board.id && !c.seriesId);
+
+      const statusLabel = { ongoing: '连载中', completed: '已完结', hiatus: '暂停' };
+      const statusClass = { ongoing: 'freq-novel-status--ongoing', completed: 'freq-novel-status--completed', hiatus: 'freq-novel-status--hiatus' };
+
+      const seriesHTML = seriesList.length ? seriesList.map(s => {
+        const chapCount = d.chapters.filter(c => c.seriesId === s.id).length;
+        return `
+          <div class="freq-novel-series-item" data-series-id="${s.id}">
+            <span class="freq-novel-series-cover">${escapeHtml(s.coverEmoji || '📖')}</span>
+            <div class="freq-novel-series-info">
+              <div class="freq-novel-series-title">${escapeHtml(s.title)}</div>
+              <div class="freq-novel-series-meta">
+                <span class="freq-novel-author-tag freq-novel-author-tag--${s.authorType}">${escapeHtml(s.author)}</span>
+                <span class="freq-novel-status-tag ${statusClass[s.status] || ''}">${statusLabel[s.status] || s.status}</span>
+                <span class="freq-novel-series-count">${chapCount} 章</span>
+              </div>
+            </div>
+          </div>`;
+      }).join('') : '';
+
+      const standaloneHTML = standalones.length ? standalones.map(c => `
+        <div class="freq-novel-chapter-item" data-chapter-id="${c.id}">
+          <div class="freq-novel-chapter-title">${escapeHtml(c.title)}</div>
+          <div class="freq-novel-chapter-meta">
+            <span class="freq-novel-author-tag freq-novel-author-tag--${c.authorType}">${escapeHtml(c.author)}</span>
+            <span>${c.wordCount || 0} 字</span>
+            <span>${c.date || ''}</span>
+          </div>
+        </div>`).join('') : '';
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-novel-back">←</button>
+          ${escapeHtml(board.icon)} ${escapeHtml(board.name)}
+          <div class="freq-novel-header-btns">
+            <button class="freq-novel-icon-btn" id="freq-novel-new-series-btn" title="新建系列">＋系列</button>
+          </div>
+        </div>
+        <div class="freq-app-body freq-novel-body">
+          ${seriesList.length ? `
+            <div class="freq-novel-section-title">📚 系列连载</div>
+            <div class="freq-novel-series-list">${seriesHTML}</div>` : ''}
+          ${standalones.length ? `
+            <div class="freq-novel-section-title">📄 独立短篇</div>
+            <div class="freq-novel-chapters-list">${standaloneHTML}</div>` : ''}
+          ${!seriesList.length && !standalones.length
+            ? `<div class="freq-empty"><span class="freq-empty-icon">${escapeHtml(board.icon)}</span><span>这个分区还没有作品</span><span style="font-size:10px;color:#333;">点击 ✍️ 或 🤖 开始创作</span></div>`
+            : ''}
+          <div class="freq-novel-board-actions">
+            <button class="freq-studio-action-btn" id="freq-novel-write-here">✍️ 在此写作</button>
+            <button class="freq-studio-action-btn freq-novel-ai-action-btn" id="freq-novel-ai-here">🤖 AI写作</button>
+          </div>
+          <button class="freq-checkin-delete-btn freq-novel-delete-board-btn" id="freq-novel-delete-board">🗑️ 删除此分区</button>
+        </div>`;
+
+      container.querySelector('#freq-novel-back')?.addEventListener('click', () => {
+        this._renderBoards(container);
+      });
+
+      container.querySelectorAll('[data-series-id]').forEach(el => {
+        el.addEventListener('click', () => {
+          this._currentSeriesId = el.dataset.seriesId;
+          this._currentView = 'series_detail';
+          this._renderSeriesDetail(container);
+        });
+      });
+
+      container.querySelectorAll('[data-chapter-id]').forEach(el => {
+        el.addEventListener('click', () => {
+          this._currentChapterId = el.dataset.chapterId;
+          this._currentView = 'read';
+          this._renderRead(container);
+        });
+      });
+
+      container.querySelector('#freq-novel-new-series-btn')?.addEventListener('click', () => {
+        this._currentView = 'create_series';
+        this._renderCreateSeries(container);
+      });
+
+      container.querySelector('#freq-novel-write-here')?.addEventListener('click', () => {
+        this._currentView = 'write';
+        this._renderWrite(container);
+      });
+
+      container.querySelector('#freq-novel-ai-here')?.addEventListener('click', () => {
+        this._currentView = 'ai_write';
+        this._renderAiWrite(container);
+      });
+
+      container.querySelector('#freq-novel-delete-board')?.addEventListener('click', () => {
+        this._confirmDeleteBoard(container, board.id);
+      });
+    },
+
+    // ── 系列详情：章节列表 ──
+    _renderSeriesDetail(container) {
+      this._currentView = 'series_detail';
+      const d = this._getData();
+      const series = d.series.find(s => s.id === this._currentSeriesId);
+      if (!series) { this._renderBoardDetail(container); return; }
+
+      const chapters = d.chapters
+        .filter(c => c.seriesId === series.id)
+        .sort((a, b) => (a.seriesOrder || 0) - (b.seriesOrder || 0));
+
+      const statusLabel = { ongoing: '连载中', completed: '已完结', hiatus: '暂停' };
+      const statusClass = { ongoing: 'freq-novel-status--ongoing', completed: 'freq-novel-status--completed', hiatus: 'freq-novel-status--hiatus' };
+
+      const chaptersHTML = chapters.length ? chapters.map(c => `
+        <div class="freq-novel-chapter-item" data-chapter-id="${c.id}">
+          <span class="freq-novel-chapter-order">第 ${c.seriesOrder || '?'} 章</span>
+          <div class="freq-novel-chapter-title">${escapeHtml(c.title)}</div>
+          <div class="freq-novel-chapter-meta">
+            <span class="freq-novel-author-tag freq-novel-author-tag--${c.authorType}">${escapeHtml(c.author)}</span>
+            <span>${c.wordCount || 0} 字</span>
+            <span>${c.date || ''}</span>
+          </div>
+        </div>`).join('') : `<div class="freq-empty"><span class="freq-empty-icon">📄</span><span>还没有章节</span></div>`;
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-novel-back">←</button>
+          ${escapeHtml(series.coverEmoji || '📖')} ${escapeHtml(series.title)}
+        </div>
+        <div class="freq-app-body freq-novel-body">
+          <div class="freq-novel-series-header-card">
+            <div class="freq-novel-series-header-meta">
+              <span class="freq-novel-author-tag freq-novel-author-tag--${series.authorType}">${escapeHtml(series.author)}</span>
+              <span class="freq-novel-status-tag ${statusClass[series.status] || ''}">${statusLabel[series.status] || series.status}</span>
+            </div>
+            ${series.desc ? `<div class="freq-novel-series-header-desc">${escapeHtml(series.desc)}</div>` : ''}
+            <div class="freq-novel-series-status-btns">
+              ${['ongoing','completed','hiatus'].map(st => `
+                <button class="freq-novel-status-change-btn ${series.status === st ? 'freq-novel-status-change-active' : ''}"
+                  data-set-status="${st}">${statusLabel[st]}</button>`).join('')}
+            </div>
+          </div>
+          <div class="freq-novel-section-title">📄 章节列表</div>
+          <div class="freq-novel-chapters-list">${chaptersHTML}</div>
+          <div class="freq-novel-board-actions">
+            <button class="freq-studio-action-btn" id="freq-novel-write-chapter">✍️ 写新章节</button>
+            <button class="freq-studio-action-btn freq-novel-ai-action-btn" id="freq-novel-ai-chapter">🤖 AI续写</button>
+          </div>
+          <button class="freq-checkin-delete-btn freq-novel-delete-board-btn" id="freq-novel-delete-series">🗑️ 删除此系列</button>
+        </div>`;
+
+      container.querySelector('#freq-novel-back')?.addEventListener('click', () => {
+        this._currentView = 'board_detail';
+        this._renderBoardDetail(container);
+      });
+
+      container.querySelectorAll('[data-chapter-id]').forEach(el => {
+        el.addEventListener('click', () => {
+          this._currentChapterId = el.dataset.chapterId;
+          this._currentView = 'read';
+          this._renderRead(container);
+        });
+      });
+
+      container.querySelectorAll('[data-set-status]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          series.status = btn.dataset.setStatus;
+          this._save();
+          this._renderSeriesDetail(container);
+        });
+      });
+
+      container.querySelector('#freq-novel-write-chapter')?.addEventListener('click', () => {
+        this._currentView = 'write';
+        this._renderWrite(container);
+      });
+
+      container.querySelector('#freq-novel-ai-chapter')?.addEventListener('click', () => {
+        this._currentView = 'ai_write';
+        this._renderAiWrite(container);
+      });
+
+      container.querySelector('#freq-novel-delete-series')?.addEventListener('click', () => {
+        this._confirmDeleteSeries(container, series.id);
+      });
+    },
+
+    // ── 阅读视图 ──
+    _renderRead(container) {
+      this._currentView = 'read';
+      const d = this._getData();
+      const chapter = d.chapters.find(c => c.id === this._currentChapterId);
+      if (!chapter) { this._renderBoards(container); return; }
+
+      const comments = d.comments.filter(c => c.chapterId === chapter.id);
+      const chars = this._getChars();
+
+      const commentsHTML = comments.length ? comments.map(c => `
+        <div class="freq-novel-comment-item">
+          <div class="freq-novel-comment-header">
+            <span class="freq-novel-author-tag freq-novel-author-tag--${c.authorType}">${escapeHtml(c.author)}</span>
+            <span class="freq-novel-comment-time">${c.date || ''} ${c.time || ''}</span>
+          </div>
+          <div class="freq-novel-comment-body">${escapeHtml(c.content)}</div>
+        </div>`).join('') : `<div class="freq-novel-no-comment">还没有评论，召唤角色来评论吧</div>`;
+
+      const charOptions = chars.map(c =>
+        `<option value="${escapeHtml(c.name)}" data-type="${c.type}">${escapeHtml(c.name)}</option>`
+      ).join('');
+
+      // 把正文按段落分割，每段包一个 <p>
+      const contentHTML = (chapter.content || '')
+        .split(/\n+/)
+        .filter(p => p.trim())
+        .map(p => `<p class="freq-novel-read-para">${escapeHtml(p)}</p>`)
+        .join('');
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-novel-back">←</button>
+          <span class="freq-novel-read-header-title">${escapeHtml(chapter.title.slice(0, 14))}</span>
+        </div>
+        <div class="freq-app-body freq-novel-read-body" id="freq-novel-read-body">
+
+          <div class="freq-novel-read-meta">
+            <span class="freq-novel-author-tag freq-novel-author-tag--${chapter.authorType}">${escapeHtml(chapter.author)}</span>
+            <span class="freq-novel-read-wordcount">${chapter.wordCount || 0} 字</span>
+            <span class="freq-novel-read-date">${chapter.date || ''}</span>
+          </div>
+
+          <h2 class="freq-novel-read-title">${escapeHtml(chapter.title)}</h2>
+
+          <div class="freq-novel-read-content">${contentHTML}</div>
+
+          <div class="freq-novel-comment-section">
+            <div class="freq-novel-section-title">💬 评论区</div>
+            <div id="freq-novel-comments-list">${commentsHTML}</div>
+
+            <div class="freq-novel-comment-form">
+              <textarea class="freq-forum-textarea" id="freq-novel-comment-input"
+                placeholder="写下你的感想..." rows="2"></textarea>
+              <button class="freq-studio-action-btn" id="freq-novel-comment-submit" style="width:100%;margin-top:6px;">
+                发表评论
+              </button>
+            </div>
+
+            <div class="freq-novel-summon-bar">
+              <select class="freq-novel-char-select" id="freq-novel-char-select">
+                <option value="__random__">🎲 随机NPC</option>
+                ${charOptions}
+              </select>
+              <button class="freq-novel-summon-btn" id="freq-novel-summon-btn">召唤评论</button>
+            </div>
+            <div id="freq-novel-summon-status"></div>
+          </div>
+
+          <div style="margin-top:16px;text-align:center;">
+            <button class="freq-checkin-delete-btn" id="freq-novel-delete-chapter">🗑️ 删除此章节</button>
+          </div>
+        </div>`;
+
+      // 返回
+      container.querySelector('#freq-novel-back')?.addEventListener('click', () => {
+        if (chapter.seriesId) {
+          this._currentView = 'series_detail';
+          this._renderSeriesDetail(container);
+        } else {
+          this._currentView = 'board_detail';
+          this._renderBoardDetail(container);
+        }
+      });
+
+      // 用户发评论
+      container.querySelector('#freq-novel-comment-submit')?.addEventListener('click', () => {
+        const input = container.querySelector('#freq-novel-comment-input');
+        const text = input?.value.trim();
+        if (!text) return;
+        const comment = {
+          id: this._genId('cmt'),
+          chapterId: chapter.id,
+          author: getUserName(),
+          authorType: 'user',
+          content: text,
+          date: dateNow(),
+          time: timeNow(),
+          createdAt: Date.now(),
+        };
+        d.comments.push(comment);
+        this._save();
+        input.value = '';
+        this._refreshComments(container, chapter.id);
+      });
+
+      // 召唤NPC评论
+      container.querySelector('#freq-novel-summon-btn')?.addEventListener('click', () => {
+        this._summonComment(container, chapter);
+      });
+
+      // 删除章节
+      container.querySelector('#freq-novel-delete-chapter')?.addEventListener('click', () => {
+        this._confirmDeleteChapter(container, chapter.id);
+      });
+    },
+
+    // ── 刷新评论区（不重绘整页）──
+    _refreshComments(container, chapterId) {
+      const d = this._getData();
+      const comments = d.comments.filter(c => c.chapterId === chapterId);
+      const listEl = container.querySelector('#freq-novel-comments-list');
+      if (!listEl) return;
+      listEl.innerHTML = comments.length ? comments.map(c => `
+        <div class="freq-novel-comment-item">
+          <div class="freq-novel-comment-header">
+            <span class="freq-novel-author-tag freq-novel-author-tag--${c.authorType}">${escapeHtml(c.author)}</span>
+            <span class="freq-novel-comment-time">${c.date || ''} ${c.time || ''}</span>
+          </div>
+          <div class="freq-novel-comment-body">${escapeHtml(c.content)}</div>
+        </div>`).join('')
+        : `<div class="freq-novel-no-comment">还没有评论，召唤角色来评论吧</div>`;
+    },
+
+    // ── 召唤NPC评论 ──
+    async _summonComment(container, chapter) {
+      if (this._generating) return;
+      this._generating = true;
+
+      const btn = container.querySelector('#freq-novel-summon-btn');
+      const statusEl = container.querySelector('#freq-novel-summon-status');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ 召唤中...'; }
+
+      const selectEl = container.querySelector('#freq-novel-char-select');
+      const selectedVal = selectEl?.value || '__random__';
+
+      const chars = this._getChars();
+      let char;
+      if (selectedVal === '__random__') {
+        char = chars[Math.floor(Math.random() * chars.length)];
+      } else {
+        char = chars.find(c => c.name === selectedVal) || chars[0];
+      }
+
+      const d = this._getData();
+      const board = d.boards.find(b => b.id === chapter.boardId);
+      const excerpt = (chapter.content || '').slice(0, 300);
+
+            const systemPrompt = getPrompt('novel_comment')
+        .replace(/{authorName}/g, char.name)
+        .replace(/{chapterTitle}/g, chapter.title)
+        .replace(/{chapterExcerpt}/g, excerpt)
+        .replace(/{chapterAuthor}/g, chapter.author)
+        .replace(/{boardName}/g, board?.name || '未知分区');
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '写评论。', { maxTokens: 200, temperature: 0.9 });
+        const comment = {
+          id: this._genId('cmt'),
+          chapterId: chapter.id,
+          author: char.name,
+          authorType: char.type,
+          content: raw.trim(),
+          date: dateNow(),
+          time: timeNow(),
+          createdAt: Date.now(),
+        };
+        d.comments.push(comment);
+        this._save();
+        this._refreshComments(container, chapter.id);
+        if (statusEl) { statusEl.textContent = `✓ ${char.name} 留下了评论`; setTimeout(() => { statusEl.textContent = ''; }, 2000); }
+      } catch (e) {
+        Notify.error('频道文库·召唤评论', e);
+        if (statusEl) { statusEl.textContent = '召唤失败，请重试'; setTimeout(() => { statusEl.textContent = ''; }, 2000); }
+      } finally {
+        this._generating = false;
+        if (btn) { btn.disabled = false; btn.textContent = '召唤评论'; }
+      }
+    },
+
+    // ── 手动写作视图 ──
+    _renderWrite(container) {
+      this._currentView = 'write';
+      const d = this._getData();
+
+      const boardOptions = d.boards.map(b =>
+        `<option value="${b.id}" ${b.id === this._currentBoardId ? 'selected' : ''}>${escapeHtml(b.icon)} ${escapeHtml(b.name)}</option>`
+      ).join('');
+
+      // 根据当前选中分区生成系列选项（初始用第一个分区）
+      const initBoardId = this._currentBoardId || d.boards[0]?.id || '';
+      const initSeries = d.series.filter(s => s.boardId === initBoardId);
+      const seriesOptions = this._buildSeriesOptions(initSeries);
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-novel-back">←</button>
+          ✍️ 写作
+        </div>
+        <div class="freq-app-body freq-novel-body">
+          <div class="freq-novel-write-form">
+
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">分区</label>
+              <select class="freq-novel-select" id="freq-novel-write-board">
+                ${boardOptions}
+              </select>
+            </div>
+
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">归属系列</label>
+              <select class="freq-novel-select" id="freq-novel-write-series">
+                ${seriesOptions}
+              </select>
+            </div>
+
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">章节标题</label>
+              <input type="text" class="freq-forum-input" id="freq-novel-write-title"
+                placeholder="给这篇作品起个标题..." maxlength="40" />
+            </div>
+
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">正文</label>
+              <textarea class="freq-forum-textarea freq-novel-write-textarea" id="freq-novel-write-content"
+                placeholder="开始写作..." rows="10"></textarea>
+            </div>
+
+            <button class="freq-studio-action-btn" id="freq-novel-write-submit" style="width:100%;">
+              📖 发布
+            </button>
+          </div>
+        </div>`;
+
+      // 切换分区时更新系列下拉
+      container.querySelector('#freq-novel-write-board')?.addEventListener('change', e => {
+        const boardId = e.target.value;
+        const series = d.series.filter(s => s.boardId === boardId);
+        const sel = container.querySelector('#freq-novel-write-series');
+        if (sel) sel.innerHTML = this._buildSeriesOptions(series);
+      });
+
+      container.querySelector('#freq-novel-back')?.addEventListener('click', () => {
+        this._currentView = this._currentSeriesId ? 'series_detail' : (this._currentBoardId ? 'board_detail' : 'boards');
+        this._dispatch(container);
+      });
+
+      container.querySelector('#freq-novel-write-submit')?.addEventListener('click', () => {
+        this._submitWrite(container);
+      });
+    },
+
+    _buildSeriesOptions(seriesList) {
+      const opts = [`<option value="__standalone__">📄 独立短篇</option>`];
+      seriesList.forEach(s => {
+        opts.push(`<option value="${s.id}">${escapeHtml(s.coverEmoji || '📖')} ${escapeHtml(s.title)}</option>`);
+      });
+      return opts.join('');
+    },
+
+    _submitWrite(container) {
+      const boardId   = container.querySelector('#freq-novel-write-board')?.value;
+      const seriesVal = container.querySelector('#freq-novel-write-series')?.value;
+      const title     = container.querySelector('#freq-novel-write-title')?.value.trim();
+      const content   = container.querySelector('#freq-novel-write-content')?.value.trim();
+
+      if (!title || !content) {
+        const btn = container.querySelector('#freq-novel-write-submit');
+        if (btn) { btn.textContent = '⚠️ 标题和正文不能为空'; setTimeout(() => { btn.textContent = '📖 发布'; }, 1500); }
+        return;
+      }
+
+      const d = this._getData();
+      const seriesId = (seriesVal && seriesVal !== '__standalone__') ? seriesVal : null;
+      const series   = seriesId ? d.series.find(s => s.id === seriesId) : null;
+      const chapCount = seriesId ? d.chapters.filter(c => c.seriesId === seriesId).length : 0;
+
+      const chapter = {
+        id: this._genId('chap'),
+        boardId: boardId || d.boards[0]?.id || '',
+        seriesId: seriesId,
+        seriesOrder: seriesId ? chapCount + 1 : null,
+        title,
+        content,
+        author: getUserName(),
+        authorType: 'user',
+        wordCount: content.length,
+        date: dateNow(),
+        time: timeNow(),
+        serial: getLatestMeowTime(getChatMessages()) || '',
+        createdAt: Date.now(),
+      };
+
+      d.chapters.push(chapter);
+      this._save();
+
+      this._currentBoardId   = chapter.boardId;
+      this._currentSeriesId  = seriesId;
+      this._currentChapterId = chapter.id;
+      this._currentView = 'read';
+      this._renderRead(container);
+    },
+
+    // ── AI写作视图 ──
+    _renderAiWrite(container) {
+      this._currentView = 'ai_write';
+      const d = this._getData();
+
+      const boardOptions = d.boards.map(b =>
+        `<option value="${b.id}" ${b.id === this._currentBoardId ? 'selected' : ''}>${escapeHtml(b.icon)} ${escapeHtml(b.name)}</option>`
+      ).join('');
+
+      const initBoardId = this._currentBoardId || d.boards[0]?.id || '';
+      const initSeries  = d.series.filter(s => s.boardId === initBoardId);
+      const seriesOptions = this._buildSeriesOptions(initSeries);
+
+      const chars = this._getChars();
+      const charOptions = chars.map(c =>
+        `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`
+      ).join('');
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-novel-back">←</button>
+          🤖 AI写作
+        </div>
+        <div class="freq-app-body freq-novel-body">
+          <div class="freq-novel-write-form">
+
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">由谁来写</label>
+              <select class="freq-novel-select" id="freq-novel-ai-author">
+                ${charOptions}
+              </select>
+            </div>
+
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">发布到分区</label>
+              <select class="freq-novel-select" id="freq-novel-ai-board">
+                ${boardOptions}
+              </select>
+            </div>
+
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">归属系列</label>
+              <select class="freq-novel-select" id="freq-novel-ai-series">
+                ${seriesOptions}
+              </select>
+            </div>
+
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">创作方向 <span style="color:#555;font-weight:normal;">（可选）</span></label>
+              <textarea class="freq-forum-textarea" id="freq-novel-ai-hint"
+                placeholder="给AI一个方向，例如：写一段雨夜告白、续写上次的剧情..." rows="3"></textarea>
+            </div>
+
+            <button class="freq-studio-action-btn" id="freq-novel-ai-submit" style="width:100%;">
+              🤖 开始生成
+            </button>
+            <div id="freq-novel-ai-status" class="freq-studio-loading" style="display:none;text-align:center;margin-top:8px;">
+              ✦ 创作中，请稍候...
+            </div>
+          </div>
+        </div>`;
+
+      container.querySelector('#freq-novel-ai-board')?.addEventListener('change', e => {
+        const boardId = e.target.value;
+        const series  = d.series.filter(s => s.boardId === boardId);
+        const sel = container.querySelector('#freq-novel-ai-series');
+        if (sel) sel.innerHTML = this._buildSeriesOptions(series);
+      });
+
+      container.querySelector('#freq-novel-back')?.addEventListener('click', () => {
+        this._currentView = this._currentSeriesId ? 'series_detail' : (this._currentBoardId ? 'board_detail' : 'boards');
+        this._dispatch(container);
+      });
+
+      container.querySelector('#freq-novel-ai-submit')?.addEventListener('click', () => {
+        this._submitAiWrite(container);
+      });
+    },
+
+    async _submitAiWrite(container) {
+      if (this._generating) return;
+      this._generating = true;
+
+      const btn      = container.querySelector('#freq-novel-ai-submit');
+      const statusEl = container.querySelector('#freq-novel-ai-status');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ 生成中...'; }
+      if (statusEl) statusEl.style.display = 'block';
+
+      const authorName = container.querySelector('#freq-novel-ai-author')?.value || getCurrentCharName() || '角色';
+      const boardId    = container.querySelector('#freq-novel-ai-board')?.value;
+      const seriesVal  = container.querySelector('#freq-novel-ai-series')?.value;
+      const userHint   = container.querySelector('#freq-novel-ai-hint')?.value.trim() || '自由发挥';
+
+      const d = this._getData();
+      const board    = d.boards.find(b => b.id === boardId);
+      const seriesId = (seriesVal && seriesVal !== '__standalone__') ? seriesVal : null;
+      const series   = seriesId ? d.series.find(s => s.id === seriesId) : null;
+
+      const msgs        = getChatMessages();
+      const latestPlot  = getLatestPlot(msgs) || '暂无';
+      const latestScene = getLatestScene(msgs) || '暂无';
+      const latestSeeds = (() => {
+        const all = extractAllMeowFM(msgs);
+        return all.length ? all[all.length - 1].seeds : '暂无';
+      })();
+
+      const seriesInfo = series
+        ? `所属系列：${series.title}\n系列简介：${series.desc || '无'}\n当前已有 ${d.chapters.filter(c => c.seriesId === seriesId).length} 章`
+        : '独立短篇，无系列背景';
+
+      const chars = this._getChars();
+      const charObj = chars.find(c => c.name === authorName);
+
+      const systemPrompt = getPrompt('novel_generate')
+        .replace(/{authorName}/g, authorName)
+        .replace(/{boardName}/g, board?.name || '未知分区')
+        .replace(/{boardStyle}/g, this.BOARD_STYLES[boardId] || '自由风格')
+        .replace(/{seriesInfo}/g, seriesInfo)
+        .replace(/{charName}/g, getCurrentCharName() || '角色')
+        .replace(/{latestPlot}/g, latestPlot)
+        .replace(/{latestScene}/g, latestScene)
+        .replace(/{latestSeeds}/g, latestSeeds)
+        .replace(/{userHint}/g, userHint);
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '开始创作。', { maxTokens: 1500, temperature: 0.9 });
+
+        // 清理 markdown 代码块标记后再解析
+        const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        const match   = cleaned.match(/\{[\s\S]*\}/);
+        let title = '无题', content = cleaned;
+        if (match) {
+          try {
+            const parsed = JSON.parse(match[0]);
+            title   = parsed.title   || '无题';
+            content = parsed.content || cleaned;
+          } catch (_) {
+            // JSON解析失败，直接用原文作为正文
+          }
+        }
+
+        const chapCount = seriesId ? d.chapters.filter(c => c.seriesId === seriesId).length : 0;
+        const chapter = {
+          id: this._genId('chap'),
+          boardId: boardId || d.boards[0]?.id || '',
+          seriesId,
+          seriesOrder: seriesId ? chapCount + 1 : null,
+          title,
+          content,
+          author: authorName,
+          authorType: charObj?.type || 'char',
+          wordCount: content.length,
+          date: dateNow(),
+          time: timeNow(),
+          serial: getLatestMeowTime(msgs) || '',
+          createdAt: Date.now(),
+        };
+
+        d.chapters.push(chapter);
+        this._save();
+
+        this._badge++;
+        renderAppGrid();
+        Notify.add('频道文库', `${authorName} 发布了新作品《${title}》`, '📖');
+
+        this._currentBoardId   = chapter.boardId;
+        this._currentSeriesId  = seriesId;
+        this._currentChapterId = chapter.id;
+        this._currentView = 'read';
+        this._renderRead(container);
+
+      } catch (e) {
+        Notify.error('频道文库·AI写作', e);
+        if (statusEl) { statusEl.style.display = 'none'; }
+        if (btn) { btn.disabled = false; btn.textContent = '🤖 生成失败，重试'; }
+      } finally {
+        this._generating = false;
+      }
+    },
+
+    // ── 创建分区 ──
+    _renderCreateBoard(container) {
+      this._currentView = 'create_board';
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-novel-back">←</button>
+          ＋ 新建分区
+        </div>
+        <div class="freq-app-body freq-novel-body">
+          <div class="freq-novel-write-form">
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">分区图标（emoji）</label>
+              <input type="text" class="freq-forum-input" id="freq-novel-board-icon"
+                placeholder="📖" maxlength="4" value="📖" />
+            </div>
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">分区名称</label>
+              <input type="text" class="freq-forum-input" id="freq-novel-board-name"
+                placeholder="分区名..." maxlength="20" />
+            </div>
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">分区简介</label>
+              <input type="text" class="freq-forum-input" id="freq-novel-board-desc"
+                placeholder="一句话描述这个分区..." maxlength="40" />
+            </div>
+            <button class="freq-studio-action-btn" id="freq-novel-board-submit" style="width:100%;">
+              创建分区
+            </button>
+          </div>
+        </div>`;
+
+      container.querySelector('#freq-novel-back')?.addEventListener('click', () => {
+        this._renderBoards(container);
+      });
+
+      container.querySelector('#freq-novel-board-submit')?.addEventListener('click', () => {
+        const icon = container.querySelector('#freq-novel-board-icon')?.value.trim() || '📖';
+        const name = container.querySelector('#freq-novel-board-name')?.value.trim();
+        const desc = container.querySelector('#freq-novel-board-desc')?.value.trim() || '';
+        if (!name) return;
+        const d = this._getData();
+        d.boards.push({ id: this._genId('board'), name, icon, desc, createdAt: dateNow() });
+        this._save();
+        this._renderBoards(container);
+      });
+    },
+
+    // ── 创建系列 ──
+    _renderCreateSeries(container) {
+      this._currentView = 'create_series';
+      const d = this._getData();
+      const board = d.boards.find(b => b.id === this._currentBoardId);
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-novel-back">←</button>
+          ＋ 新建系列
+        </div>
+        <div class="freq-app-body freq-novel-body">
+          <div class="freq-novel-write-form">
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">封面图标（emoji）</label>
+              <input type="text" class="freq-forum-input" id="freq-novel-series-emoji"
+                placeholder="📖" maxlength="4" value="📖" />
+            </div>
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">系列名称</label>
+              <input type="text" class="freq-forum-input" id="freq-novel-series-title"
+                placeholder="系列名..." maxlength="30" />
+            </div>
+            <div class="freq-novel-form-group">
+              <label class="freq-novel-form-label">系列简介</label>
+              <textarea class="freq-forum-textarea" id="freq-novel-series-desc"
+                placeholder="简单介绍这个系列..." rows="2"></textarea>
+            </div>
+            <button class="freq-studio-action-btn" id="freq-novel-series-submit" style="width:100%;">
+              创建系列
+            </button>
+          </div>
+        </div>`;
+
+      container.querySelector('#freq-novel-back')?.addEventListener('click', () => {
+        this._currentView = 'board_detail';
+        this._renderBoardDetail(container);
+      });
+
+      container.querySelector('#freq-novel-series-submit')?.addEventListener('click', () => {
+        const coverEmoji = container.querySelector('#freq-novel-series-emoji')?.value.trim() || '📖';
+        const title      = container.querySelector('#freq-novel-series-title')?.value.trim();
+        const desc       = container.querySelector('#freq-novel-series-desc')?.value.trim() || '';
+        if (!title) return;
+        const userName = getUserName();
+        d.series.push({
+          id: this._genId('ser'),
+          boardId: this._currentBoardId,
+          title,
+          author: userName,
+          authorType: 'user',
+          desc,
+          coverEmoji,
+          status: 'ongoing',
+          createdAt: dateNow(),
+        });
+        this._save();
+        this._currentView = 'board_detail';
+        this._renderBoardDetail(container);
+      });
+    },
+
+    // ── 删除确认（通用）──
+    _confirmDelete(btn, onConfirm) {
+      if (!btn) return;
+      if (btn.dataset.confirming === '1') {
+        onConfirm();
+        return;
+      }
+      btn.dataset.confirming = '1';
+      const orig = btn.textContent;
+      btn.textContent = '⚠️ 确认删除？再次点击执行';
+      btn.style.borderColor = '#A32D2D';
+      btn.style.color = '#e88';
+      setTimeout(() => {
+        if (btn.dataset.confirming === '1') {
+          btn.dataset.confirming = '';
+          btn.textContent = orig;
+          btn.style.borderColor = '';
+          btn.style.color = '';
+        }
+      }, 3000);
+    },
+
+    _confirmDeleteBoard(container, boardId) {
+      const btn = container.querySelector('#freq-novel-delete-board');
+      this._confirmDelete(btn, () => {
+        const d = this._getData();
+        d.boards   = d.boards.filter(b => b.id !== boardId);
+        d.series   = d.series.filter(s => s.boardId !== boardId);
+        const chapIds = d.chapters.filter(c => c.boardId === boardId).map(c => c.id);
+        d.chapters = d.chapters.filter(c => c.boardId !== boardId);
+        d.comments = d.comments.filter(c => !chapIds.includes(c.chapterId));
+        this._save();
+        this._currentBoardId = null;
+        this._renderBoards(container);
+      });
+    },
+
+    _confirmDeleteSeries(container, seriesId) {
+      const btn = container.querySelector('#freq-novel-delete-series');
+      this._confirmDelete(btn, () => {
+        const d = this._getData();
+        d.series   = d.series.filter(s => s.id !== seriesId);
+        const chapIds = d.chapters.filter(c => c.seriesId === seriesId).map(c => c.id);
+        d.chapters = d.chapters.filter(c => c.seriesId !== seriesId);
+        d.comments = d.comments.filter(c => !chapIds.includes(c.chapterId));
+        this._save();
+        this._currentSeriesId = null;
+        this._currentView = 'board_detail';
+        this._renderBoardDetail(container);
+      });
+    },
+
+    _confirmDeleteChapter(container, chapterId) {
+      const btn = container.querySelector('#freq-novel-delete-chapter');
+      this._confirmDelete(btn, () => {
+        const d = this._getData();
+        const chapter = d.chapters.find(c => c.id === chapterId);
+        d.chapters = d.chapters.filter(c => c.id !== chapterId);
+        d.comments = d.comments.filter(c => c.chapterId !== chapterId);
+        this._save();
+        if (chapter?.seriesId) {
+          this._currentView = 'series_detail';
+          this._renderSeriesDetail(container);
+        } else {
+          this._currentView = 'board_detail';
+          this._renderBoardDetail(container);
+        }
+      });
+    },
+  };
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_25  App · 频道文库结束                          │
+  // └──────────────────────────────────────────────────────┘
 
 
 
@@ -6682,7 +7752,7 @@ const calendarApp = {
     registerApp(forumApp);
     registerApp(checkinApp);
     registerApp(calendarApp);
-    registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
+    registerApp(novelApp);
     registerApp(mapApp);                                           // ✅ BLOCK_24
     registerApp(deliveryApp);// ✅ BLOCK_22 替换 placeholder
     registerApp(capsuleApp);        // ✅ BLOCK_21 替换 placeholder
