@@ -154,6 +154,24 @@
     const all = extractAllMeowFM(messages);
     return all.length > 0 ? all[all.length - 1].time : '';
   }
+    function getCosmicFreqStatus() {
+    const msgs = getChatMessages();
+    // 优先从最新 radio_show 的 STATUS 字段判断
+    const radioShow = extractRadioShow(msgs);
+    if (radioShow?.status) {
+      const s = radioShow.status.toUpperCase();
+      if (s.includes('ON') || s.includes('开启') || s.includes('激活')) return true;
+      if (s.includes('OFF') || s.includes('关闭') || s.includes('待机')) return false;
+    }
+    // 降级：从最新 meow_FM 的 seeds 字段推断
+    const all = extractAllMeowFM(msgs);
+    if (all.length > 0) {
+      const seeds = (all[all.length - 1].seeds ?? '').toUpperCase();
+      if (seeds.includes('COSMIC') || seeds.includes('宇宙频率') || seeds.includes('ON')) return true;
+    }
+    return false;
+  }
+
 
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_04  Sub-API — 副API 调用                      │
