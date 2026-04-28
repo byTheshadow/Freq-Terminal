@@ -1426,6 +1426,646 @@
   padding: 8px 10px; background: #111; border-radius: 8px;
   border: 1px solid #1a1a1a;
 }
+/* ══ BLOCK_23 双线轨道 ══ */
+
+/* ── 月历导航 ── */
+.freq-cal23-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.freq-cal23-nav-btn {
+  background: none;
+  border: 1px solid #333;
+  color: #888;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background0.15s, color 0.15s;
+}
+
+.freq-cal23-nav-btn:hover {
+  background: #1a1a1a;
+  color: #ccc;
+}
+
+.freq-cal23-nav-title {
+  color: #ddd;
+  font-size: 14px;
+  font-weight: bold;
+  min-width: 100px;
+  text-align: center;
+}
+
+/* ── 筛选按钮 ── */
+.freq-cal23-filters {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.freq-cal23-filter-btn {
+  background: #111;
+  border: 1px solid #2a2a2a;
+  color: #666;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.freq-cal23-filter-btn:hover {
+  background: #1a1a1a;
+  color: #aaa;
+}
+
+.freq-cal23-filter-active {
+  color: #ccc;
+  border-color: #555;
+  background: #1a1a1a;
+}
+
+.freq-cal23-filter-active.freq-cal23-filter-user {
+  border-color: #5b8dd9;
+  color: #5b8dd9;
+}
+
+.freq-cal23-filter-active.freq-cal23-filter-char {
+  border-color: #A32D2D;
+  color: #A32D2D;
+}
+
+/* ── 星期头── */
+.freq-cal23-weekrow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.freq-cal23-weekcell {
+  text-align: center;
+  font-size: 10px;
+  color: #555;
+  padding: 4px 0;
+}
+
+/* ── 日历网格 ── */
+.freq-cal23-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.freq-cal23-cell {
+  background: #0d0d0d;
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  padding: 4px 2px;
+  min-height: 40px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.freq-cal23-cell:hover {
+  background: #161616;
+  border-color: #333;
+}
+
+.freq-cal23-cell-empty {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+}
+
+.freq-cal23-cell-empty:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.freq-cal23-today {
+  border-color: #444;
+  background: #111;
+}
+
+.freq-cal23-today .freq-cal23-day {
+  color: #fff;
+  font-weight: bold;
+}
+
+.freq-cal23-selected {
+  border-color: #A32D2D;
+}
+
+.freq-cal23-resonance {
+  border-color: #b8860b !important;
+  box-shadow: 0 0 6px rgba(184, 134, 11, 0.25);
+}
+
+.freq-cal23-day {
+  font-size: 12px;
+  color: #888;
+  line-height: 1;
+}
+
+.freq-cal23-dots {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  min-height: 8px;
+}
+
+.freq-cal23-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.freq-cal23-dot-user {
+  background: #5b8dd9;
+}
+
+.freq-cal23-dot-char {
+  background: #A32D2D;
+}
+
+.freq-cal23-dot-resonance {
+  width: auto;
+  height: auto;
+  background: none;
+  color: #b8860b;
+  font-size: 8px;
+  line-height: 1;
+}
+
+/* ── 底部操作栏 ── */
+.freq-cal23-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.freq-cal23-add-btn {
+  flex: 1;
+}
+
+.freq-cal23-ai-btn {
+  background: #161616;
+  border: 1px solid #333;
+  color: #aaa;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.freq-cal23-ai-btn:hover {
+  background: #1a1a1a;
+  color: #ddd;
+}
+
+/* ── 今日预览 ── */
+.freq-cal23-preview {
+  background: #0d0d0d;
+  border: 1px solid #1a1a1a;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.freq-cal23-preview-title {
+  color: #888;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.freq-cal23-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.freq-cal23-preview-item:hover {
+  background: #161616;
+}
+
+.freq-cal23-preview-owner {
+  font-size: 10px;
+}
+
+.freq-cal23-preview-type {
+  font-size: 10px;
+}
+
+.freq-cal23-preview-text {
+  color: #ccc;
+  font-size: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.freq-cal23-preview-time {
+  color: #555;
+  font-size: 10px;
+}
+
+/* ── 日期详情：双轨道 ── */
+.freq-cal23-day-title {
+  color: #ddd;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.freq-cal23-day-add {
+  background: none;
+  border: 1px solid #333;
+  color: #888;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.freq-cal23-day-add:hover {
+  background: #1a1a1a;
+  color: #ccc;
+}
+
+.freq-cal23-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.freq-cal23-track {
+  background: #0d0d0d;
+  border: 1px solid #1a1a1a;
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 80px;
+}
+
+.freq-cal23-track-user {
+  border-top: 2px solid #5b8dd9;
+}
+
+.freq-cal23-track-char {
+  border-top: 2px solid #A32D2D;
+}
+
+.freq-cal23-track-label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.freq-cal23-track-empty {
+  color: #444;
+  font-size: 11px;
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* ── 事件卡片 ── */
+.freq-cal23-event-card {
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 6px;
+  transition: border-color 0.15s;
+}
+
+.freq-cal23-event-card:hover {
+  border-color: #333;
+}
+
+.freq-cal23-event-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;margin-bottom: 4px;
+}
+
+.freq-cal23-event-type {
+  font-size: 12px;
+}
+
+.freq-cal23-event-title {
+  color: #ddd;
+  font-size: 12px;
+  font-weight: bold;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.freq-cal23-event-time {
+  color: #666;
+  font-size: 10px;
+}
+
+.freq-cal23-event-content {
+  color: #999;
+  font-size: 11px;
+  line-height: 1.4;
+  margin-bottom: 4px;word-break: break-word;
+}
+
+.freq-cal23-event-foot {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.freq-cal23-tag-auto {
+  background: #1a1a2e;
+  color: #7b5ea7;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.freq-cal23-tag-tell {
+  background: #1a2a1a;
+  color: #5b8dd9;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.freq-cal23-event-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  justify-content: flex-end;
+}
+
+.freq-cal23-evt-btn {
+  background: none;
+  border: 1px solid #333;
+  color: #888;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.freq-cal23-evt-btn:hover {
+  background: #1a1a1a;
+  color: #ccc;
+}
+
+/* ── 共鸣时刻 ── */
+.freq-cal23-resonance-box {
+  background: linear-gradient(135deg, #1a1a0a 0%, #0d0d0d 100%);
+  border: 1px solid #b8860b33;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.freq-cal23-resonance-title {
+  color: #b8860b;
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.freq-cal23-resonance-comment {
+  color: #d4a843;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.6;
+  padding: 8px;
+}
+
+.freq-cal23-resonance-gen {
+  background: #161616;
+  border: 1px solid #b8860b44;
+  color: #b8860b;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.freq-cal23-resonance-gen:hover {
+  background: #1a1a1a;
+  border-color: #b8860b88;
+}
+
+/* ── 创建表单 ── */
+.freq-cal23-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.freq-cal23-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.freq-cal23-form-label {
+  color: #888;
+  font-size: 11px;
+}
+
+.freq-cal23-form-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.freq-cal23-owner-btn {
+  flex: 1;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  color: #666;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.freq-cal23-owner-btn:hover {
+  background: #161616;
+  color: #aaa;
+}
+
+.freq-cal23-owner-active[data-owner="user"] {
+  border-color: #5b8dd9;
+  color: #5b8dd9;
+  background: #0d1520;
+}
+
+.freq-cal23-owner-active[data-owner="char"] {
+  border-color: #A32D2D;
+  color: #A32D2D;
+  background: #1a0d0d;
+}
+
+.freq-cal23-type-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.freq-cal23-type-btn {
+  flex: 1;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  color: #666;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.freq-cal23-type-btn:hover {
+  background: #161616;
+  color: #aaa;
+}
+
+.freq-cal23-type-active {
+  border-color: #555;
+  color: #ccc;
+  background: #1a1a1a;
+}
+
+.freq-cal23-tell-toggle {
+  display: flex;
+}
+
+.freq-cal23-tell-btn {
+  background: #111;
+  border: 1px solid #2a2a2a;
+  color: #666;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.freq-cal23-tell-btn:hover {
+  background: #161616;
+}
+
+.freq-cal23-tell-on {
+  border-color: #5b8dd9;
+  color: #5b8dd9;
+  background: #0d1520;
+}
+
+.freq-cal23-tell-hint {
+  color: #555;
+  font-size: 10px;
+}
+
+.freq-cal23-save-btn {
+  margin-top: 8px;
+}
+
+/* ── AI提取 ── */
+.freq-cal23-ai-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  padding: 16px 0;
+}
+
+.freq-cal23-ai-desc {
+  color: #888;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.freq-cal23-ai-result {
+  width: 100%;
+}
+
+.freq-cal23-ai-preview {
+  background: #0d0d0d;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.freq-cal23-ai-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ddd;
+  font-size: 13px;
+}
+
+.freq-cal23-ai-preview-content {
+  color: #999;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.freq-cal23-ai-preview-meta {
+  color: #666;
+  font-size: 11px;
+}
+
+.freq-cal23-ai-confirm {
+  margin-top: 4px;
+}
+
+.freq-cal23-ai-discard {
+  margin-top: 4px;
+  align-self: center;
+}
+
+.freq-cal23-ai-raw {
+  background: #0a0a0a;
+  border: 1px solid #222;
+  border-radius: 4px;
+  padding: 8px;
+  color: #666;
+  font-size: 10px;
+  margin-top: 8px;word-break: break-all;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
 
 
 
