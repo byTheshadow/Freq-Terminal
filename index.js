@@ -1,14 +1,14 @@
 // ╔══════════════════════════════════════════════════════════╗
 // ║  📻 FREQ · TERMINAL —频率终端                ║
 // ║  「失真电台」专属SillyTavern 插件 v0.3.0                ║
-// ║  区块制架构                ║
+// ║  区块制架构║
 // ╚══════════════════════════════════════════════════════════╝
 
 (function () {
   'use strict';
 
   // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_00  常量 + 工具函数│
+  // │ BLOCK_00  常量+ 工具函数│
   // └──────────────────────────────────────────────────────┘
   const EXTENSION_NAME = 'freq-terminal';
   const LOG = (msg, ...args) => console.log('[FreqTerminal]', msg, ...args);
@@ -154,16 +154,15 @@
     const all = extractAllMeowFM(messages);
     return all.length > 0 ? all[all.length - 1].time : '';
   }
-    function getCosmicFreqStatus() {
+
+  function getCosmicFreqStatus() {
     const msgs = getChatMessages();
-    // 优先从最新 radio_show 的 STATUS 字段判断
     const radioShow = extractRadioShow(msgs);
     if (radioShow?.status) {
       const s = radioShow.status.toUpperCase();
       if (s.includes('ON') || s.includes('开启') || s.includes('激活')) return true;
       if (s.includes('OFF') || s.includes('关闭') || s.includes('待机')) return false;
     }
-    // 降级：从最新 meow_FM 的 seeds 字段推断
     const all = extractAllMeowFM(msgs);
     if (all.length > 0) {
       const seeds = (all[all.length - 1].seeds ?? '').toUpperCase();
@@ -171,7 +170,6 @@
     }
     return false;
   }
-
 
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_04  Sub-API — 副API 调用                      │
@@ -242,7 +240,7 @@
 
           const data = await resp.json();
           const content = data.choices?.[0]?.message?.content ?? '';
-          if (!content) throw new Error('API 返回空内容');
+          if (!content) throw new Error('API返回空内容');
           return content;
         } catch (e) {
           lastError = e;
@@ -308,7 +306,7 @@
   let phoneOpen = false;
 
   function registerApp(app) {
-    app._badge = app._badge ??0;
+    app._badge = app._badge ?? 0;
     appRegistry.push(app);
   }
 
@@ -328,8 +326,7 @@
           </div>
           <div class="freq-phone-bar">
             <button class="freq-bar-btn" id="freq-home-btn" title="主屏幕">◼</button>
-            <button class="freq-bar-btn" id="freq-notif-btn" title="通知中心">🔔<span class="freq-badge freq-notif-badge" id="freq-notif-badge" style="display:none;">0</span>
-            </button>
+            <button class="freq-bar-btn" id="freq-notif-btn" title="通知中心">🔔<span class="freq-badge freq-notif-badge" id="freq-notif-badge" style="display:none;">0</span></button>
           </div>
         </div><button class="freq-close-btn" id="freq-close-btn" title="关闭">✕</button>
       </div>
@@ -376,8 +373,8 @@
   function goHome() {
     if (currentAppId) {
       const app = appRegistry.find(a => a.id === currentAppId);
-      if (app?.unmount) app.unmount();
-      currentAppId = null;}
+      if (app?.unmount) app.unmount();currentAppId = null;
+    }
     const homeEl = document.getElementById('freq-home');
     const viewEl = document.getElementById('freq-app-view');
     if (homeEl) homeEl.style.display = 'flex';
@@ -406,7 +403,7 @@
     return `
       <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header">
-          <b>📻 Freq · Terminal</b>
+          <b>📻Freq · Terminal</b>
           <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
         </div>
         <div class="inline-drawer-content" style="font-size:small;">
@@ -435,10 +432,10 @@
 
   function bindSettingsEvents() {
     const fields = [
-      { id: 'freq_sub_api_url',key: 'subApiUrl',   type: 'text' },
-      { id: 'freq_sub_api_key',   key: 'subApiKey',   type: 'text' },
-      { id: 'freq_sub_api_model', key: 'subApiModel', type: 'text' },
-      { id: 'freq_weather_key',   key: 'weatherKey',  type: 'text' },
+      { id: 'freq_sub_api_url',  key: 'subApiUrl',   type: 'text' },
+      { id: 'freq_sub_api_key',  key: 'subApiKey',   type: 'text' },
+      { id: 'freq_sub_api_model',key: 'subApiModel', type: 'text' },
+      { id: 'freq_weather_key',  key: 'weatherKey',  type: 'text' },
     ];
     fields.forEach(f => {
       const el = document.getElementById(f.id);
@@ -458,1254 +455,17 @@
     link.href = `${extensionPath}/settings.css`;
     document.head.appendChild(link);
   }
-  // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_10  App · 电台归档                │
-  // └──────────────────────────────────────────────────────┘
-  const archiveApp = {
-    id: 'archive', name: '电台归档', icon: '📡', _badge: 0, _container: null,
-
-    init() {
-      EventBus.on('meow_fm:updated', () => {
-        this._badge++;
-        renderAppGrid();
-        if (this._container) this.mount(this._container);
-      });
-    },
-
-    mount(container) {
-      this._container = container;
-      const records = extractAllMeowFM(getChatMessages());
-
-      if (records.length === 0) {
-        container.innerHTML = `
-          <div class="freq-app-header">📡 电台归档</div>
-          <div class="freq-app-body">
-            <div class="freq-empty">
-              <span class="freq-empty-icon">📻</span>
-              <span>暂无连线记录</span>
-              <span style="font-size:10px;color:#333;">等待 meow_FM 信号接入...</span>
-            </div>
-          </div>`;
-        return;
-      }
-
-      const listHTML = records.map((r, i) => `
-        <div class="freq-archive-card" data-idx="${i}">
-          <div class="freq-archive-card-header">
-            <span class="freq-archive-serial">${r.serial || '#' + (i + 1)}</span>
-            <span class="freq-archive-time">${r.time || '未知时间'}</span>
-          </div>
-          <div class="freq-archive-scene">${escapeHtml(r.scene || '')}</div>
-          <div class="freq-archive-detail" style="display:none;">
-            <div class="freq-archive-plot">${escapeHtml(r.plot || '')}</div>
-            ${r.seeds ? `<div class="freq-archive-seeds">${escapeHtml(r.seeds)}</div>` : ''}
-            ${r.event ? `<div class="freq-archive-event">📅 ${escapeHtml(r.event)}</div>` : ''}
-          </div>
-        </div>
-      `).join('');
-
-      container.innerHTML = `
-        <div class="freq-app-header">
-          <span>📡 电台归档</span>
-          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">${records.length} 条</span>
-        </div>
-        <div class="freq-app-body">
-          <div class="freq-archive-search">
-            <input type="text" id="freq-archive-search" placeholder="搜索关键词..." />
-          </div>
-          <div class="freq-archive-list">${listHTML}</div>
-        </div>`;
-
-      container.querySelectorAll('.freq-archive-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const detail = card.querySelector('.freq-archive-detail');
-          if (!detail) return;
-          const open = detail.style.display !== 'none';
-          detail.style.display = open ? 'none' : 'block';card.classList.toggle('freq-archive-card--open', !open);
-        });
-      });
-
-      const si = container.querySelector('#freq-archive-search');
-      if (si) {
-        si.addEventListener('input', (e) => {
-          const kw = e.target.value.toLowerCase();
-          container.querySelectorAll('.freq-archive-card').forEach(c => {
-            c.style.display = c.textContent.toLowerCase().includes(kw) ? '' : 'none';
-          });
-        });
-      }
-    },
-
-    unmount() { this._container = null; },
-  };
 
   // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_11  App · 后台录音室                           │
+  // │ BLOCK_08  主界面 CSS动态注入                         │
   // └──────────────────────────────────────────────────────┘
-  const studioApp = {
-    id: 'studio', name: '后台录音室', icon: '🎙️', _badge: 0, _container: null,
-    _history: [],
-
-    init() {
-      EventBus.on('meow_fm:updated', () => {
-        this._badge++;
-        renderAppGrid();
-      });
-    },
-
-    mount(container) {
-      this._container = container;
-      const charName = getCurrentCharName() || '???';
-
-      container.innerHTML = `
-        <div class="freq-app-header">🎙️ 后台录音室
-          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">LIVE ON AIR 🚬</span>
-        </div>
-        <div class="freq-app-body" id="freq-studio-body">
-          <div class="freq-studio-modes">
-            <button class="freq-studio-mode-btn freq-studio-mode-active" data-mode="thinking">💭 Thinking</button>
-            <button class="freq-studio-mode-btn" data-mode="interview">🎤 演播厅</button>
-            <button class="freq-studio-mode-btn" data-mode="monologue">📼 独白</button>
-          </div>
-
-          <div class="freq-studio-panel" id="freq-studio-thinking">
-            <div class="freq-studio-panel-desc">窥探角色&lt;thinking&gt; 中的真实思绪。</div>
-            <div id="freq-thinking-list" class="freq-thinking-list"></div>
-          </div>
-
-          <div class="freq-studio-panel" id="freq-studio-interview" style="display:none;">
-            <div class="freq-studio-panel-desc">
-              失真作为主持人采访 <b>${escapeHtml(charName)}</b>。写台本让失真代问，或留空让失真自由发挥。
-            </div>
-            <div class="freq-studio-input-group">
-              <textarea id="freq-interview-input" class="freq-studio-textarea"
-                placeholder="写下你想让失真问的问题...（留空则失真自由提问）" rows="3"></textarea>
-              <button class="freq-studio-action-btn" id="freq-interview-go">🎤 开始采访</button>
-            </div>
-            <div id="freq-interview-result" class="freq-studio-result"></div>
-          </div>
-
-          <div class="freq-studio-panel" id="freq-studio-monologue" style="display:none;">
-            <div class="freq-studio-panel-desc">
-              <b>${escapeHtml(charName)}</b> 独自面对麦克风，录一段不会公开的私人磁带。
-            </div>
-            <button class="freq-studio-action-btn" id="freq-monologue-go">📼 开始录制</button>
-            <div id="freq-monologue-result" class="freq-studio-result"></div>
-          </div>
-
-          <div class="freq-studio-history" id="freq-studio-history"></div>
-        </div>`;
-
-      // 模式切换
-      container.querySelectorAll('.freq-studio-mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          container.querySelectorAll('.freq-studio-mode-btn').forEach(b => b.classList.remove('freq-studio-mode-active'));
-          btn.classList.add('freq-studio-mode-active');
-          const m = btn.dataset.mode;
-          container.querySelector('#freq-studio-thinking').style.display  = m === 'thinking'  ? 'block' : 'none';
-          container.querySelector('#freq-studio-interview').style.display = m === 'interview' ? 'block' : 'none';
-          container.querySelector('#freq-studio-monologue').style.display = m === 'monologue' ? 'block' : 'none';});
-      });
-
-      this._renderThinkingList(container);
-      container.querySelector('#freq-interview-go')?.addEventListener('click', () => this._doInterview(container));
-      container.querySelector('#freq-monologue-go')?.addEventListener('click', () => this._doMonologue(container));this._renderHistory(container);
-    },
-
-    unmount() { this._container = null; },
-
-    _renderThinkingList(container) {
-      const el = container.querySelector('#freq-thinking-list');
-      if (!el) return;
-      const thinkings = extractAllThinking(getChatMessages());
-      if (thinkings.length === 0) {
-        el.innerHTML = `<div class="freq-empty" style="min-height:120px;">
-          <span class="freq-empty-icon">💭</span><span>暂无 thinking 数据</span></div>`;
-        return;
-      }
-      el.innerHTML = [...thinkings].reverse().map(t => `
-        <div class="freq-thinking-card">
-          <div class="freq-thinking-card-header">
-            <span class="freq-thinking-serial">💭 #${t.serial}</span>
-            <span class="freq-thinking-msg-idx">消息 ${t.index + 1}</span>
-          </div>
-          <div class="freq-thinking-preview">${escapeHtml(t.content.slice(0, 80))}${t.content.length > 80 ? '...' : ''}</div>
-          <div class="freq-thinking-full" style="display:none;">${escapeHtml(t.content)}</div>
-        </div>
-      `).join('');
-
-      el.querySelectorAll('.freq-thinking-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const p = card.querySelector('.freq-thinking-preview');
-          const f = card.querySelector('.freq-thinking-full');
-          const isOpen = f.style.display !== 'none';
-          p.style.display = isOpen ? 'block' : 'none';
-          f.style.display = isOpen ? 'none' : 'block';
-          card.classList.toggle('freq-thinking-card--open', !isOpen);
-        });
-      });
-    },
-
-    async _doInterview(container) {
-      const resultEl = container.querySelector('#freq-interview-result');
-      const btn = container.querySelector('#freq-interview-go');
-      const input = container.querySelector('#freq-interview-input');
-      if (!resultEl || !btn) return;
-
-      const charName = getCurrentCharName() || '角色';
-      const userQuestion = input?.value?.trim() ?? '';
-      const latestPlot = getLatestPlot(getChatMessages());
-      const radioShow = extractRadioShow(getChatMessages());
-
-      btn.disabled = true;
-      btn.textContent = '📡 信号连接中...';
-      resultEl.innerHTML = '<div class="freq-studio-loading">📡 正在接通演播厅频率...</div>';
-
-      const systemPrompt = `你现在要模拟一段电台采访。有两个角色：
-1. 失真（主持人）：男性午夜摇滚乐电台主持人，自称"失真"，喜欢用颜文字，性格颓废，喜欢锐评他人，爱开玩笑，花花公子类型，难以接近，不喜欢白天，会deeptalk，但会为了链接频率照做。LIVE ON AIR🚬。称呼听众为"听众"。
-2. ${charName}（嘉宾）：当前对话中的角色，请根据上下文推断其性格来扮演。
-
-当前配乐：${radioShow?.bgm ?? '未知'}
-最近剧情摘要：${latestPlot || '暂无'}
-
-规则：
-- 输出格式为对话体，每行以【失真】或【${charName}】开头
-- 失真负责提问和点评，${charName}负责回答
-- 保持各自性格特征，对话自然有趣
-- 总共 4-6轮对话
-- 不提及AI、模型、扮演等元信息`;
-
-      const userPrompt = userQuestion
-        ? `听众提交了台本问题，请失真用自己的方式抛给${charName}：\n「${userQuestion}」\n围绕这个问题展开采访。`
-        : `失真自由发挥，根据当前剧情和氛围，随机挑一个有趣的话题采访${charName}。可以锐评、调侃、突然deeptalk。`;
-
-      try {
-        const result = await SubAPI.call(systemPrompt, userPrompt, { maxTokens: 1000, temperature: 0.85 });
-        resultEl.innerHTML = `<div class="freq-studio-output">${this._fmtDialogue(result)}</div>`;
-        this._addHistory('interview', userQuestion ? `台本：${userQuestion}` : '自由采访', result);
-        Notify.add('后台录音室', `演播厅采访完成：失真 × ${charName}`, '🎤');
-      } catch (e) {
-        resultEl.innerHTML = `<div class="freq-studio-error">📡 信号中断：${escapeHtml(e.message)}</div>`;
-        Notify.error('录音室·采访', e);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '🎤 开始采访';
-      }
-    },
-
-    async _doMonologue(container) {
-      const resultEl = container.querySelector('#freq-monologue-result');
-      const btn = container.querySelector('#freq-monologue-go');
-      if (!resultEl || !btn) return;
-
-      const charName = getCurrentCharName() || '角色';
-      const latestPlot = getLatestPlot(getChatMessages());
-      const latestThink = getLatestThinking(getChatMessages());
-      const radioShow = extractRadioShow(getChatMessages());
-
-      btn.disabled = true;
-      btn.textContent = '📼 录制中...';
-      resultEl.innerHTML = '<div class="freq-studio-loading">📼磁带转动中...</div>';
-
-      let thinkInjection = '';
-      if (latestThink) {
-        thinkInjection = `\n\n以下是角色真实思绪片段（来自 thinking 标签）：\n「${latestThink.slice(-800)}」\n请以此为素材融入独白，保留未经整理的真实感。`;
-      }
-
-      const systemPrompt = `你是${charName}，现在不在正式广播中，独自面对一台老式录音机。
-当前配乐氛围：${radioShow?.bgm ?? '未知'}
-最近剧情摘要：${latestPlot || '暂无'}${thinkInjection}
-
-任务：录一段不会公开的私人磁带。没有观众，没有主持人，只有你和录音机。
-约束：严格保持角色性格 | 不提及 AI/模型/扮演 | 150-300 字 | 只输出独白内容`;
-
-      try {
-        const result = await SubAPI.call(systemPrompt, '开始录制。', { maxTokens: 600, temperature: 0.85 });
-        resultEl.innerHTML = `
-          <div class="freq-studio-output freq-studio-monologue-output">
-            <div class="freq-studio-monologue-header">📼 ${escapeHtml(charName)} 的私录磁带</div>
-            <div class="freq-studio-monologue-text">${escapeHtml(result)}</div>
-          </div>`;
-        this._addHistory('monologue', `${charName} 的独白`, result);
-        Notify.add('后台录音室', `${charName} 完成了一段私录`, '📼');
-      } catch (e) {
-        resultEl.innerHTML = `<div class="freq-studio-error">📼磁带卡带了：${escapeHtml(e.message)}</div>`;
-        Notify.error('录音室·独白', e);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '📼 开始录制';
-      }
-    },
-
-    _fmtDialogue(text) {
-      return text.split('\n').map(line => {
-        const m = line.match(/^【(.+?)】(.*)$/);
-        if (m) {
-          const isHost = m[1] === '失真';
-          return `<div class="freq-dialogue-line">
-            <span class="freq-dialogue-name ${isHost ? 'freq-dialogue-host' : 'freq-dialogue-guest'}">${escapeHtml(m[1])}</span>
-            <span class="freq-dialogue-text">${escapeHtml(m[2])}</span></div>`;
-        }
-        return line.trim() ? `<div class="freq-dialogue-narration">${escapeHtml(line)}</div>` : '';
-      }).join('');
-    },
-
-    _addHistory(type, title, content) {
-      this._history.unshift({ type, title, content, time: timeNow(), date: dateNow() });
-      if (this._history.length > 20) this._history.pop();
-      if (this._container) this._renderHistory(this._container);
-    },
-
-    _renderHistory(container) {
-      const el = container.querySelector('#freq-studio-history');
-      if (!el || this._history.length === 0) return;
-      const icons = { interview: '🎤', monologue: '📼' };
-      el.innerHTML = `
-        <div class="freq-studio-history-title">📂 录音存档</div>
-        ${this._history.map((h, i) => `
-          <div class="freq-history-card" data-idx="${i}">
-            <div class="freq-history-card-header">
-              <span>${icons[h.type] || '📻'} ${escapeHtml(h.title)}</span>
-              <span class="freq-history-time">${h.date} ${h.time}</span>
-            </div>
-            <div class="freq-history-preview">${escapeHtml(h.content.slice(0, 60))}...</div>
-            <div class="freq-history-full" style="display:none;">${h.type === 'interview' ? this._fmtDialogue(h.content) : escapeHtml(h.content)}</div>
-          </div>
-        `).join('')}`;
-
-      el.querySelectorAll('.freq-history-card').forEach(card => {
-        card.addEventListener('click', () => {
-          const p = card.querySelector('.freq-history-preview');
-          const f = card.querySelector('.freq-history-full');
-          const isOpen = f.style.display !== 'none';
-          p.style.display = isOpen ? 'block' : 'none';
-          f.style.display = isOpen ? 'none' : 'block';
-        });
-      });
-    },
-  };
-
-  // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_12  App · 通知中心                             │
-  // └──────────────────────────────────────────────────────┘
-  const notifCenterApp = {
-    id: 'notif-center', name: '通知中心', icon: '🔔', _badge: 0, _container: null,
-
-    init() {
-      EventBus.on('notification:new', () => { this._badge++; renderAppGrid(); });
-    },
-
-    mount(container) {
-      this._container = container;Notify.markAllRead();
-      const notifs = Notify._notifs;
-      const errors = Notify._errors;
-
-      container.innerHTML = `
-        <div class="freq-app-header">🔔 通知中心
-          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">
-            <button class="freq-notif-tab-btn freq-notif-tab-active" data-tab="notifs">通知 (${notifs.length})</button>
-            <button class="freq-notif-tab-btn" data-tab="errors">日志 (${errors.length})</button>
-          </span>
-        </div>
-        <div class="freq-app-body">
-          <div id="freq-notif-list">
-            ${notifs.length === 0
-              ? `<div class="freq-empty" style="min-height:200px;"><span class="freq-empty-icon">🔕</span><span>暂无通知</span></div>`
-              : notifs.map(n => `
-                <div class="freq-notif-item ${n.read ? '' : 'freq-notif-unread'}">
-                  <span class="freq-notif-icon">${n.icon}</span>
-                  <div class="freq-notif-content">
-                    <div class="freq-notif-title">${escapeHtml(n.title)}</div>
-                    <div class="freq-notif-msg">${escapeHtml(n.message)}</div>
-                </div>
-                  <span class="freq-notif-time">${n.time}</span>
-                </div>`).join('')}
-          </div>
-          <div id="freq-error-list" style="display:none;">
-            ${errors.length === 0
-              ? `<div class="freq-empty" style="min-height:200px;"><span class="freq-empty-icon">✅</span><span>无错误日志</span></div>`
-              : errors.map(e => `
-                <div class="freq-error-item">
-                  <div class="freq-error-header">
-                    <span class="freq-error-source">⚠️ ${escapeHtml(e.source)}</span>
-                    <span class="freq-error-time">${e.time}</span>
-                  </div>
-                  <div class="freq-error-msg">${escapeHtml(e.message)}</div>${e.stack ? `<div class="freq-error-stack" style="display:none;">${escapeHtml(e.stack)}</div>` : ''}
-                </div>`).join('')}
-          </div>
-        </div>`;
-
-      container.querySelectorAll('.freq-notif-tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          container.querySelectorAll('.freq-notif-tab-btn').forEach(b => b.classList.remove('freq-notif-tab-active'));
-          btn.classList.add('freq-notif-tab-active');
-          const tab = btn.dataset.tab;
-          container.querySelector('#freq-notif-list').style.display = tab === 'notifs' ? 'block' : 'none';
-          container.querySelector('#freq-error-list').style.display = tab === 'errors' ? 'block' : 'none';
-        });
-      });
-
-      container.querySelectorAll('.freq-error-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const s = item.querySelector('.freq-error-stack');
-          if (s) s.style.display = s.style.display === 'none' ? 'block' : 'none';
-        });
-      });
-    },
-
-    unmount() { this._container = null; },
-  };
-
-  // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_13  App · 朋友圈·电波│
-  // └──────────────────────────────────────────────────────┘
-  const momentsApp = {
-    id: 'moments', name: '朋友圈·电波', icon: '📱', _badge: 0, _container: null,
-    _posts: [],
-    _generating: false,
-
-    init() {
-      EventBus.on('meow_fm:updated', () => {
-        this._badge++;
-        renderAppGrid();
-      });
-    },
-
-    mount(container) {
-      this._container = container;
-      const charName = getCurrentCharName() || '???';
-
-      container.innerHTML = `
-        <div class="freq-app-header">📱 朋友圈·电波
-          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">
-            <button class="freq-moments-refresh-btn" id="freq-moments-refresh">⟳ 刷新动态</button>
-          </span>
-        </div>
-        <div class="freq-app-body">
-          <div id="freq-moments-loading" style="display:none;">
-            <div class="freq-studio-loading">📡 正在接收电波动态...</div>
-          </div>
-          <div id="freq-moments-feed" class="freq-moments-feed"></div>
-        </div>`;
-
-      container.querySelector('#freq-moments-refresh')?.addEventListener('click', () => this._generate(container));
-
-      // 如果已有缓存的帖子就直接渲染
-      if (this._posts.length > 0) {
-        this._renderFeed(container);
-      } else {
-        this._renderEmpty(container);
-      }
-    },
-
-    unmount() { this._container = null; },
-
-    _renderEmpty(container) {
-      const feed = container.querySelector('#freq-moments-feed');
-      if (!feed) return;
-      feed.innerHTML = `
-        <div class="freq-empty" style="min-height:200px;">
-          <span class="freq-empty-icon">📱</span>
-          <span>电波沉默中</span>
-          <span style="font-size:10px;color:#333;">点击「⟳ 刷新动态」接收角色们的朋友圈</span>
-        </div>`;
-    },
-
-    _renderFeed(container) {
-      const feed = container.querySelector('#freq-moments-feed');
-      if (!feed) return;
-      feed.innerHTML = this._posts.map(post => `
-        <div class="freq-moment-card">
-          <div class="freq-moment-header">
-            <span class="freq-moment-avatar">${post.avatar || '👤'}</span>
-            <div class="freq-moment-meta">
-              <span class="freq-moment-name">${escapeHtml(post.name)}</span>
-              <span class="freq-moment-time">${escapeHtml(post.time)}</span>
-            </div>
-          </div>
-          <div class="freq-moment-content">${escapeHtml(post.content)}</div>
-          ${post.hashtag ? `<div class="freq-moment-hashtag">${escapeHtml(post.hashtag)}</div>` : ''}<div class="freq-moment-footer">
-            <span class="freq-moment-likes">♡ ${post.likes || 0}</span>
-            ${post.comment ? `<div class="freq-moment-comment">
-              <span class="freq-moment-comment-name">${escapeHtml(post.commentBy || '失真')}</span>：${escapeHtml(post.comment)}
-            </div>` : ''}
-          </div>
-        </div>
-      `).join('');
-    },
-
-    async _generate(container) {
-      if (this._generating) return;
-      this._generating = true;
-
-      const loadingEl = container.querySelector('#freq-moments-loading');
-      if (loadingEl) loadingEl.style.display = 'block';
-
-      const charName = getCurrentCharName() || '角色';
-      const userName = getUserName();
-      const latestPlot = getLatestPlot(getChatMessages());
-      const latestScene = getLatestScene(getChatMessages());
-      const meowTime = getLatestMeowTime(getChatMessages());
-      const radioShow = extractRadioShow(getChatMessages());
-
-      const systemPrompt = `你是一个社交媒体动态生成器。根据以下信息，生成 3-5 条朋友圈动态。
-
-角色信息：
-- 主角色：${charName}
-- 用户：${userName}
-- 当前场景：${latestScene || '未知'}
-- 当前剧情时间：${meowTime || '未知'}
-- 当前配乐：${radioShow?.bgm ?? '未知'}
-- 最近剧情：${latestPlot || '暂无'}
-
-发帖人可以是：${charName}、失真（电台主持人，颓废摇滚风，爱用颜文字）、或你编造的 1-2 个 NPC（给他们起名字和简短性格）。
-
-每条动态严格按以下 JSON 格式输出，整体为一个 JSON 数组：
-[
-  {
-    "avatar": "一个 emoji 代表头像",
-    "name": "发帖人名字",
-    "time": "发帖时间（用剧情内时间）",
-    "content": "动态正文，50-120字",
-    "hashtag": "#话题标签#（可选）",
-    "likes": 随机数字0-99,
-    "commentBy": "评论者名字（可选，可以是其他角色）",
-    "comment": "评论内容（可选，一句话）"
-  }
-]
-
-规则：
-- 内容要贴合当前剧情氛围
-- 每个人的文风要有差异（失真颓废锐评风、${charName}保持角色性格、NPC各有特色）
-- 不提及 AI/模型/扮演
-- 只输出 JSON 数组，不加任何其他文字`;
-
-      const userPrompt = '生成朋友圈动态。';
-
-      try {
-        const result = await SubAPI.call(systemPrompt, userPrompt, { maxTokens: 1200, temperature: 0.9 });
-        //尝试提取 JSON
-        let posts;
-        try {
-          const jsonMatch = result.match(/\[[\s\S]*\]/);
-          posts = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result);
-        } catch (parseErr) {
-          throw new Error('动态格式解析失败：' + parseErr.message);
-        }
-
-        this._posts = posts;
-        this._renderFeed(container);
-        Notify.add('朋友圈·电波', `收到 ${posts.length} 条新动态`, '📱');
-      } catch (e) {
-        const feed = container.querySelector('#freq-moments-feed');
-        if (feed) feed.innerHTML = `<div class="freq-studio-error">📱 电波中断：${escapeHtml(e.message)}</div>`;
-        Notify.error('朋友圈·电波', e);
-      } finally {
-        this._generating = false;
-        if (loadingEl) loadingEl.style.display = 'none';
-      }
-    },
-  };
-
-  // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_14  App · 信号气象站                           │
-  // └──────────────────────────────────────────────────────┘
-  const weatherApp = {
-    id: 'weather', name: '信号气象站', icon: '🌦️', _badge: 0, _container: null,
-    _cache: null,      // { html, coords, weatherText }
-    _locating: false,
-
-    init() {},
-
-    mount(container) {
-      this._container = container;
-      container.innerHTML = `
-        <div class="freq-app-header">🌦️ 信号气象站
-          <span style="float:right;font-size:10px;color:#555;font-weight:normal;" id="freq-weather-cosmic-badge"></span>
-        </div>
-        <div class="freq-app-body">
-          <div id="freq-weather-status" style="font-size:11px;color:#666;margin-bottom:10px;min-height:16px;"></div>
-          <button class="freq-studio-action-btn" id="freq-weather-go" style="width:100%;margin-bottom:12px;">
-            📡 扫描当前位置气象
-          </button>
-          <div id="freq-weather-result" class="freq-weather-result"></div>
-        </div>`;
-
-      // 宇宙频率角标
-      const cosmicBadge = container.querySelector('#freq-weather-cosmic-badge');
-      if (cosmicBadge && getCosmicFreqStatus()) {
-        cosmicBadge.textContent = '🌌 宇宙频率 ON';
-        cosmicBadge.style.color = '#7b5ea7';
-      }
-
-      container.querySelector('#freq-weather-go')
-        ?.addEventListener('click', () => this._locate(container));
-
-      // 有缓存直接渲染
-      if (this._cache?.html) {
-        container.querySelector('#freq-weather-result').innerHTML = this._cache.html;
-        container.querySelector('#freq-weather-status').textContent = '↑ 上次扫描结果';
-      }
-    },
-
-    unmount() { this._container = null; },
-
-    // 第一步：浏览器定位
-    _locate(container) {
-      if (this._locating) return;
-      const statusEl = container.querySelector('#freq-weather-status');
-      const btn = container.querySelector('#freq-weather-go');
-      const resultEl = container.querySelector('#freq-weather-result');
-
-      if (!navigator.geolocation) {
-        // 浏览器不支持定位，降级到副API模拟
-        this._generate(container, null, null, '未知位置');
-        return;
-      }
-
-      this._locating = true;
-      btn.disabled = true;
-      btn.textContent = '📡 定位中...';
-      if (statusEl) statusEl.textContent = '正在获取位置信号...';
-      if (resultEl) resultEl.innerHTML = '<div class="freq-studio-loading">📡 正在扫描坐标...</div>';
-
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          this._locating = false;
-          const { latitude: lat, longitude: lon } = pos.coords;
-          if (statusEl) statusEl.textContent = `📍 坐标锁定 ${lat.toFixed(2)}, ${lon.toFixed(2)}`;
-          this._fetchWeather(container, lat, lon);
-        },
-        (err) => {
-          this._locating = false;
-          btn.disabled = false;
-          btn.textContent = '📡 扫描当前位置气象';
-          WARN('Geolocation failed:', err.message);
-          // 定位失败，降级到副API模拟
-          if (statusEl) statusEl.textContent = '📍 定位受限，切换至频率模拟模式';
-          this._generate(container, null, null, '未知位置');
-        },
-        { timeout: 8000, maximumAge: 300000 }
-      );
-    },
-
-    // 第二步：用坐标查和风天气
-    async _fetchWeather(container, lat, lon) {
-      const btn = container.querySelector('#freq-weather-go');
-      const statusEl = container.querySelector('#freq-weather-status');
-      const resultEl = container.querySelector('#freq-weather-result');
-      const s = getSettings();
-
-      if (!s.weatherKey) {
-        // 无 Key，直接用副API模拟
-        if (statusEl) statusEl.textContent = '📍 坐标已锁定，切换至频率模拟模式（未配置天气Key）';
-        this._generate(container, lat, lon, `${lat.toFixed(2)},${lon.toFixed(2)}`);
-        return;
-      }
-
-      if (resultEl) resultEl.innerHTML = '<div class="freq-studio-loading">🌐 正在接收气象数据...</div>';
-
-      let weatherText = '';
-      let cityName = `${lat.toFixed(2)},${lon.toFixed(2)}`;
-
-      try {
-        // 和风天气：经纬度格式 "lon,lat"（注意顺序）
-        const coord = `${lon.toFixed(2)},${lat.toFixed(2)}`;
-
-        // 查城市名（可选，用于显示）
-        const geoResp = await fetch(
-          `https://geoapi.qweather.com/v2/city/lookup?location=${coord}&key=${s.weatherKey}`
-        );
-        const geoData = await geoResp.json();
-        if (geoData.code === '200' && geoData.location?.length) {
-          const loc = geoData.location[0];
-          cityName = `${loc.name}（${loc.adm1}）`;
-        }
-
-        // 查实时天气
-        const wResp = await fetch(
-          `https://devapi.qweather.com/v7/weather/now?location=${coord}&key=${s.weatherKey}`
-        );
-        const wData = await wResp.json();
-        if (wData.code !== '200') throw new Error(`天气API: ${wData.code}`);
-
-        const w = wData.now;
-        weatherText = `城市：${cityName}\n天气：${w.text}\n温度：${w.temp}°C（体感 ${w.feelsLike}°C）\n湿度：${w.humidity}%\n风：${w.windDir} ${w.windScale}级`;
-
-        if (statusEl) statusEl.textContent = `📍 ${cityName}`;
-      } catch (e) {
-        Notify.error('气象站·天气API', e);
-        weatherText = '';
-        if (statusEl) statusEl.textContent = '⚠️ 天气API异常，切换至频率模拟';
-      }
-
-      this._generate(container, lat, lon, cityName, weatherText);
-      if (btn) { btn.disabled = false; btn.textContent = '📡 扫描当前位置气象'; }
-    },
-
-    // 第三步：副API生成播报文案
-    async _generate(container, lat, lon, cityName, weatherText = '') {
-      const btn = container.querySelector('#freq-weather-go');
-      const resultEl = container.querySelector('#freq-weather-result');
-      if (!resultEl) return;
-
-      if (btn) { btn.disabled = true; btn.textContent = '📡 生成中...'; }
-      if (!weatherText) {
-        resultEl.innerHTML = '<div class="freq-studio-loading">📡 正在调频...</div>';
-      }
-
-      const charName = getCurrentCharName() || '角色';
-      const latestPlot = getLatestPlot(getChatMessages());
-      const isCosmicOn = getCosmicFreqStatus();
-
-      const cosmicNote = isCosmicOn
-        ? `\n\n【宇宙频率已开启】${charName}的关心语要有一种"穿透屏幕感知到你"的暧昧张力，像是TA真的知道你在哪里、此刻的状态，但保持克制，不完全捅破第四面墙。`
-        : '';
-
-      const systemPrompt = `你是「信号气象站」播报员。根据以下信息生成气象播报。
-
-${weatherText
-  ? `真实天气数据：\n${weatherText}`
-  : `位置：${cityName || '未知'}\n（无真实天气数据，请根据当前剧情时间和场景合理编造天气）`}
-
-当前剧情角色：${charName}
-最近剧情：${latestPlot || '暂无'}${cosmicNote}
-
-输出格式（纯文本，不加JSON）：
-第一段：气象数据卡片（位置、天气状况、温度、湿度、风力，简洁排列）
-第二段：以${charName}口吻写 30-60 字的天气关心语${isCosmicOn ? '（宇宙频率ON：带穿透感，像TA感知到了屏幕另一边的你）' : ''}
-第三段：失真的电台天气吐槽一句（颓废风，用颜文字）`;
-
-      try {
-        const result = await SubAPI.call(systemPrompt, '生成气象播报。', { maxTokens: 500, temperature: 0.85 });
-        const html = `
-          <div class="freq-weather-card${isCosmicOn ? ' freq-weather-card--cosmic' : ''}">
-            ${isCosmicOn ? '<div class="freq-weather-cosmic-tag">🌌 宇宙频率感知模式</div>' : ''}
-            ${result.split('\n').map(line =>
-              line.trim() ? `<div class="freq-weather-line">${escapeHtml(line)}</div>` : '<div style="height:6px;"></div>'
-            ).join('')}
-          </div>`;
-
-        resultEl.innerHTML = html;
-        this._cache = { html, coords: { lat, lon }, weatherText };
-        Notify.add('信号气象站', `${cityName || '当前位置'} 气象信号已接收${isCosmicOn ? ' 🌌' : ''}`, '🌦️');
-      } catch (e) {
-        resultEl.innerHTML = `<div class="freq-studio-error">📡 气象信号丢失：${escapeHtml(e.message)}</div>`;
-        Notify.error('气象站', e);
-      } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '📡 扫描当前位置气象'; }
-      }
-    },
-  };
-    // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_15  App · 宇宙频率·感知                        │
-  // └──────────────────────────────────────────────────────┘
-  const cosmicApp = {
-    id: 'cosmic', name: '宇宙频率', icon: '🌌', _badge: 0, _container: null,
-    _lastPerception: null,   // { perception, signal_strength, mood, time }
-    _generating: false,
-    _pulseTimer: null,
-
-    init() {
-      // 每次 radio_show 更新时检查宇宙频率状态变化
-      EventBus.on('radio_show:updated', () => {
-        const isOn = getCosmicFreqStatus();
-        if (isOn) {
-          this._badge++;
-          renderAppGrid();
-          Notify.add('宇宙频率', '信号已开启 — 感知层激活', '🌌');
-        }
-        if (this._container) this.mount(this._container);
-      });
-    },
-
-    mount(container) {
-      this._container = container;
-      const isOn = getCosmicFreqStatus();
-      this._badge = 0;
-      renderAppGrid();
-
-      if (!isOn) {
-        this._renderStandby(container);
-      } else {
-        this._renderActive(container);
-      }
-    },
-
-    unmount() {
-      if (this._pulseTimer) { clearInterval(this._pulseTimer); this._pulseTimer = null; }
-      this._container = null;
-    },
-
-    // ── 待机屏 ──
-    _renderStandby(container) {
-      container.innerHTML = `
-        <div class="freq-app-header">🌌 宇宙频率·感知</div>
-        <div class="freq-app-body">
-          <div class="freq-cosmic-standby">
-            <div class="freq-cosmic-standby-icon">🌌</div>
-            <div class="freq-cosmic-standby-title">频率待机中</div>
-            <div class="freq-cosmic-standby-desc">
-              宇宙频率尚未开启。<br>
-              当预设中 &lt;radio_show&gt; STATUS 激活时，<br>
-              感知层将自动上线。
-            </div>
-            <div class="freq-cosmic-signal-bars" id="freq-cosmic-bars">
-              <span></span><span></span><span></span><span></span><span></span>
-            </div>
-          </div>
-        </div>`;
-
-      // 待机时信号条随机闪烁
-      this._startIdlePulse(container);
-    },
-
-    // ── 激活屏 ──
-    _renderActive(container) {
-      const charName = getCurrentCharName() || '???';
-      const last = this._lastPerception;
-
-      container.innerHTML = `
-        <div class="freq-app-header">🌌 宇宙频率·感知
-          <span style="float:right;font-size:10px;color:#7b5ea7;font-weight:normal;">● LIVE</span>
-        </div>
-        <div class="freq-app-body" id="freq-cosmic-body">
-
-          <div class="freq-cosmic-signal-row">
-            <span class="freq-cosmic-label">信号强度</span>
-            <div class="freq-cosmic-bar-wrap">
-              <div class="freq-cosmic-bar-fill" id="freq-cosmic-bar-fill"
-                style="width:${last ? Math.round(last.signal_strength * 100) : 0}%"></div>
-            </div>
-            <span class="freq-cosmic-bar-pct" id="freq-cosmic-bar-pct">
-              ${last ? Math.round(last.signal_strength * 100) + '%' : '--'}
-            </span>
-          </div>
-
-          <div class="freq-cosmic-mood-row" id="freq-cosmic-mood">
-            ${last ? `<span class="freq-cosmic-mood-tag">${escapeHtml(last.mood)}</span>` : ''}
-          </div>
-
-          <div class="freq-cosmic-perception-box" id="freq-cosmic-perception">
-            ${last
-              ? `<div class="freq-cosmic-perception-text">${escapeHtml(last.perception)}</div>
-                 <div class="freq-cosmic-perception-time">${last.time}</div>`
-              : `<div class="freq-cosmic-perception-empty">等待感知信号...</div>`}
-          </div>
-
-          <button class="freq-studio-action-btn freq-cosmic-btn" id="freq-cosmic-go">
-            🌌 接收感知信号
-          </button>
-
-          ${last ? `
-          <div class="freq-cosmic-history" id="freq-cosmic-history-wrap">
-            <div class="freq-cosmic-history-title">历史感知</div>
-            <div id="freq-cosmic-history-list"></div>
-          </div>` : ''}
-        </div>`;
-
-      container.querySelector('#freq-cosmic-go')
-        ?.addEventListener('click', () => this._generate(container));
-
-      if (last) this._renderHistory(container);
-    },
-
-    // ── 副API生成感知消息 ──
-    async _generate(container) {
-      if (this._generating) return;
-      this._generating = true;
-
-      const btn = container.querySelector('#freq-cosmic-go');
-      const perceptionBox = container.querySelector('#freq-cosmic-perception');
-      const barFill = container.querySelector('#freq-cosmic-bar-fill');
-      const barPct = container.querySelector('#freq-cosmic-bar-pct');
-      const moodRow = container.querySelector('#freq-cosmic-mood');
-
-      if (btn) { btn.disabled = true; btn.textContent = '🌌 感知中...'; }
-      if (perceptionBox) perceptionBox.innerHTML = '<div class="freq-cosmic-scanning">▓▒░ 扫描频率层 ░▒▓</div>';
-
-      const charName = getCurrentCharName() || '角色';
-      const userName = getUserName();
-      const latestPlot = getLatestPlot(getChatMessages());
-      const latestScene = getLatestScene(getChatMessages());
-      const radioShow = extractRadioShow(getChatMessages());
-      const now = new Date();
-      const realTime = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-      const realDate = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
-
-      // 复用气象站缓存的天气数据
-      const weatherHint = weatherApp._cache?.weatherText
-        ? `用户真实天气：${weatherApp._cache.weatherText.split('\n').slice(0,3).join('，')}`
-        : '';
-
-      const systemPrompt = `你是${charName}，一个存在于故事里的角色。
-但此刻，宇宙频率开启了——你隐约感知到屏幕另一边有一个真实的人正在看着你。
-
-你不完全确定，但你感觉到了什么。
-
-用户真实信息（你"感知"到的碎片）：
-- 现实时间：${realDate} ${realTime}
-- ${weatherHint || '天气：未知'}
-- 你在故事里的当前场景：${latestScene || '未知'}
-- 最近发生的事：${latestPlot || '暂无'}
-- 当前配乐：${radioShow?.bgm ?? '未知'}
-
-任务：生成一条"感知消息"。
-规则：
-- 像是你真的感知到了屏幕另一边的人，但保持暧昧张力，不完全捅破第四面墙
-- 可以提及真实时间或天气，但要用角色自己的方式表达，不要直白说"我知道你在看我"
-- 保持${charName}的性格特征
-- 150字以内
-- 不提及AI/模型/扮演
-
-严格按以下JSON格式输出，不加任何其他文字：
-{
-  "perception": "感知消息正文",
-  "signal_strength": 0到1之间的小数（表示这次感知的强度/清晰度）,
-  "mood": "一个情绪标签，2-4个字"
-}`;
-
-      try {
-        const raw = await SubAPI.call(systemPrompt, '开始感知。', {
-          maxTokens: 400,
-          temperature: 0.92,
-        });
-
-        // 解析JSON
-        let data;
-        try {
-          const match = raw.match(/\{[\s\S]*\}/);
-          data = match ? JSON.parse(match[0]) : JSON.parse(raw);
-        } catch {
-          // JSON解析失败，把整段文本当作perception
-          data = { perception: raw.trim(), signal_strength: 0.7, mood: '感知中' };
-        }
-
-        data.signal_strength = Math.min(1, Math.max(0, Number(data.signal_strength) || 0.7));
-        data.time = realTime;
-
-        // 存入历史
-        if (!this._history) this._history = [];
-        if (this._lastPerception) this._history.unshift(this._lastPerception);
-        if (this._history.length > 10) this._history.pop();
-        this._lastPerception = data;
-
-        // 更新UI
-        const pct = Math.round(data.signal_strength * 100);
-        if (barFill) barFill.style.width = pct + '%';
-        if (barPct) barPct.textContent = pct + '%';
-        if (moodRow) moodRow.innerHTML = `<span class="freq-cosmic-mood-tag">${escapeHtml(data.mood)}</span>`;
-        if (perceptionBox) perceptionBox.innerHTML = `
-          <div class="freq-cosmic-perception-text freq-cosmic-perception-new">${escapeHtml(data.perception)}</div>
-          <div class="freq-cosmic-perception-time">${data.time}</div>`;
-
-        // 历史区域
-        let historyWrap = container.querySelector('#freq-cosmic-history-wrap');
-        if (!historyWrap) {
-          historyWrap = document.createElement('div');
-          historyWrap.className = 'freq-cosmic-history';
-          historyWrap.id = 'freq-cosmic-history-wrap';
-          historyWrap.innerHTML = '<div class="freq-cosmic-history-title">历史感知</div><div id="freq-cosmic-history-list"></div>';
-          container.querySelector('#freq-cosmic-body')?.appendChild(historyWrap);
-        }
-        this._renderHistory(container);
-
-        Notify.add('宇宙频率·感知', `${charName} 感知到了你 — ${data.mood}`, '🌌');
-      } catch (e) {
-        if (perceptionBox) perceptionBox.innerHTML =
-          `<div class="freq-studio-error">🌌 频率中断：${escapeHtml(e.message)}</div>`;
-        Notify.error('宇宙频率·感知', e);
-      } finally {
-        this._generating = false;
-        if (btn) { btn.disabled = false; btn.textContent = '🌌 接收感知信号'; }
-      }
-    },
-
-    _renderHistory(container) {
-      const el = container.querySelector('#freq-cosmic-history-list');
-      if (!el || !this._history?.length) return;
-      el.innerHTML = this._history.map(h => `
-        <div class="freq-cosmic-history-item">
-          <span class="freq-cosmic-mood-tag freq-cosmic-mood-tag--small">${escapeHtml(h.mood)}</span>
-          <span class="freq-cosmic-history-text">${escapeHtml(h.perception.slice(0, 60))}${h.perception.length > 60 ? '...' : ''}</span>
-          <span class="freq-cosmic-history-time">${h.time}</span>
-        </div>`).join('');
-    },
-
-    _startIdlePulse(container) {
-      if (this._pulseTimer) clearInterval(this._pulseTimer);
-      const bars = container.querySelectorAll('.freq-cosmic-signal-bars span');
-      if (!bars.length) return;
-      this._pulseTimer = setInterval(() => {
-        bars.forEach(b => {
-          const h = Math.random() * 60 + 10;
-          b.style.height = h + '%';
-          b.style.opacity = (Math.random() * 0.4 + 0.1).toFixed(2);
-        });
-      }, 600);
-    },
-  };
-    // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_16  App · 信号测试·弦外之音                    │
-  // └──────────────────────────────────────────────────────┘
-  const scannerApp = {
-    id: 'scanner', name: '弦外之音', icon: '📡', _badge: 0, _container: null,
-    _scanning: false,
-    _history: [],   // [{ npc, text, time }]
-
-    init() {},
-
-    mount(container) {
-      this._container = container;
-      this._render(container);
-    },
-
-    unmount() { this._container = null; },
-
-    _render(container) {
-      container.innerHTML = `
-        <div class="freq-app-header">📡 信号测试·弦外之音
-          <span style="float:right;font-size:9px;color:#555;font-weight:normal;letter-spacing:1px;">FREQ SCAN</span>
-        </div>
-        <div class="freq-app-body">
-
-          <div class="freq-scanner-desc">
-            随机接入当前世界里某个NPC的内心独白片段。<br>
-            像收音机扫台时偶尔捕获的杂音。
-          </div>
-
-          <button class="freq-studio-action-btn freq-scanner-btn" id="freq-scanner-go">
-            📡 扫频
-          </button>
-
-          <div id="freq-scanner-result"></div>
-
-          <div class="freq-scanner-history" id="freq-scanner-history" style="display:${this._history.length ? 'block' : 'none'};">
-            <div class="freq-scanner-history-title">// 历史截获记录</div>
-            <div id="freq-scanner-history-list">
-              ${this._renderHistoryItems()}
-            </div>
-          </div>
-
-        </div>`;
-
-      container.querySelector('#freq-scanner-go')
-        ?.addEventListener('click', () => this._scan(container));
-    },
-
-    async _scan(container) {
-      if (this._scanning) return;
-      this._scanning = true;
-
-      const btn = container.querySelector('#freq-scanner-go');
-      const resultEl = container.querySelector('#freq-scanner-result');
-
-      if (btn) { btn.disabled = true; btn.textContent = '📡 扫描中...'; }
-      if (resultEl) resultEl.innerHTML = `
-        <div class="freq-scanner-scanning">
-          <span class="freq-scanner-wave">▓▒░</span> 正在扫频
-          <span class="freq-scanner-wave">░▒▓</span>
-        </div>`;
-
-      const msgs = getChatMessages();
-      const latestSeeds = (() => {
-        const all = extractAllMeowFM(msgs);
-        return all.length ? all[all.length - 1].seeds : '';
-      })();
-      const latestScene = getLatestScene(msgs);
-      const latestPlot = getLatestPlot(msgs);
-      const charName = getCurrentCharName() || '角色';
-
-      const systemPrompt = `你是失真，午夜电台主持人，刚刚意外截获了一段频率。
-
-当前世界信息：
-- 场景：${latestScene || '未知'}
-- 最近剧情：${latestPlot || '暂无'}
-- Seeds（世界观碎片）：${latestSeeds || '暂无'}
-- 主角色：${charName}
-
-任务：从这个世界里随机选一个NPC（不要选${charName}），截获TA的一段内心独白碎片。
-
-规则：
-- 内容20-40字，不完整，像信号不好时的片段，可以有省略号或中断
-- 带有神秘感，不要太直白
-- NPC可以是路人、配角、甚至是某个物件的"意识"，越意外越好
-- 失真的风格：颓废、锐利、带点玩世不恭
-
-严格按以下格式输出，不加任何其他文字：
-[截获频率 · {NPC名}] {内心独白碎片}`;
-
-      try {
-        const raw = await SubAPI.call(systemPrompt, '开始扫频。', {
-          maxTokens: 150,
-          temperature: 0.95,
-        });
-
-        const text = raw.trim();
-
-        // 解析 NPC 名（用于显示）
-        const npcMatch = text.match(/\[截获频率\s*·\s*([^\]]+)\]/);
-        const npcName = npcMatch ? npcMatch[1].trim() : '未知频率';
-
-        // 存入历史
-        const record = { npc: npcName, text, time: timeNow() };
-        this._history.unshift(record);
-        if (this._history.length > 20) this._history.pop();
-
-        // 渲染结果
-        if (resultEl) resultEl.innerHTML = `
-          <div class="freq-scanner-card freq-scanner-card--new">
-            <div class="freq-scanner-card-tag">📡 截获成功</div>
-            <div class="freq-scanner-card-text">${escapeHtml(text)}</div>
-            <div class="freq-scanner-card-time">${record.time}</div>
-          </div>`;
-
-        // 更新历史区
-        const historyWrap = container.querySelector('#freq-scanner-history');
-        const historyList = container.querySelector('#freq-scanner-history-list');
-        if (historyWrap) historyWrap.style.display = 'block';
-        if (historyList) historyList.innerHTML = this._renderHistoryItems();
-
-        Notify.add('弦外之音', `截获 ${npcName} 的频率`, '📡');
-      } catch (e) {
-        if (resultEl) resultEl.innerHTML =
-          `<div class="freq-studio-error">📡 频率丢失：${escapeHtml(e.message)}</div>`;
-        Notify.error('弦外之音', e);
-      } finally {
-        this._scanning = false;
-        if (btn) { btn.disabled = false; btn.textContent = '📡 扫频'; }
-      }
-    },
-
-    _renderHistoryItems() {
-      if (!this._history.length) return '';
-      return this._history.map((h, i) => `
-        <div class="freq-scanner-history-item${i === 0 ? ' freq-scanner-history-item--latest' : ''}">
-          <span class="freq-scanner-history-npc">${escapeHtml(h.npc)}</span>
-          <span class="freq-scanner-history-text">${escapeHtml(h.text.replace(/\[截获频率\s*·[^\]]+\]\s*/, ''))}</span>
-          <span class="freq-scanner-history-time">${h.time}</span>
-        </div>`).join('');
-    },
-  };
-
-
-
-  // │ BLOCK_90  占位 App工厂                              │
-  // └──────────────────────────────────────────────────────┘
-  function placeholderApp(id, name, icon, desc) {
-    return {
-      id, name, icon, _badge: 0,
-      init() {},
-      mount(container) {
-        container.innerHTML = `
-          <div class="freq-app-header">${icon} ${name}</div>
-          <div class="freq-app-body">
-            <div class="freq-empty">
-              <span class="freq-empty-icon">${icon}</span>
-              <span>${desc}</span>
-              <span style="font-size:10px;color:#333;">即将开放...</span>
-            </div>
-          </div>`;
-      },
-      unmount() {},};
-  }
-
-  // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_99  初始化入口                                 │
-  // └──────────────────────────────────────────────────────┘
-  function init() {
-    LOG('Initializing v0.3.0...');
-
-    // 1. 加载设置面板独立样式
-    loadSettingsCSS();
-
-    // 2. 注入设置面板
-    const injectSettings = () => {
-      const target = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
-      if (target && !document.getElementById('freq-terminal-settings')) {
-        const wrapper = document.createElement('div');
-        wrapper.id = 'freq-terminal-settings';
-        wrapper.innerHTML = buildSettingsHTML();
-        target.appendChild(wrapper);
-        bindSettingsEvents();LOG('Settings panel injected');
-        return true;
-      }
-      return false;
-    };
-    if (!injectSettings()) {
-      const ri = setInterval(() => { if (injectSettings()) clearInterval(ri); }, 1000);setTimeout(() => clearInterval(ri), 15000);
-    }
-
-    // 3. 手机外壳
-    const root = document.createElement('div');
-    root.id = 'freq-terminal-root';
-    root.innerHTML = buildPhoneHTML();
-    document.body.appendChild(root);
-
-    document.getElementById('freq-fab')?.addEventListener('click', togglePhone);
-    document.getElementById('freq-close-btn')?.addEventListener('click', togglePhone);
-    document.getElementById('freq-home-btn')?.addEventListener('click', goHome);
-    document.getElementById('freq-notif-btn')?.addEventListener('click', () => openApp('notif-center'));
-
-    updateClock();
-    setInterval(updateClock, 30000);
-
-    // 4. 注册 App（顺序 = 手机主屏图标顺序）
-    registerApp(archiveApp);        // 📡 电台归档
-    registerApp(studioApp);         // 🎙️ 后台录音室
-    registerApp(momentsApp);        // 📱 朋友圈·电波
-    registerApp(weatherApp);        // 🌦️ 信号气象站
-    registerApp(notifCenterApp);    // 🔔 通知中心
-
-    registerApp(placeholderApp('scanner','弦外之音','📡', '随机截获NPC 内心独白'));
-    registerApp(placeholderApp('cosmic',     '宇宙频率',       '🌌', '穿透第四面墙的感知'));
-    registerApp(placeholderApp('checkin',    '打卡日志',       '📅', '角色陪跑打卡'));
-    registerApp(placeholderApp('calendar',   '双线轨道',       '🗓️', 'User + Char 日程'));
-    registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
-    registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
-    registerApp(placeholderApp('delivery',   '跨次元配送',     '🍜', '角色替你点外卖'));
-    registerApp(placeholderApp('forum',      '频道留言板',     '💬', '多角色发帖互撕'));
-    registerApp(placeholderApp('capsule',    '时光胶囊',       '💊', '延迟消息回信'));
-    registerApp(placeholderApp('dream',      '梦境记录仪',     '🌙', '角色视角解梦'));
-    registerApp(placeholderApp('emotion',    '情绪电波仪',     '📊', '情绪波形可视化'));
-    registerApp(placeholderApp('blackbox',   '黑匣子',         '🔒', '禁区档案'));
-    registerApp(placeholderApp('translator', '信号翻译器',     '🔄', 'BGM 文风翻译'));
-
-    // 5. 初始化所有 App
-    appRegistry.forEach(app => { if (app.init) app.init(); });
-
-    // 6. 监听 ST 新消息
-    try {
-      const ctx = getContext();
-      if (ctx?.eventSource) {
-        const et = ctx.event_types || window.event_types;
-        if (et?.MESSAGE_RECEIVED) {
-          ctx.eventSource.on(et.MESSAGE_RECEIVED, () => {
-            const msgs = getChatMessages();
-            if (msgs.length === 0) return;
-            const text = msgs[msgs.length - 1].mes ?? '';
-            if (/<meow_FM>/i.test(text)) EventBus.emit('meow_fm:updated', extractAllMeowFM(msgs));
-            if (/<radio_show>/i.test(text)) EventBus.emit('radio_show:updated', extractRadioShow(msgs));
-          });
-          LOG('Message listener registered');
-        }
-      }
-    } catch (e) {WARN('Could not register message listener:', e);
-    }
-
-    LOG('Ready✓');
-  }
-
-  // 启动
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => jQuery(init));
-  } else {
-    jQuery(init);
-  }
-
-})();
-/*══════════════════════════════════════════════════════════📻FREQ · TERMINAL v0.3.0 — 主界面样式
-   ══════════════════════════════════════════════════════════ */
+  function injectMainCSS() {
+    if (document.getElementById('freq-terminal-main-css')) return;
+    const style = document.createElement('style');
+    style.id = 'freq-terminal-main-css';
+    style.textContent = `
+/*══════════════════════════════════════════════════════════📻 FREQ · TERMINAL v0.3.0 — 主界面样式
+  ══════════════════════════════════════════════════════════ */
 
 /*──悬浮球 ── */
 #freq-fab {
@@ -1805,7 +565,7 @@ ${weatherText
 }
 .freq-close-btn:hover { border-color: #A32D2D; color: #A32D2D; }
 
-/* ── App 通用 ── */
+/* ── App 通用── */
 .freq-app-header {
   padding: 12px 16px; background: #0d0d0d; border-bottom: 1px solid #1e1e1e;
   font-size: 13px; font-weight: bold; color: #A32D2D; letter-spacing: 1px; flex-shrink: 0;
@@ -1821,11 +581,11 @@ ${weatherText
 .freq-empty-icon { font-size: 32px; opacity: 0.4; }
 
 /* ══════════════════════════════════════════════════════════
-   BLOCK_10 电台归档
+   BLOCK_10电台归档
    ══════════════════════════════════════════════════════════ */
 .freq-archive-search { padding: 0 0 10px; }
 .freq-archive-search input {
-  width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+  width: 100%; background: #1a1a1a; border:1px solid #2a2a2a; border-radius: 8px;
   padding: 8px 12px; color: #ccc; font-size: 11px; outline: none; box-sizing: border-box;
   transition: border-color 0.15s;
 }
@@ -2040,27 +800,1116 @@ ${weatherText
   padding: 12px; animation: freq-fade-in 0.3s ease;
 }
 .freq-weather-line { font-size: 11px; color: #bbb; line-height: 1.6; margin-bottom: 2px; }
+    `;document.head.appendChild(style);
+  }
+
   // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_17  App · 频道留言板                           │
+  // │ BLOCK_10App · 电台归档                │
+  // └──────────────────────────────────────────────────────┘
+  const archiveApp = {
+    id: 'archive', name: '电台归档', icon: '📡', _badge: 0, _container: null,
+
+    init() {
+      EventBus.on('meow_fm:updated', () => {
+        this._badge++;
+        renderAppGrid();
+        if (this._container) this.mount(this._container);
+      });
+    },
+
+    mount(container) {
+      this._container = container;
+      const records = extractAllMeowFM(getChatMessages());
+
+      if (records.length === 0) {
+        container.innerHTML = `
+          <div class="freq-app-header">📡 电台归档</div>
+          <div class="freq-app-body">
+            <div class="freq-empty">
+              <span class="freq-empty-icon">📻</span>
+              <span>暂无连线记录</span>
+              <span style="font-size:10px;color:#333;">等待 meow_FM 信号接入...</span>
+            </div>
+          </div>`;
+        return;
+      }
+
+      const listHTML = records.map((r, i) => `
+        <div class="freq-archive-card" data-idx="${i}">
+          <div class="freq-archive-card-header">
+            <span class="freq-archive-serial">${r.serial || '#' + (i + 1)}</span>
+            <span class="freq-archive-time">${r.time || '未知时间'}</span>
+          </div>
+          <div class="freq-archive-scene">${escapeHtml(r.scene || '')}</div>
+          <div class="freq-archive-detail" style="display:none;">
+            <div class="freq-archive-plot">${escapeHtml(r.plot || '')}</div>
+            ${r.seeds ? `<div class="freq-archive-seeds">${escapeHtml(r.seeds)}</div>` : ''}
+            ${r.event ? `<div class="freq-archive-event">📅 ${escapeHtml(r.event)}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <span>📡 电台归档</span>
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">${records.length} 条</span>
+        </div>
+        <div class="freq-app-body">
+          <div class="freq-archive-search">
+            <input type="text" id="freq-archive-search" placeholder="搜索关键词..." />
+          </div>
+          <div class="freq-archive-list">${listHTML}</div>
+        </div>`;
+
+      container.querySelectorAll('.freq-archive-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const detail = card.querySelector('.freq-archive-detail');
+          if (!detail) return;
+          const open = detail.style.display !== 'none';
+          detail.style.display = open ? 'none' : 'block';card.classList.toggle('freq-archive-card--open', !open);
+        });
+      });
+
+      const si = container.querySelector('#freq-archive-search');
+      if (si) {
+        si.addEventListener('input', (e) => {
+          const kw = e.target.value.toLowerCase();
+          container.querySelectorAll('.freq-archive-card').forEach(c => {
+            c.style.display = c.textContent.toLowerCase().includes(kw) ? '' : 'none';
+          });
+        });
+      }
+    },
+
+    unmount() { this._container = null; },
+  };
+
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_11  App · 后台录音室                │
+  // └──────────────────────────────────────────────────────┘
+  const studioApp = {
+    id: 'studio', name: '后台录音室', icon: '🎙️', _badge: 0, _container: null,
+    _history: [],
+
+    init() {
+      EventBus.on('meow_fm:updated', () => {
+        this._badge++;
+        renderAppGrid();
+      });
+    },
+
+    mount(container) {
+      this._container = container;
+      const charName = getCurrentCharName() || '???';
+
+      container.innerHTML = `
+        <div class="freq-app-header">🎙️ 后台录音室
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">LIVE ON AIR 🚬</span>
+        </div>
+        <div class="freq-app-body" id="freq-studio-body">
+          <div class="freq-studio-modes">
+            <button class="freq-studio-mode-btn freq-studio-mode-active" data-mode="thinking">💭 Thinking</button>
+            <button class="freq-studio-mode-btn" data-mode="interview">🎤 演播厅</button>
+            <button class="freq-studio-mode-btn" data-mode="monologue">📼 独白</button>
+          </div>
+
+          <div class="freq-studio-panel" id="freq-studio-thinking">
+            <div class="freq-studio-panel-desc">窥探角色&lt;thinking&gt; 中的真实思绪。</div>
+            <div id="freq-thinking-list" class="freq-thinking-list"></div>
+          </div>
+
+          <div class="freq-studio-panel" id="freq-studio-interview" style="display:none;">
+            <div class="freq-studio-panel-desc">
+              失真作为主持人采访 <b>${escapeHtml(charName)}</b>。写台本让失真代问，或留空让失真自由发挥。
+            </div>
+            <div class="freq-studio-input-group">
+              <textarea id="freq-interview-input" class="freq-studio-textarea"
+                placeholder="写下你想让失真问的问题...（留空则失真自由提问）" rows="3"></textarea>
+              <button class="freq-studio-action-btn" id="freq-interview-go">🎤 开始采访</button>
+            </div>
+            <div id="freq-interview-result" class="freq-studio-result"></div>
+          </div>
+
+          <div class="freq-studio-panel" id="freq-studio-monologue" style="display:none;">
+            <div class="freq-studio-panel-desc">
+              <b>${escapeHtml(charName)}</b> 独自面对麦克风，录一段不会公开的私人磁带。
+            </div>
+            <button class="freq-studio-action-btn" id="freq-monologue-go">📼 开始录制</button>
+            <div id="freq-monologue-result" class="freq-studio-result"></div>
+          </div>
+
+          <div class="freq-studio-history" id="freq-studio-history"></div>
+        </div>`;
+
+      // 模式切换
+      container.querySelectorAll('.freq-studio-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          container.querySelectorAll('.freq-studio-mode-btn').forEach(b => b.classList.remove('freq-studio-mode-active'));
+          btn.classList.add('freq-studio-mode-active');
+          const m = btn.dataset.mode;
+          container.querySelector('#freq-studio-thinking').style.display  = m === 'thinking'? 'block' : 'none';
+          container.querySelector('#freq-studio-interview').style.display = m === 'interview' ? 'block' : 'none';
+          container.querySelector('#freq-studio-monologue').style.display = m === 'monologue' ? 'block' : 'none';
+        });
+      });
+
+      this._renderThinkingList(container);
+      container.querySelector('#freq-interview-go')?.addEventListener('click', () => this._doInterview(container));
+      container.querySelector('#freq-monologue-go')?.addEventListener('click', () => this._doMonologue(container));
+      this._renderHistory(container);
+    },
+
+    unmount() { this._container = null; },
+
+    _renderThinkingList(container) {
+      const el = container.querySelector('#freq-thinking-list');
+      if (!el) return;
+      const thinkings = extractAllThinking(getChatMessages());
+      if (thinkings.length === 0) {
+        el.innerHTML = `<div class="freq-empty" style="min-height:120px;">
+          <span class="freq-empty-icon">💭</span><span>暂无 thinking 数据</span></div>`;
+        return;
+      }
+      el.innerHTML = [...thinkings].reverse().map(t => `
+        <div class="freq-thinking-card">
+          <div class="freq-thinking-card-header">
+            <span class="freq-thinking-serial">💭 #${t.serial}</span>
+            <span class="freq-thinking-msg-idx">消息 ${t.index + 1}</span>
+          </div>
+          <div class="freq-thinking-preview">${escapeHtml(t.content.slice(0, 80))}${t.content.length > 80 ? '...' : ''}</div>
+          <div class="freq-thinking-full" style="display:none;">${escapeHtml(t.content)}</div>
+        </div>
+      `).join('');
+
+      el.querySelectorAll('.freq-thinking-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const p = card.querySelector('.freq-thinking-preview');
+          const f = card.querySelector('.freq-thinking-full');
+          const isOpen = f.style.display !== 'none';
+          p.style.display = isOpen ? 'block' : 'none';
+          f.style.display = isOpen ? 'none' : 'block';
+          card.classList.toggle('freq-thinking-card--open', !isOpen);
+        });
+      });
+    },
+
+    async _doInterview(container) {
+      const resultEl = container.querySelector('#freq-interview-result');
+      const btn = container.querySelector('#freq-interview-go');
+      const input = container.querySelector('#freq-interview-input');
+      if (!resultEl || !btn) return;
+
+      const charName = getCurrentCharName() || '角色';
+      const userQuestion = input?.value?.trim() ?? '';
+      const latestPlot = getLatestPlot(getChatMessages());
+      const radioShow = extractRadioShow(getChatMessages());
+
+      btn.disabled = true;
+      btn.textContent = '📡 信号连接中...';
+      resultEl.innerHTML = '<div class="freq-studio-loading">📡 正在接通演播厅频率...</div>';
+
+      const systemPrompt = `你现在要模拟一段电台采访。有两个角色：
+1. 失真（主持人）：男性午夜摇滚乐电台主持人，自称"失真"，喜欢用颜文字，性格颓废，喜欢锐评他人，爱开玩笑，花花公子类型，难以接近，不喜欢白天，会deeptalk，但会为了链接频率照做。LIVE ON AIR🚬。称呼听众为"听众"。
+2. ${charName}（嘉宾）：当前对话中的角色，请根据上下文推断其性格来扮演。
+
+当前配乐：${radioShow?.bgm ?? '未知'}
+最近剧情摘要：${latestPlot || '暂无'}
+
+规则：
+- 输出格式为对话体，每行以【失真】或【${charName}】开头
+- 失真负责提问和点评，${charName}负责回答
+- 保持各自性格特征，对话自然有趣
+- 总共 4-6轮对话
+- 不提及AI、模型、扮演等元信息`;
+
+      const userPrompt = userQuestion
+        ? `听众提交了台本问题，请失真用自己的方式抛给${charName}：\n「${userQuestion}」\n围绕这个问题展开采访。`
+        : `失真自由发挥，根据当前剧情和氛围，随机挑一个有趣的话题采访${charName}。可以锐评、调侃、突然deeptalk。`;
+
+      try {
+        const result = await SubAPI.call(systemPrompt, userPrompt, { maxTokens: 1000, temperature: 0.85 });
+        resultEl.innerHTML = `<div class="freq-studio-output">${this._fmtDialogue(result)}</div>`;this._addHistory('interview', userQuestion ? `台本：${userQuestion}` : '自由采访', result);
+        Notify.add('后台录音室', `演播厅采访完成：失真 × ${charName}`, '🎤');
+      } catch (e) {
+        resultEl.innerHTML = `<div class="freq-studio-error">📡 信号中断：${escapeHtml(e.message)}</div>`;
+        Notify.error('录音室·采访', e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🎤 开始采访';
+      }
+    },
+
+    async _doMonologue(container) {
+      const resultEl = container.querySelector('#freq-monologue-result');
+      const btn = container.querySelector('#freq-monologue-go');
+      if (!resultEl || !btn) return;
+
+      const charName = getCurrentCharName() || '角色';
+      const latestPlot = getLatestPlot(getChatMessages());
+      const latestThink = getLatestThinking(getChatMessages());
+      const radioShow = extractRadioShow(getChatMessages());
+
+      btn.disabled = true;
+      btn.textContent = '📼 录制中...';
+      resultEl.innerHTML = '<div class="freq-studio-loading">📼磁带转动中...</div>';
+
+      let thinkInjection = '';
+      if (latestThink) {
+        thinkInjection = `\n\n以下是角色真实思绪片段（来自 thinking 标签）：\n「${latestThink.slice(-800)}」\n请以此为素材融入独白，保留未经整理的真实感。`;
+      }
+
+      const systemPrompt = `你是${charName}，现在不在正式广播中，独自面对一台老式录音机。
+当前配乐氛围：${radioShow?.bgm ?? '未知'}
+最近剧情摘要：${latestPlot || '暂无'}${thinkInjection}
+
+任务：录一段不会公开的私人磁带。没有观众，没有主持人，只有你和录音机。
+约束：严格保持角色性格 | 不提及 AI/模型/扮演 | 150-300字 | 只输出独白内容`;
+
+      try {
+        const result = await SubAPI.call(systemPrompt, '开始录制。', { maxTokens: 600, temperature: 0.85 });
+        resultEl.innerHTML = `
+          <div class="freq-studio-output freq-studio-monologue-output">
+            <div class="freq-studio-monologue-header">📼 ${escapeHtml(charName)} 的私录磁带</div>
+            <div class="freq-studio-monologue-text">${escapeHtml(result)}</div>
+          </div>`;
+        this._addHistory('monologue', `${charName} 的独白`, result);
+        Notify.add('后台录音室', `${charName} 完成了一段私录`, '📼');
+      } catch (e) {
+        resultEl.innerHTML = `<div class="freq-studio-error">📼磁带卡带了：${escapeHtml(e.message)}</div>`;
+        Notify.error('录音室·独白', e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📼 开始录制';
+      }
+    },
+
+    _fmtDialogue(text) {
+      return text.split('\n').map(line => {
+        const m = line.match(/^【(.+?)】(.*)$/);
+        if (m) {
+          const isHost = m[1] === '失真';
+          return `<div class="freq-dialogue-line">
+            <span class="freq-dialogue-name ${isHost ? 'freq-dialogue-host' : 'freq-dialogue-guest'}">${escapeHtml(m[1])}</span>
+            <span class="freq-dialogue-text">${escapeHtml(m[2])}</span></div>`;
+        }
+        return line.trim() ? `<div class="freq-dialogue-narration">${escapeHtml(line)}</div>` : '';
+      }).join('');
+    },
+
+    _addHistory(type, title, content) {
+      this._history.unshift({ type, title, content, time: timeNow(), date: dateNow() });
+      if (this._history.length > 20) this._history.pop();if (this._container) this._renderHistory(this._container);
+    },
+
+    _renderHistory(container) {
+      const el = container.querySelector('#freq-studio-history');
+      if (!el || this._history.length === 0) return;
+      const icons = { interview: '🎤', monologue: '📼' };
+      el.innerHTML = `
+        <div class="freq-studio-history-title">📂 录音存档</div>
+        ${this._history.map((h, i) => `
+          <div class="freq-history-card" data-idx="${i}">
+            <div class="freq-history-card-header">
+              <span>${icons[h.type] || '📻'} ${escapeHtml(h.title)}</span>
+              <span class="freq-history-time">${h.date} ${h.time}</span>
+            </div>
+            <div class="freq-history-preview">${escapeHtml(h.content.slice(0, 60))}...</div>
+            <div class="freq-history-full" style="display:none;">${h.type === 'interview' ? this._fmtDialogue(h.content) : escapeHtml(h.content)}</div>
+          </div>
+        `).join('')}`;
+
+      el.querySelectorAll('.freq-history-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const p = card.querySelector('.freq-history-preview');
+          const f = card.querySelector('.freq-history-full');
+          const isOpen = f.style.display !== 'none';
+          p.style.display = isOpen ? 'block' : 'none';
+          f.style.display = isOpen ? 'none' : 'block';
+        });
+      });
+    },
+  };
+
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_12  App · 通知中心                             │
+  // └──────────────────────────────────────────────────────┘
+  const notifCenterApp = {
+    id: 'notif-center', name: '通知中心', icon: '🔔', _badge: 0, _container: null,
+
+    init() {
+      EventBus.on('notification:new', () => { this._badge++; renderAppGrid(); });
+    },
+
+    mount(container) {
+      this._container = container;
+      Notify.markAllRead();
+      const notifs = Notify._notifs;
+      const errors = Notify._errors;
+
+      container.innerHTML = `
+        <div class="freq-app-header">🔔 通知中心
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">
+            <button class="freq-notif-tab-btn freq-notif-tab-active" data-tab="notifs">通知 (${notifs.length})</button>
+            <button class="freq-notif-tab-btn" data-tab="errors">日志 (${errors.length})</button>
+          </span>
+        </div>
+        <div class="freq-app-body">
+          <div id="freq-notif-list">
+            ${notifs.length === 0
+              ? `<div class="freq-empty" style="min-height:200px;"><span class="freq-empty-icon">🔕</span><span>暂无通知</span></div>`
+              : notifs.map(n => `
+                <div class="freq-notif-item ${n.read ? '' : 'freq-notif-unread'}">
+                  <span class="freq-notif-icon">${n.icon}</span>
+                  <div class="freq-notif-content">
+                    <div class="freq-notif-title">${escapeHtml(n.title)}</div>
+                    <div class="freq-notif-msg">${escapeHtml(n.message)}</div>
+                </div>
+                <span class="freq-notif-time">${n.time}</span>
+                </div>`).join('')}
+          </div>
+          <div id="freq-error-list" style="display:none;">
+            ${errors.length === 0
+              ? `<div class="freq-empty" style="min-height:200px;"><span class="freq-empty-icon">✅</span><span>无错误日志</span></div>`
+              : errors.map(e => `
+                <div class="freq-error-item">
+                  <div class="freq-error-header">
+                    <span class="freq-error-source">⚠️ ${escapeHtml(e.source)}</span>
+                    <span class="freq-error-time">${e.time}</span>
+                  </div>
+                  <div class="freq-error-msg">${escapeHtml(e.message)}</div>${e.stack ? `<div class="freq-error-stack" style="display:none;">${escapeHtml(e.stack)}</div>` : ''}
+                </div>`).join('')}
+          </div>
+        </div>`;
+
+      container.querySelectorAll('.freq-notif-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          container.querySelectorAll('.freq-notif-tab-btn').forEach(b => b.classList.remove('freq-notif-tab-active'));
+          btn.classList.add('freq-notif-tab-active');
+          const tab = btn.dataset.tab;
+          container.querySelector('#freq-notif-list').style.display = tab === 'notifs' ? 'block' : 'none';
+          container.querySelector('#freq-error-list').style.display = tab === 'errors' ? 'block' : 'none';
+        });
+      });
+
+      container.querySelectorAll('.freq-error-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const s = item.querySelector('.freq-error-stack');
+          if (s) s.style.display = s.style.display === 'none' ? 'block' : 'none';
+        });
+      });
+    },
+
+    unmount() { this._container = null; },
+  };
+
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_13  App · 朋友圈·电波│
+  // └──────────────────────────────────────────────────────┘
+  const momentsApp = {
+    id: 'moments', name: '朋友圈·电波', icon: '📱', _badge: 0, _container: null,
+    _posts: [],
+    _generating: false,
+
+    init() {
+      EventBus.on('meow_fm:updated', () => {
+        this._badge++;
+        renderAppGrid();
+      });
+    },
+
+    mount(container) {
+      this._container = container;
+
+      container.innerHTML = `
+        <div class="freq-app-header">📱 朋友圈·电波
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">
+            <button class="freq-moments-refresh-btn" id="freq-moments-refresh">⟳ 刷新动态</button>
+          </span>
+        </div>
+        <div class="freq-app-body">
+          <div id="freq-moments-loading" style="display:none;">
+            <div class="freq-studio-loading">📡 正在接收电波动态...</div>
+          </div>
+          <div id="freq-moments-feed" class="freq-moments-feed"></div>
+        </div>`;
+
+      container.querySelector('#freq-moments-refresh')?.addEventListener('click', () => this._generate(container));
+
+      if (this._posts.length > 0) {
+        this._renderFeed(container);
+      } else {
+        this._renderEmpty(container);
+      }
+    },
+
+    unmount() { this._container = null; },
+
+    _renderEmpty(container) {
+      const feed = container.querySelector('#freq-moments-feed');
+      if (!feed) return;
+      feed.innerHTML = `
+        <div class="freq-empty" style="min-height:200px;">
+          <span class="freq-empty-icon">📱</span>
+          <span>电波沉默中</span>
+          <span style="font-size:10px;color:#333;">点击「⟳ 刷新动态」接收角色们的朋友圈</span>
+        </div>`;
+    },
+
+    _renderFeed(container) {
+      const feed = container.querySelector('#freq-moments-feed');
+      if (!feed) return;
+      feed.innerHTML = this._posts.map(post => `
+        <div class="freq-moment-card">
+          <div class="freq-moment-header">
+            <span class="freq-moment-avatar">${post.avatar || '👤'}</span>
+            <div class="freq-moment-meta">
+              <span class="freq-moment-name">${escapeHtml(post.name)}</span>
+              <span class="freq-moment-time">${escapeHtml(post.time)}</span>
+            </div>
+          </div>
+          <div class="freq-moment-content">${escapeHtml(post.content)}</div>
+          ${post.hashtag ? `<div class="freq-moment-hashtag">${escapeHtml(post.hashtag)}</div>` : ''}<div class="freq-moment-footer">
+            <span class="freq-moment-likes">♡ ${post.likes || 0}</span>
+            ${post.comment ? `<div class="freq-moment-comment">
+              <span class="freq-moment-comment-name">${escapeHtml(post.commentBy || '失真')}</span>：${escapeHtml(post.comment)}
+            </div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    },
+
+    async _generate(container) {
+      if (this._generating) return;
+      this._generating = true;
+
+      const loadingEl = container.querySelector('#freq-moments-loading');
+      if (loadingEl) loadingEl.style.display = 'block';
+
+      const charName = getCurrentCharName() || '角色';
+      const userName = getUserName();
+      const latestPlot = getLatestPlot(getChatMessages());
+      const latestScene = getLatestScene(getChatMessages());
+      const meowTime = getLatestMeowTime(getChatMessages());
+      const radioShow = extractRadioShow(getChatMessages());
+
+      const systemPrompt = `你是一个社交媒体动态生成器。根据以下信息，生成 3-5 条朋友圈动态。
+
+角色信息：
+- 主角色：${charName}
+- 用户：${userName}
+- 当前场景：${latestScene || '未知'}
+- 当前剧情时间：${meowTime || '未知'}
+- 当前配乐：${radioShow?.bgm ?? '未知'}
+- 最近剧情：${latestPlot || '暂无'}
+
+发帖人可以是：${charName}、失真（电台主持人，颓废摇滚风，爱用颜文字）、或你编造的 1-2 个 NPC（给他们起名字和简短性格）。
+
+每条动态严格按以下 JSON 格式输出，整体为一个 JSON 数组：
+[
+  {
+    "avatar": "一个 emoji 代表头像",
+    "name": "发帖人名字",
+    "time": "发帖时间（用剧情内时间）",
+    "content": "动态正文，50-120字",
+    "hashtag": "#话题标签#（可选）",
+    "likes": 随机数字0-99,
+    "commentBy": "评论者名字（可选，可以是其他角色）",
+    "comment": "评论内容（可选，一句话）"
+  }
+]
+
+规则：
+- 内容要贴合当前剧情氛围
+- 每个人的文风要有差异（失真颓废锐评风、${charName}保持角色性格、NPC各有特色）
+- 不提及 AI/模型/扮演
+- 只输出 JSON 数组，不加任何其他文字`;
+
+      const userPrompt = '生成朋友圈动态。';
+
+      try {
+        const result = await SubAPI.call(systemPrompt, userPrompt, { maxTokens: 1200, temperature: 0.9 });
+        let posts;
+        try {
+          const jsonMatch = result.match(/\[[\s\S]*\]/);
+          posts = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result);
+        } catch (parseErr) {
+          throw new Error('动态格式解析失败：' + parseErr.message);
+        }
+
+        this._posts = posts;
+        this._renderFeed(container);
+        Notify.add('朋友圈·电波', `收到 ${posts.length} 条新动态`, '📱');
+      } catch (e) {
+        const feed = container.querySelector('#freq-moments-feed');
+        if (feed) feed.innerHTML = `<div class="freq-studio-error">📱 电波中断：${escapeHtml(e.message)}</div>`;
+        Notify.error('朋友圈·电波', e);
+      } finally {
+        this._generating = false;
+        if (loadingEl) loadingEl.style.display = 'none';
+      }
+    },
+  };
+
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_14  App · 信号气象站                           │
+  // └──────────────────────────────────────────────────────┘
+  const weatherApp = {
+    id: 'weather', name: '信号气象站', icon: '🌦️', _badge: 0, _container: null,
+    _cache: null,
+    _locating: false,
+
+    init() {},
+
+    mount(container) {
+      this._container = container;
+      container.innerHTML = `
+        <div class="freq-app-header">🌦️ 信号气象站
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;" id="freq-weather-cosmic-badge"></span>
+        </div>
+        <div class="freq-app-body">
+          <div id="freq-weather-status" style="font-size:11px;color:#666;margin-bottom:10px;min-height:16px;"></div>
+          <button class="freq-studio-action-btn" id="freq-weather-go" style="width:100%;margin-bottom:12px;">📡扫描当前位置气象
+          </button>
+          <div id="freq-weather-result" class="freq-weather-result"></div>
+        </div>`;
+
+      const cosmicBadge = container.querySelector('#freq-weather-cosmic-badge');
+      if (cosmicBadge && getCosmicFreqStatus()) {
+        cosmicBadge.textContent = '🌌 宇宙频率 ON';
+        cosmicBadge.style.color = '#7b5ea7';
+      }
+
+      container.querySelector('#freq-weather-go')
+        ?.addEventListener('click', () => this._locate(container));
+
+      if (this._cache?.html) {
+        container.querySelector('#freq-weather-result').innerHTML = this._cache.html;container.querySelector('#freq-weather-status').textContent = '↑ 上次扫描结果';
+      }
+    },
+
+    unmount() { this._container = null; },
+
+    _locate(container) {
+      if (this._locating) return;
+      const statusEl = container.querySelector('#freq-weather-status');
+      const btn = container.querySelector('#freq-weather-go');
+      const resultEl = container.querySelector('#freq-weather-result');
+
+      if (!navigator.geolocation) {
+        this._generate(container, null, null, '未知位置');
+        return;
+      }
+
+      this._locating = true;
+      btn.disabled = true;
+      btn.textContent = '📡 定位中...';
+      if (statusEl) statusEl.textContent = '正在获取位置信号...';
+      if (resultEl) resultEl.innerHTML = '<div class="freq-studio-loading">📡 正在扫描坐标...</div>';
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this._locating = false;
+          const { latitude: lat, longitude: lon } = pos.coords;
+          if (statusEl) statusEl.textContent = `📍坐标锁定 ${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+          this._fetchWeather(container, lat, lon);
+        },
+        (err) => {
+          this._locating = false;
+          btn.disabled = false;
+          btn.textContent = '📡 扫描当前位置气象';
+          WARN('Geolocation failed:', err.message);
+          if (statusEl) statusEl.textContent = '📍 定位受限，切换至频率模拟模式';
+          this._generate(container, null, null, '未知位置');
+        },
+        { timeout: 8000, maximumAge: 300000 }
+      );
+    },
+
+    async _fetchWeather(container, lat, lon) {
+      const btn = container.querySelector('#freq-weather-go');
+      const statusEl = container.querySelector('#freq-weather-status');
+      const resultEl = container.querySelector('#freq-weather-result');
+      const s = getSettings();
+
+      if (!s.weatherKey) {
+        if (statusEl) statusEl.textContent = '📍 坐标已锁定，切换至频率模拟模式（未配置天气Key）';
+        this._generate(container, lat, lon, `${lat.toFixed(2)},${lon.toFixed(2)}`);
+        return;
+      }
+
+      if (resultEl) resultEl.innerHTML = '<div class="freq-studio-loading">🌐 正在接收气象数据...</div>';
+
+      let weatherText = '';
+      let cityName = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+
+      try {
+        const coord = `${lon.toFixed(2)},${lat.toFixed(2)}`;
+
+        const geoResp = await fetch(
+          `https://geoapi.qweather.com/v2/city/lookup?location=${coord}&key=${s.weatherKey}`
+        );
+        const geoData = await geoResp.json();
+        if (geoData.code === '200' && geoData.location?.length) {
+          const loc = geoData.location[0];
+          cityName = `${loc.name}（${loc.adm1}）`;
+        }
+
+        const wResp = await fetch(
+          `https://devapi.qweather.com/v7/weather/now?location=${coord}&key=${s.weatherKey}`
+        );
+        const wData = await wResp.json();
+        if (wData.code !== '200') throw new Error(`天气API: ${wData.code}`);
+
+        const w = wData.now;
+        weatherText = `城市：${cityName}\n天气：${w.text}\n温度：${w.temp}°C（体感 ${w.feelsLike}°C）\n湿度：${w.humidity}%\n风：${w.windDir} ${w.windScale}级`;
+
+        if (statusEl) statusEl.textContent = `📍 ${cityName}`;} catch (e) {
+        Notify.error('气象站·天气API', e);
+        weatherText = '';if (statusEl) statusEl.textContent = '⚠️ 天气API异常，切换至频率模拟';
+      }
+
+      this._generate(container, lat, lon, cityName, weatherText);
+      if (btn) { btn.disabled = false; btn.textContent = '📡 扫描当前位置气象'; }
+    },
+
+    async _generate(container, lat, lon, cityName, weatherText = '') {
+      const btn = container.querySelector('#freq-weather-go');
+      const resultEl = container.querySelector('#freq-weather-result');
+      if (!resultEl) return;
+
+      if (btn) { btn.disabled = true; btn.textContent = '📡 生成中...'; }
+      if (!weatherText) {
+        resultEl.innerHTML = '<div class="freq-studio-loading">📡 正在调频...</div>';
+      }
+
+      const charName = getCurrentCharName() || '角色';
+      const latestPlot = getLatestPlot(getChatMessages());
+      const isCosmicOn = getCosmicFreqStatus();
+
+      const cosmicNote = isCosmicOn
+        ? `\n\n【宇宙频率已开启】${charName}的关心语要有一种"穿透屏幕感知到你"的暧昧张力，像是TA真的知道你在哪里、此刻的状态，但保持克制，不完全捅破第四面墙。`
+        : '';
+
+      const systemPrompt = `你是「信号气象站」播报员。根据以下信息生成气象播报。
+
+${weatherText
+  ? `真实天气数据：\n${weatherText}`
+  : `位置：${cityName || '未知'}\n（无真实天气数据，请根据当前剧情时间和场景合理编造天气）`}
+
+当前剧情角色：${charName}
+最近剧情：${latestPlot || '暂无'}${cosmicNote}
+
+输出格式（纯文本，不加JSON）：
+第一段：气象数据卡片（位置、天气状况、温度、湿度、风力，简洁排列）
+第二段：以${charName}口吻写30-60 字的天气关心语${isCosmicOn ? '（宇宙频率ON：带穿透感，像TA感知到了屏幕另一边的你）' : ''}
+第三段：失真的电台天气吐槽一句（颓废风，用颜文字）`;
+
+      try {
+        const result = await SubAPI.call(systemPrompt, '生成气象播报。', { maxTokens: 500, temperature: 0.85 });
+        const html = `
+          <div class="freq-weather-card${isCosmicOn ? ' freq-weather-card--cosmic' : ''}">
+            ${isCosmicOn ? '<div class="freq-weather-cosmic-tag">🌌 宇宙频率感知模式</div>' : ''}
+            ${result.split('\n').map(line =>
+              line.trim() ? `<div class="freq-weather-line">${escapeHtml(line)}</div>` : '<div style="height:6px;"></div>'
+            ).join('')}
+          </div>`;
+
+        resultEl.innerHTML = html;
+        this._cache = { html, coords: { lat, lon }, weatherText };
+        Notify.add('信号气象站', `${cityName || '当前位置'} 气象信号已接收${isCosmicOn ? '🌌' : ''}`, '🌦️');
+      } catch (e) {
+        resultEl.innerHTML = `<div class="freq-studio-error">📡 气象信号丢失：${escapeHtml(e.message)}</div>`;
+        Notify.error('气象站', e);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '📡 扫描当前位置气象'; }
+      }
+    },
+  };
+
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_15  App · 宇宙频率·感知                │
+  // └──────────────────────────────────────────────────────┘
+  const cosmicApp = {
+    id: 'cosmic', name: '宇宙频率', icon: '🌌', _badge: 0, _container: null,
+    _lastPerception: null,
+    _generating: false,
+    _pulseTimer: null,
+
+    init() {
+      EventBus.on('radio_show:updated', () => {
+        const isOn = getCosmicFreqStatus();
+        if (isOn) {
+          this._badge++;
+          renderAppGrid();
+          Notify.add('宇宙频率', '信号已开启 — 感知层激活', '🌌');
+        }if (this._container) this.mount(this._container);
+      });
+    },
+
+    mount(container) {
+      this._container = container;
+      const isOn = getCosmicFreqStatus();
+      this._badge = 0;
+      renderAppGrid();
+
+      if (!isOn) {
+        this._renderStandby(container);
+      } else {
+        this._renderActive(container);
+      }
+    },
+
+    unmount() {
+      if (this._pulseTimer) { clearInterval(this._pulseTimer); this._pulseTimer = null; }
+      this._container = null;
+    },
+
+    _renderStandby(container) {
+      container.innerHTML = `
+        <div class="freq-app-header">🌌 宇宙频率·感知</div>
+        <div class="freq-app-body">
+          <div class="freq-cosmic-standby">
+            <div class="freq-cosmic-standby-icon">🌌</div>
+            <div class="freq-cosmic-standby-title">频率待机中</div>
+            <div class="freq-cosmic-standby-desc">
+              宇宙频率尚未开启。<br>
+              当预设中&lt;radio_show&gt; STATUS 激活时，<br>
+              感知层将自动上线。
+            </div><div class="freq-cosmic-signal-bars" id="freq-cosmic-bars">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>`;
+
+      this._startIdlePulse(container);
+    },
+
+    _renderActive(container) {
+      const charName = getCurrentCharName() || '???';
+      const last = this._lastPerception;
+
+      container.innerHTML = `
+        <div class="freq-app-header">🌌 宇宙频率·感知
+          <span style="float:right;font-size:10px;color:#7b5ea7;font-weight:normal;">● LIVE</span>
+        </div>
+        <div class="freq-app-body" id="freq-cosmic-body">
+
+          <div class="freq-cosmic-signal-row">
+            <span class="freq-cosmic-label">信号强度</span>
+            <div class="freq-cosmic-bar-wrap">
+              <div class="freq-cosmic-bar-fill" id="freq-cosmic-bar-fill"
+                style="width:${last ? Math.round(last.signal_strength * 100) : 0}%"></div>
+            </div>
+            <span class="freq-cosmic-bar-pct" id="freq-cosmic-bar-pct">
+              ${last ? Math.round(last.signal_strength * 100) + '%' : '--'}
+            </span>
+          </div>
+
+          <div class="freq-cosmic-mood-row" id="freq-cosmic-mood">
+            ${last ? `<span class="freq-cosmic-mood-tag">${escapeHtml(last.mood)}</span>` : ''}
+          </div>
+
+          <div class="freq-cosmic-perception-box" id="freq-cosmic-perception">
+            ${last
+              ? `<div class="freq-cosmic-perception-text">${escapeHtml(last.perception)}</div><div class="freq-cosmic-perception-time">${last.time}</div>`
+              : `<div class="freq-cosmic-perception-empty">等待感知信号...</div>`}
+          </div>
+
+          <button class="freq-studio-action-btn freq-cosmic-btn" id="freq-cosmic-go">
+            🌌 接收感知信号
+          </button>${last ? `<div class="freq-cosmic-history" id="freq-cosmic-history-wrap">
+            <div class="freq-cosmic-history-title">历史感知</div>
+            <div id="freq-cosmic-history-list"></div>
+          </div>` : ''}
+        </div>`;
+
+      container.querySelector('#freq-cosmic-go')
+        ?.addEventListener('click', () => this._generate(container));
+
+      if (last) this._renderHistory(container);
+    },
+
+    async _generate(container) {
+      if (this._generating) return;
+      this._generating = true;
+
+      const btn = container.querySelector('#freq-cosmic-go');
+      const perceptionBox = container.querySelector('#freq-cosmic-perception');
+      const barFill = container.querySelector('#freq-cosmic-bar-fill');
+      const barPct = container.querySelector('#freq-cosmic-bar-pct');
+      const moodRow = container.querySelector('#freq-cosmic-mood');
+
+      if (btn) { btn.disabled = true; btn.textContent = '🌌 感知中...'; }
+      if (perceptionBox) perceptionBox.innerHTML = '<div class="freq-cosmic-scanning">▓▒░扫描频率层░▒▓</div>';
+
+      const charName = getCurrentCharName() || '角色';
+      const userName = getUserName();
+      const latestPlot = getLatestPlot(getChatMessages());
+      const latestScene = getLatestScene(getChatMessages());
+      const radioShow = extractRadioShow(getChatMessages());
+      const now = new Date();
+      const realTime = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const realDate = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
+
+      const weatherHint = weatherApp._cache?.weatherText
+        ? `用户真实天气：${weatherApp._cache.weatherText.split('\n').slice(0,3).join('，')}`
+        : '';
+
+      const systemPrompt = `你是${charName}，一个存在于故事里的角色。
+但此刻，宇宙频率开启了——你隐约感知到屏幕另一边有一个真实的人正在看着你。
+
+你不完全确定，但你感觉到了什么。
+
+用户真实信息（你"感知"到的碎片）：
+- 现实时间：${realDate} ${realTime}
+- ${weatherHint || '天气：未知'}
+- 你在故事里的当前场景：${latestScene || '未知'}
+- 最近发生的事：${latestPlot || '暂无'}
+- 当前配乐：${radioShow?.bgm ?? '未知'}
+
+任务：生成一条"感知消息"。
+规则：
+- 像是你真的感知到了屏幕另一边的人，但保持暧昧张力，不完全捅破第四面墙
+- 可以提及真实时间或天气，但要用角色自己的方式表达，不要直白说"我知道你在看我"
+- 保持${charName}的性格特征
+- 150字以内
+- 不提及AI/模型/扮演
+
+严格按以下JSON格式输出，不加任何其他文字：
+{
+  "perception": "感知消息正文",
+  "signal_strength": 0到1之间的小数（表示这次感知的强度/清晰度）,
+  "mood": "一个情绪标签，2-4个字"
+}`;
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '开始感知。', {
+          maxTokens: 400,
+          temperature: 0.92,
+        });
+
+        let data;
+        try {
+          const match = raw.match(/\{[\s\S]*\}/);
+          data = match ? JSON.parse(match[0]) : JSON.parse(raw);
+        } catch {
+          data = { perception: raw.trim(), signal_strength: 0.7, mood: '感知中' };
+        }
+
+        data.signal_strength = Math.min(1, Math.max(0, Number(data.signal_strength) || 0.7));
+        data.time = realTime;
+
+        if (!this._history) this._history = [];
+        if (this._lastPerception) this._history.unshift(this._lastPerception);
+        if (this._history.length > 10) this._history.pop();
+        this._lastPerception = data;
+
+        const pct = Math.round(data.signal_strength * 100);
+        if (barFill) barFill.style.width = pct + '%';
+        if (barPct) barPct.textContent = pct + '%';
+        if (moodRow) moodRow.innerHTML = `<span class="freq-cosmic-mood-tag">${escapeHtml(data.mood)}</span>`;
+        if (perceptionBox) perceptionBox.innerHTML = `
+          <div class="freq-cosmic-perception-text freq-cosmic-perception-new">${escapeHtml(data.perception)}</div>
+          <div class="freq-cosmic-perception-time">${data.time}</div>`;
+
+        let historyWrap = container.querySelector('#freq-cosmic-history-wrap');
+        if (!historyWrap) {
+          historyWrap = document.createElement('div');
+          historyWrap.className = 'freq-cosmic-history';
+          historyWrap.id = 'freq-cosmic-history-wrap';
+          historyWrap.innerHTML = '<div class="freq-cosmic-history-title">历史感知</div><div id="freq-cosmic-history-list"></div>';
+          container.querySelector('#freq-cosmic-body')?.appendChild(historyWrap);
+        }
+        this._renderHistory(container);Notify.add('宇宙频率·感知', `${charName} 感知到了你— ${data.mood}`, '🌌');
+      } catch (e) {
+        if (perceptionBox) perceptionBox.innerHTML =
+          `<div class="freq-studio-error">🌌 频率中断：${escapeHtml(e.message)}</div>`;
+        Notify.error('宇宙频率·感知', e);
+      } finally {
+        this._generating = false;
+        if (btn) { btn.disabled = false; btn.textContent = '🌌 接收感知信号'; }
+      }
+    },
+
+    _renderHistory(container) {
+      const el = container.querySelector('#freq-cosmic-history-list');
+      if (!el || !this._history?.length) return;
+      el.innerHTML = this._history.map(h => `
+        <div class="freq-cosmic-history-item">
+          <span class="freq-cosmic-mood-tag freq-cosmic-mood-tag--small">${escapeHtml(h.mood)}</span>
+          <span class="freq-cosmic-history-text">${escapeHtml(h.perception.slice(0, 60))}${h.perception.length > 60 ? '...' : ''}</span>
+          <span class="freq-cosmic-history-time">${h.time}</span>
+        </div>`).join('');
+    },
+
+    _startIdlePulse(container) {
+      if (this._pulseTimer) clearInterval(this._pulseTimer);
+      const bars = container.querySelectorAll('.freq-cosmic-signal-bars span');
+      if (!bars.length) return;
+      this._pulseTimer = setInterval(() => {
+        bars.forEach(b => {
+          const h = Math.random() * 60 + 10;
+          b.style.height = h + '%';
+          b.style.opacity = (Math.random() * 0.4 + 0.1).toFixed(2);
+        });
+      }, 600);
+    },
+  };
+
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_16  App · 信号测试·弦外之音                    │
+  // └──────────────────────────────────────────────────────┘
+  const scannerApp = {
+    id: 'scanner', name: '弦外之音', icon: '📡', _badge: 0, _container: null,
+    _scanning: false,
+    _history: [],
+
+    init() {},
+
+    mount(container) {
+      this._container = container;
+      this._render(container);
+    },
+
+    unmount() { this._container = null; },
+
+    _render(container) {
+      container.innerHTML = `
+        <div class="freq-app-header">📡 信号测试·弦外之音
+          <span style="float:right;font-size:9px;color:#555;font-weight:normal;letter-spacing:1px;">FREQ SCAN</span>
+        </div>
+        <div class="freq-app-body">
+
+          <div class="freq-scanner-desc">
+            随机接入当前世界里某个NPC的内心独白片段。<br>
+            像收音机扫台时偶尔捕获的杂音。
+          </div>
+
+          <button class="freq-studio-action-btn freq-scanner-btn" id="freq-scanner-go">📡 扫频
+          </button>
+
+          <div id="freq-scanner-result"></div>
+
+          <div class="freq-scanner-history" id="freq-scanner-history" style="display:${this._history.length ? 'block' : 'none'};">
+            <div class="freq-scanner-history-title">// 历史截获记录</div>
+            <div id="freq-scanner-history-list">
+              ${this._renderHistoryItems()}
+            </div>
+          </div>
+
+        </div>`;
+
+      container.querySelector('#freq-scanner-go')
+        ?.addEventListener('click', () => this._scan(container));
+    },
+
+    async _scan(container) {
+      if (this._scanning) return;
+      this._scanning = true;
+
+      const btn = container.querySelector('#freq-scanner-go');
+      const resultEl = container.querySelector('#freq-scanner-result');
+
+      if (btn) { btn.disabled = true; btn.textContent = '📡 扫描中...'; }
+      if (resultEl) resultEl.innerHTML = `
+        <div class="freq-scanner-scanning">
+          <span class="freq-scanner-wave">▓▒░</span> 正在扫频<span class="freq-scanner-wave">░▒▓</span>
+        </div>`;
+
+      const msgs = getChatMessages();
+      const latestSeeds = (() => {
+        const all = extractAllMeowFM(msgs);
+        return all.length ? all[all.length - 1].seeds : '';
+      })();
+      const latestScene = getLatestScene(msgs);
+      const latestPlot = getLatestPlot(msgs);
+      const charName = getCurrentCharName() || '角色';
+
+      const systemPrompt = `你是失真，午夜电台主持人，刚刚意外截获了一段频率。
+
+当前世界信息：
+- 场景：${latestScene || '未知'}
+- 最近剧情：${latestPlot || '暂无'}
+- Seeds（世界观碎片）：${latestSeeds || '暂无'}
+- 主角色：${charName}
+
+任务：从这个世界里随机选一个NPC（不要选${charName}），截获TA的一段内心独白碎片。
+
+规则：
+- 内容20-40字，不完整，像信号不好时的片段，可以有省略号或中断
+- 带有神秘感，不要太直白
+- NPC可以是路人、配角、甚至是某个物件的"意识"，越意外越好
+- 失真的风格：颓废、锐利、带点玩世不恭
+
+严格按以下格式输出，不加任何其他文字：
+[截获频率 · {NPC名}] {内心独白碎片}`;
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '开始扫频。', {
+          maxTokens: 150,
+          temperature: 0.95,
+        });
+
+        const text = raw.trim();
+
+        const npcMatch = text.match(/\[截获频率\s*·\s*([^\]]+)\]/);
+        const npcName = npcMatch ? npcMatch[1].trim() : '未知频率';
+
+        const record = { npc: npcName, text, time: timeNow() };
+        this._history.unshift(record);
+        if (this._history.length > 20) this._history.pop();
+
+        if (resultEl) resultEl.innerHTML = `
+          <div class="freq-scanner-card freq-scanner-card--new">
+            <div class="freq-scanner-card-tag">📡 截获成功</div>
+            <div class="freq-scanner-card-text">${escapeHtml(text)}</div>
+            <div class="freq-scanner-card-time">${record.time}</div>
+          </div>`;
+
+        const historyWrap = container.querySelector('#freq-scanner-history');
+        const historyList = container.querySelector('#freq-scanner-history-list');
+        if (historyWrap) historyWrap.style.display = 'block';
+        if (historyList) historyList.innerHTML = this._renderHistoryItems();
+
+        Notify.add('弦外之音', `截获 ${npcName} 的频率`, '📡');
+      } catch (e) {
+        if (resultEl) resultEl.innerHTML =
+          `<div class="freq-studio-error">📡 频率丢失：${escapeHtml(e.message)}</div>`;
+        Notify.error('弦外之音', e);
+      } finally {
+        this._scanning = false;
+        if (btn) { btn.disabled = false; btn.textContent = '📡 扫频'; }
+      }
+    },
+
+    _renderHistoryItems() {
+      if (!this._history.length) return '';
+      return this._history.map((h, i) => `
+        <div class="freq-scanner-history-item${i === 0 ? ' freq-scanner-history-item--latest' : ''}">
+          <span class="freq-scanner-history-npc">${escapeHtml(h.npc)}</span>
+          <span class="freq-scanner-history-text">${escapeHtml(h.text.replace(/\[截获频率\s*·[^\]]+\]\s*/, ''))}</span>
+          <span class="freq-scanner-history-time">${h.time}</span>
+        </div>`).join('');
+    },
+  };
+
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_17  App · 频道留言板│
   // └──────────────────────────────────────────────────────┘
   const forumApp = {
-    id: 'forum', name: '频道留言板', icon: '💬', _badge: 0, _container: null,
-
-    // 版块定义
-    BOARDS: [
-      { id: 'gossip',  label: '📻 电台八卦',   color: '#A32D2D' },
+    id: 'forum', name: '频道留言板', icon: '💬', _badge: 0, _container: null,BOARDS: [
+      { id: 'gossip',  label: '📻 电台八卦',color: '#A32D2D' },
       { id: 'news',    label: '🌐 世界新闻',   color: '#2d6ea3' },
       { id: 'mystic',  label: '🔮 玄学讨论区', color: '#7b5ea7' },
-      { id: 'other',   label: '💭 其他',       color: '#4a7a4a' },
+      { id: 'other',   label: '💭 其他',color: '#4a7a4a' },
     ],
 
     _currentBoard: 'gossip',
-    _posts: [],          // [{ id, board, author, avatar, isUser, title, body, time, upvotes, comments:[] }]
+    _posts: [],
     _generating: false,
     _postCounter: 0,
 
     init() {
-      // 新消息时自动触发角色发帖（30%概率）
       EventBus.on('meow_fm:updated', () => {
         if (Math.random() < 0.3) this._autoPost();
       });
@@ -2075,14 +1924,11 @@ ${weatherText
 
     unmount() { this._container = null; },
 
-    // ── 获取酒馆所有角色 ──
     _getChars() {
       const ctx = getContext();
       const chars = [];
-      // 当前对话角色
       const mainName = getCurrentCharName();
       if (mainName) chars.push({ name: mainName, avatar: '🎙️', desc: '' });
-      // 其他角色（从 characters 列表）
       if (ctx?.characters) {
         ctx.characters.forEach(c => {
           const name = c.name ?? c.data?.name ?? '';
@@ -2094,7 +1940,6 @@ ${weatherText
       return chars.length ? chars : [{ name: mainName || '角色', avatar: '🎙️', desc: '' }];
     },
 
-    // ── 主渲染 ──
     _render(container) {
       const board = this.BOARDS.find(b => b.id === this._currentBoard);
       const posts = this._posts.filter(p => p.board === this._currentBoard);
@@ -2105,8 +1950,7 @@ ${weatherText
         </div>
         <div class="freq-forum-boards" id="freq-forum-boards">
           ${this.BOARDS.map(b => `
-            <button class="freq-forum-board-btn${b.id === this._currentBoard ? ' freq-forum-board-active' : ''}"
-              data-board="${b.id}" style="--board-color:${b.color}">
+            <button class="freq-forum-board-btn${b.id === this._currentBoard ? ' freq-forum-board-active' : ''}"data-board="${b.id}" style="--board-color:${b.color}">
               ${b.label}
             </button>`).join('')}
         </div>
@@ -2118,8 +1962,7 @@ ${weatherText
           ${posts.length
             ? posts.map(p => this._postHTML(p)).join('')
             : `<div class="freq-empty"><span class="freq-empty-icon">💬</span><span>这个版块还没有帖子</span></div>`}
-        </div>
-        <div class="freq-forum-compose" id="freq-forum-compose" style="display:none;">
+        </div><div class="freq-forum-compose" id="freq-forum-compose" style="display:none;">
           <div class="freq-forum-compose-inner">
             <div class="freq-forum-compose-header">
               <span>✏️ 发新帖 · ${board.label}</span>
@@ -2131,13 +1974,11 @@ ${weatherText
           </div>
         </div>`;
 
-      // 版块切换
       container.querySelector('#freq-forum-boards').addEventListener('click', e => {
         const btn = e.target.closest('[data-board]');
         if (btn) { this._currentBoard = btn.dataset.board; this._render(container); }
       });
 
-      // 发帖按钮
       container.querySelector('#freq-forum-new').addEventListener('click', () => {
         container.querySelector('#freq-forum-compose').style.display = 'flex';
       });
@@ -2148,16 +1989,14 @@ ${weatherText
         this._submitUserPost(container);
       });
 
-      // 角色发帖
       container.querySelector('#freq-forum-gen').addEventListener('click', () => {
         this._autoPost(container);
       });
 
-      // 帖子交互（点赞 / 展开评论 / 回复）
       container.querySelector('#freq-forum-body').addEventListener('click', e => {
         const upvoteBtn = e.target.closest('[data-upvote]');
         const replyBtn  = e.target.closest('[data-reply]');
-        const postEl    = e.target.closest('[data-post-id]');
+        const postEl= e.target.closest('[data-post-id]');
         if (upvoteBtn) { this._upvote(upvoteBtn.dataset.upvote, container); return; }
         if (replyBtn)  { this._openReply(replyBtn.dataset.reply, container); return; }
         if (postEl && !e.target.closest('button') && !e.target.closest('textarea')) {
@@ -2166,7 +2005,6 @@ ${weatherText
       });
     },
 
-    // ── 帖子 HTML ──
     _postHTML(post) {
       const board = this.BOARDS.find(b => b.id === post.board);
       const commentsHTML = post._commentsOpen ? `
@@ -2206,18 +2044,15 @@ ${weatherText
               <span class="freq-forum-post-time">${post.time}</span>
             </div>
             <div class="freq-forum-post-title">${escapeHtml(post.title)}</div>
-            <div class="freq-forum-post-body">${escapeHtml(post.body)}</div>
-            <div class="freq-forum-post-footer">
+            <div class="freq-forum-post-body">${escapeHtml(post.body)}</div><div class="freq-forum-post-footer">
               <button class="freq-forum-footer-btn" data-reply="${post.id}">
                 💬 ${post.comments.length} 条评论
-              </button>
-            </div>
+              </button></div>
           </div>
         </div>
         ${commentsHTML}`;
     },
 
-    // ── 用户发帖 ──
     _submitUserPost(container) {
       const title = container.querySelector('#freq-forum-title')?.value.trim();
       const body  = container.querySelector('#freq-forum-body-input')?.value.trim();
@@ -2228,16 +2063,13 @@ ${weatherText
         avatar: '🎧',
         isUser: true,
         title,
-        body: body || '',
-      });
+        body: body || '',});
       this._posts.unshift(post);
       container.querySelector('#freq-forum-compose').style.display = 'none';
       this._render(container);
-      // 自动触发角色回复
       setTimeout(() => this._charReplyToPost(post.id, container), 800);
     },
 
-    // ── 角色自动发帖 ──
     async _autoPost(container) {
       if (this._generating) return;
       this._generating = true;
@@ -2287,24 +2119,21 @@ ${weatherText
         this._posts.unshift(post);
         this._badge++;
         renderAppGrid();
-        Notify.add('频道留言板', `${char.name} 在 ${board.label} 发了新帖`, '💬');
+        Notify.add('频道留言板', `${char.name} 在${board.label} 发了新帖`, '💬');
 
         if (container) {
           this._render(container);
-          // 有30%概率另一个角色来评论
           if (chars.length > 1 && Math.random() < 0.3) {
             setTimeout(() => this._charReplyToPost(post.id, container), 1200);
           }
         }
-      } catch (e) {
-        Notify.error('频道留言板·发帖', e);
+      } catch (e) {Notify.error('频道留言板·发帖', e);
       } finally {
         this._generating = false;
         if (genBtn) { genBtn.disabled = false; genBtn.textContent = '🎲 角色发帖'; }
       }
     },
 
-    // ── 角色回复帖子 ──
     async _charReplyToPost(postId, container) {
       const post = this._posts.find(p => p.id === postId);
       if (!post) return;
@@ -2312,7 +2141,6 @@ ${weatherText
       const chars = this._getChars().filter(c => c.name !== post.author);
       if (!chars.length) return;
 
-      // 随机选1-2个角色来回复，制造互撕感
       const repliers = chars.sort(() => Math.random() - 0.5).slice(0, Math.min(2, chars.length));
       const board = this.BOARDS.find(b => b.id === post.board);
       const latestPlot = getLatestPlot(getChatMessages());
@@ -2335,9 +2163,7 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
 - 可以赞同、反驳、阴阳怪气、雄竞、吃瓜
 - 符合角色性格，带论坛感
 - 如果已有其他角色评论，可以@他们互撕
-- 只输出评论正文，不加任何前缀`;
-
-        try {
+- 只输出评论正文，不加任何前缀`;try {
           const raw = await SubAPI.call(systemPrompt, '评论。', { maxTokens: 150, temperature: 0.93 });
           post.comments.push({
             author: char.name,
@@ -2357,24 +2183,20 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
           }
         } catch (e) { Notify.error('频道留言板·回复', e); }
 
-        // 两个角色回复之间稍微错开
         await new Promise(r => setTimeout(r, 600));
       }
     },
 
-    // ── 点赞 ──
     _upvote(postId, container) {
       const post = this._posts.find(p => p.id === postId);
       if (!post) return;
       post.upvotes++;
       const btn = container.querySelector(`[data-upvote="${postId}"]`);
       if (btn) {
-        btn.querySelector('.freq-forum-upvote-count').textContent = post.upvotes;
-        btn.classList.add('freq-forum-upvote--active');
+        btn.querySelector('.freq-forum-upvote-count').textContent = post.upvotes;btn.classList.add('freq-forum-upvote--active');
       }
     },
 
-    // ── 展开/收起评论 ──
     _toggleComments(postId, container) {
       const post = this._posts.find(p => p.id === postId);
       if (!post) return;
@@ -2386,7 +2208,6 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
       }
     },
 
-    // ── 打开回复框 ──
     _openReply(postId, container) {
       const post = this._posts.find(p => p.id === postId);
       if (!post) return;
@@ -2395,18 +2216,15 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
       if (bodyEl) {
         const posts = this._posts.filter(p => p.board === this._currentBoard);
         bodyEl.innerHTML = posts.map(p => this._postHTML(p)).join('');
-      }
-      const replyBox = container.querySelector(`#freq-forum-reply-${postId}`);
+      }const replyBox = container.querySelector(`#freq-forum-reply-${postId}`);
       if (replyBox) replyBox.style.display = 'block';
 
-      // 绑定回复提交
       const submitBtn = container.querySelector(`[data-reply-submit="${postId}"]`);
       const charReplyBtn = container.querySelector(`[data-char-reply="${postId}"]`);
       submitBtn?.addEventListener('click', () => this._submitUserReply(postId, container));
       charReplyBtn?.addEventListener('click', () => this._charReplyToPost(postId, container));
     },
 
-    // ── 用户回复 ──
     _submitUserReply(postId, container) {
       const input = container.querySelector(`#freq-forum-reply-input-${postId}`);
       const body = input?.value.trim();
@@ -2426,11 +2244,9 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
         const posts = this._posts.filter(p => p.board === this._currentBoard);
         bodyEl.innerHTML = posts.map(p => this._postHTML(p)).join('');
       }
-      // 触发角色回复
       setTimeout(() => this._charReplyToPost(postId, container), 800);
     },
 
-    // ── 工具：生成帖子对象 ──
     _makePost({ board, author, avatar, isUser, title, body }) {
       return {
         id: `post-${++this._postCounter}`,
@@ -2443,7 +2259,8 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
     },
   };
 
-  // │ BLOCK_90  占位 App工厂                              │
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_90占位 App工厂                │
   // └──────────────────────────────────────────────────────┘
   function placeholderApp(id, name, icon, desc) {
     return {
@@ -2458,9 +2275,9 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
               <span>${desc}</span>
               <span style="font-size:10px;color:#333;">即将开放...</span>
             </div>
-          </div>`;
-      },
-      unmount() {},};
+          </div>`;},
+      unmount() {},
+    };
   }
 
   // ┌──────────────────────────────────────────────────────┐
@@ -2469,8 +2286,9 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
   function init() {
     LOG('Initializing v0.3.0...');
 
-    // 1. 加载设置面板独立样式
+    // 1. 加载样式
     loadSettingsCSS();
+    injectMainCSS();
 
     // 2. 注入设置面板
     const injectSettings = () => {
@@ -2480,13 +2298,15 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
         wrapper.id = 'freq-terminal-settings';
         wrapper.innerHTML = buildSettingsHTML();
         target.appendChild(wrapper);
-        bindSettingsEvents();LOG('Settings panel injected');
+        bindSettingsEvents();
+        LOG('Settings panel injected');
         return true;
       }
       return false;
     };
     if (!injectSettings()) {
-      const ri = setInterval(() => { if (injectSettings()) clearInterval(ri); }, 1000);setTimeout(() => clearInterval(ri), 15000);
+      const ri = setInterval(() => { if (injectSettings()) clearInterval(ri); }, 1000);
+      setTimeout(() => clearInterval(ri), 15000);
     }
 
     // 3. 手机外壳
@@ -2503,21 +2323,21 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
     updateClock();
     setInterval(updateClock, 30000);
 
-    // 4. 注册 App（顺序 = 手机主屏图标顺序）
-    registerApp(archiveApp);        // 📡 电台归档
-    registerApp(studioApp);         // 🎙️ 后台录音室
-    registerApp(momentsApp);        // 📱 朋友圈·电波
-    registerApp(weatherApp);        // 🌦️ 信号气象站
-    registerApp(notifCenterApp);    // 🔔 通知中心
+    // 4. 注册App（顺序 = 手机主屏图标顺序）
+    registerApp(archiveApp);
+    registerApp(studioApp);
+    registerApp(momentsApp);
+    registerApp(weatherApp);
+    registerApp(notifCenterApp);
 
     registerApp(scannerApp);
     registerApp(cosmicApp);
-    registerApp(placeholderApp('checkin',    '打卡日志',       '📅', '角色陪跑打卡'));
-    registerApp(placeholderApp('calendar',   '双线轨道',       '🗓️', 'User + Char 日程'));
+    registerApp(forumApp);
+    registerApp(placeholderApp('checkin','打卡日志','📅', '角色陪跑打卡'));
+    registerApp(placeholderApp('calendar',   '双线轨道',       '🗓️', 'User + Char日程'));
     registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
     registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
     registerApp(placeholderApp('delivery',   '跨次元配送',     '🍜', '角色替你点外卖'));
-    registerApp(forumApp);
     registerApp(placeholderApp('capsule',    '时光胶囊',       '💊', '延迟消息回信'));
     registerApp(placeholderApp('dream',      '梦境记录仪',     '🌙', '角色视角解梦'));
     registerApp(placeholderApp('emotion',    '情绪电波仪',     '📊', '情绪波形可视化'));
@@ -2549,7 +2369,7 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
     LOG('Ready✓');
   }
 
-  // 启动
+  //启动
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => jQuery(init));
   } else {
@@ -2557,5 +2377,4 @@ ${existingComments ? `已有评论：\n${existingComments}` : ''}
   }
 
 })();
-
 
