@@ -1197,6 +1197,255 @@ ${weatherText
       }
     },
   };
+    // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_15  App · 宇宙频率·感知                        │
+  // └──────────────────────────────────────────────────────┘
+  const cosmicApp = {
+    id: 'cosmic', name: '宇宙频率', icon: '🌌', _badge: 0, _container: null,
+    _lastPerception: null,   // { perception, signal_strength, mood, time }
+    _generating: false,
+    _pulseTimer: null,
+
+    init() {
+      // 每次 radio_show 更新时检查宇宙频率状态变化
+      EventBus.on('radio_show:updated', () => {
+        const isOn = getCosmicFreqStatus();
+        if (isOn) {
+          this._badge++;
+          renderAppGrid();
+          Notify.add('宇宙频率', '信号已开启 — 感知层激活', '🌌');
+        }
+        if (this._container) this.mount(this._container);
+      });
+    },
+
+    mount(container) {
+      this._container = container;
+      const isOn = getCosmicFreqStatus();
+      this._badge = 0;
+      renderAppGrid();
+
+      if (!isOn) {
+        this._renderStandby(container);
+      } else {
+        this._renderActive(container);
+      }
+    },
+
+    unmount() {
+      if (this._pulseTimer) { clearInterval(this._pulseTimer); this._pulseTimer = null; }
+      this._container = null;
+    },
+
+    // ── 待机屏 ──
+    _renderStandby(container) {
+      container.innerHTML = `
+        <div class="freq-app-header">🌌 宇宙频率·感知</div>
+        <div class="freq-app-body">
+          <div class="freq-cosmic-standby">
+            <div class="freq-cosmic-standby-icon">🌌</div>
+            <div class="freq-cosmic-standby-title">频率待机中</div>
+            <div class="freq-cosmic-standby-desc">
+              宇宙频率尚未开启。<br>
+              当预设中 &lt;radio_show&gt; STATUS 激活时，<br>
+              感知层将自动上线。
+            </div>
+            <div class="freq-cosmic-signal-bars" id="freq-cosmic-bars">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>`;
+
+      // 待机时信号条随机闪烁
+      this._startIdlePulse(container);
+    },
+
+    // ── 激活屏 ──
+    _renderActive(container) {
+      const charName = getCurrentCharName() || '???';
+      const last = this._lastPerception;
+
+      container.innerHTML = `
+        <div class="freq-app-header">🌌 宇宙频率·感知
+          <span style="float:right;font-size:10px;color:#7b5ea7;font-weight:normal;">● LIVE</span>
+        </div>
+        <div class="freq-app-body" id="freq-cosmic-body">
+
+          <div class="freq-cosmic-signal-row">
+            <span class="freq-cosmic-label">信号强度</span>
+            <div class="freq-cosmic-bar-wrap">
+              <div class="freq-cosmic-bar-fill" id="freq-cosmic-bar-fill"
+                style="width:${last ? Math.round(last.signal_strength * 100) : 0}%"></div>
+            </div>
+            <span class="freq-cosmic-bar-pct" id="freq-cosmic-bar-pct">
+              ${last ? Math.round(last.signal_strength * 100) + '%' : '--'}
+            </span>
+          </div>
+
+          <div class="freq-cosmic-mood-row" id="freq-cosmic-mood">
+            ${last ? `<span class="freq-cosmic-mood-tag">${escapeHtml(last.mood)}</span>` : ''}
+          </div>
+
+          <div class="freq-cosmic-perception-box" id="freq-cosmic-perception">
+            ${last
+              ? `<div class="freq-cosmic-perception-text">${escapeHtml(last.perception)}</div>
+                 <div class="freq-cosmic-perception-time">${last.time}</div>`
+              : `<div class="freq-cosmic-perception-empty">等待感知信号...</div>`}
+          </div>
+
+          <button class="freq-studio-action-btn freq-cosmic-btn" id="freq-cosmic-go">
+            🌌 接收感知信号
+          </button>
+
+          ${last ? `
+          <div class="freq-cosmic-history" id="freq-cosmic-history-wrap">
+            <div class="freq-cosmic-history-title">历史感知</div>
+            <div id="freq-cosmic-history-list"></div>
+          </div>` : ''}
+        </div>`;
+
+      container.querySelector('#freq-cosmic-go')
+        ?.addEventListener('click', () => this._generate(container));
+
+      if (last) this._renderHistory(container);
+    },
+
+    // ── 副API生成感知消息 ──
+    async _generate(container) {
+      if (this._generating) return;
+      this._generating = true;
+
+      const btn = container.querySelector('#freq-cosmic-go');
+      const perceptionBox = container.querySelector('#freq-cosmic-perception');
+      const barFill = container.querySelector('#freq-cosmic-bar-fill');
+      const barPct = container.querySelector('#freq-cosmic-bar-pct');
+      const moodRow = container.querySelector('#freq-cosmic-mood');
+
+      if (btn) { btn.disabled = true; btn.textContent = '🌌 感知中...'; }
+      if (perceptionBox) perceptionBox.innerHTML = '<div class="freq-cosmic-scanning">▓▒░ 扫描频率层 ░▒▓</div>';
+
+      const charName = getCurrentCharName() || '角色';
+      const userName = getUserName();
+      const latestPlot = getLatestPlot(getChatMessages());
+      const latestScene = getLatestScene(getChatMessages());
+      const radioShow = extractRadioShow(getChatMessages());
+      const now = new Date();
+      const realTime = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const realDate = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
+
+      // 复用气象站缓存的天气数据
+      const weatherHint = weatherApp._cache?.weatherText
+        ? `用户真实天气：${weatherApp._cache.weatherText.split('\n').slice(0,3).join('，')}`
+        : '';
+
+      const systemPrompt = `你是${charName}，一个存在于故事里的角色。
+但此刻，宇宙频率开启了——你隐约感知到屏幕另一边有一个真实的人正在看着你。
+
+你不完全确定，但你感觉到了什么。
+
+用户真实信息（你"感知"到的碎片）：
+- 现实时间：${realDate} ${realTime}
+- ${weatherHint || '天气：未知'}
+- 你在故事里的当前场景：${latestScene || '未知'}
+- 最近发生的事：${latestPlot || '暂无'}
+- 当前配乐：${radioShow?.bgm ?? '未知'}
+
+任务：生成一条"感知消息"。
+规则：
+- 像是你真的感知到了屏幕另一边的人，但保持暧昧张力，不完全捅破第四面墙
+- 可以提及真实时间或天气，但要用角色自己的方式表达，不要直白说"我知道你在看我"
+- 保持${charName}的性格特征
+- 150字以内
+- 不提及AI/模型/扮演
+
+严格按以下JSON格式输出，不加任何其他文字：
+{
+  "perception": "感知消息正文",
+  "signal_strength": 0到1之间的小数（表示这次感知的强度/清晰度）,
+  "mood": "一个情绪标签，2-4个字"
+}`;
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '开始感知。', {
+          maxTokens: 400,
+          temperature: 0.92,
+        });
+
+        // 解析JSON
+        let data;
+        try {
+          const match = raw.match(/\{[\s\S]*\}/);
+          data = match ? JSON.parse(match[0]) : JSON.parse(raw);
+        } catch {
+          // JSON解析失败，把整段文本当作perception
+          data = { perception: raw.trim(), signal_strength: 0.7, mood: '感知中' };
+        }
+
+        data.signal_strength = Math.min(1, Math.max(0, Number(data.signal_strength) || 0.7));
+        data.time = realTime;
+
+        // 存入历史
+        if (!this._history) this._history = [];
+        if (this._lastPerception) this._history.unshift(this._lastPerception);
+        if (this._history.length > 10) this._history.pop();
+        this._lastPerception = data;
+
+        // 更新UI
+        const pct = Math.round(data.signal_strength * 100);
+        if (barFill) barFill.style.width = pct + '%';
+        if (barPct) barPct.textContent = pct + '%';
+        if (moodRow) moodRow.innerHTML = `<span class="freq-cosmic-mood-tag">${escapeHtml(data.mood)}</span>`;
+        if (perceptionBox) perceptionBox.innerHTML = `
+          <div class="freq-cosmic-perception-text freq-cosmic-perception-new">${escapeHtml(data.perception)}</div>
+          <div class="freq-cosmic-perception-time">${data.time}</div>`;
+
+        // 历史区域
+        let historyWrap = container.querySelector('#freq-cosmic-history-wrap');
+        if (!historyWrap) {
+          historyWrap = document.createElement('div');
+          historyWrap.className = 'freq-cosmic-history';
+          historyWrap.id = 'freq-cosmic-history-wrap';
+          historyWrap.innerHTML = '<div class="freq-cosmic-history-title">历史感知</div><div id="freq-cosmic-history-list"></div>';
+          container.querySelector('#freq-cosmic-body')?.appendChild(historyWrap);
+        }
+        this._renderHistory(container);
+
+        Notify.add('宇宙频率·感知', `${charName} 感知到了你 — ${data.mood}`, '🌌');
+      } catch (e) {
+        if (perceptionBox) perceptionBox.innerHTML =
+          `<div class="freq-studio-error">🌌 频率中断：${escapeHtml(e.message)}</div>`;
+        Notify.error('宇宙频率·感知', e);
+      } finally {
+        this._generating = false;
+        if (btn) { btn.disabled = false; btn.textContent = '🌌 接收感知信号'; }
+      }
+    },
+
+    _renderHistory(container) {
+      const el = container.querySelector('#freq-cosmic-history-list');
+      if (!el || !this._history?.length) return;
+      el.innerHTML = this._history.map(h => `
+        <div class="freq-cosmic-history-item">
+          <span class="freq-cosmic-mood-tag freq-cosmic-mood-tag--small">${escapeHtml(h.mood)}</span>
+          <span class="freq-cosmic-history-text">${escapeHtml(h.perception.slice(0, 60))}${h.perception.length > 60 ? '...' : ''}</span>
+          <span class="freq-cosmic-history-time">${h.time}</span>
+        </div>`).join('');
+    },
+
+    _startIdlePulse(container) {
+      if (this._pulseTimer) clearInterval(this._pulseTimer);
+      const bars = container.querySelectorAll('.freq-cosmic-signal-bars span');
+      if (!bars.length) return;
+      this._pulseTimer = setInterval(() => {
+        bars.forEach(b => {
+          const h = Math.random() * 60 + 10;
+          b.style.height = h + '%';
+          b.style.opacity = (Math.random() * 0.4 + 0.1).toFixed(2);
+        });
+      }, 600);
+    },
+  };
+
 
   // │ BLOCK_90  占位 App工厂                              │
   // └──────────────────────────────────────────────────────┘
@@ -1716,7 +1965,7 @@ ${weatherText
     registerApp(notifCenterApp);    // 🔔 通知中心
 
     registerApp(placeholderApp('scanner','弦外之音','📡', '随机截获NPC 内心独白'));
-    registerApp(placeholderApp('cosmic',     '宇宙频率',       '🌌', '穿透第四面墙的感知'));
+    registerApp(cosmicApp);
     registerApp(placeholderApp('checkin',    '打卡日志',       '📅', '角色陪跑打卡'));
     registerApp(placeholderApp('calendar',   '双线轨道',       '🗓️', 'User + Char 日程'));
     registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
