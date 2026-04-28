@@ -1,0 +1,238 @@
+/* ── 悬浮球 ── */
+#freq-fab {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  border: 2px solid #A32D2D;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 9999;
+  box-shadow: 0 4px 20px rgba(163,45,45,0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#freq-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 28px rgba(163,45,45,0.6);
+}
+#freq-fab.freq-fab-active {
+  background: #A32D2D;
+  box-shadow: 0 6px 28px rgba(163,45,45,0.8);
+}
+
+/* ── 手机外壳容器 ── */
+#freq-phone-shell {
+  position: fixed;
+  bottom: 140px;
+  right: 20px;
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  animation: freq-slide-up 0.25s ease;
+}
+@keyframes freq-slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 手机本体 ── */
+.freq-phone {
+  width: 320px;
+  height: 580px;
+  background: #0e0e0e;
+  border-radius: 36px;
+  border: 2px solid #2a2a2a;
+  box-shadow:
+    0 0 0 1px #111,
+    0 20px 60px rgba(0,0,0,0.8),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Arial', sans-serif;
+}
+
+/* ── 顶部刘海 ── */
+.freq-phone-notch {
+  height: 44px;
+  background: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid #1e1e1e;
+  flex-shrink: 0;
+}
+.freq-phone-signal { font-size: 12px; }
+.freq-phone-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #A32D2D;
+  letter-spacing: 2px;
+}
+.freq-phone-time {
+  font-size: 12px;
+  color: #666;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 屏幕区域 ── */
+.freq-phone-screen {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: #111;
+}
+
+/* ── 主屏幕 App 网格 ── */
+.freq-home {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 8px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.freq-app-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 8px;
+}
+
+/* ── App 图标 ── */
+.freq-app-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.15s;
+}
+.freq-app-icon:hover { background: rgba(255,255,255,0.06); }
+.freq-app-icon-emoji { font-size: 28px; line-height: 1; }
+.freq-app-icon-name {
+  font-size: 9px;
+  color: #aaa;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 角标 ── */
+.freq-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #A32D2D;
+  color: #fff;
+  font-size: 9px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+/* ── App 视图容器 ── */
+.freq-app-view {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #ddd;
+}
+
+/* ── 底部 Home 条 ── */
+.freq-phone-bar {
+  height: 40px;
+  background: #0a0a0a;
+  border-top: 1px solid #1e1e1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.freq-home-btn {
+  background: none;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #666;
+  font-size: 10px;
+  padding: 4px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.freq-home-btn:hover { border-color: #A32D2D; color: #A32D2D; }
+
+/* ── 关闭按钮 ── */
+.freq-close-btn {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 50%;
+  color: #666;
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+  align-self: flex-end;
+}
+.freq-close-btn:hover { border-color: #A32D2D; color: #A32D2D; }
+
+/* ── 通用 App 内部样式 ── */
+.freq-app-header {
+  padding: 12px 16px;
+  background: #0d0d0d;
+  border-bottom: 1px solid #1e1e1e;
+  font-size: 13px;
+  font-weight: bold;
+  color: #A32D2D;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+.freq-app-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+.freq-app-body::-webkit-scrollbar { width: 3px; }
+.freq-app-body::-webkit-scrollbar-track { background: transparent; }
+.freq-app-body::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+/* ── 空状态 ── */
+.freq-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #444;
+  font-size: 12px;
+  gap: 8px;
+}
+.freq-empty-icon { font-size: 32px; opacity: 0.4; }
