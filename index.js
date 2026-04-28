@@ -547,12 +547,12 @@
     if (el) el.textContent = timeNow();
   }
 
-  // ┌──────────────────────────────────────────────────────┐
+    // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_07  Settings Panel —扩展设置面板              │
   // └──────────────────────────────────────────────────────┘
-    function buildSettingsHTML() {
+  function buildSettingsHTML() {
     const s = getSettings();
-       const promptLabels = {
+    const promptLabels = {
       cosmic:'🌌 宇宙频率·感知',
       scanner:         '📡 弦外之音',
       weather:         '🌦️ 信号气象站',
@@ -560,8 +560,9 @@
       forum_reply:     '💬 留言板·回复',
       checkin_comment: '📅 打卡·角色评论',
       checkin_auto:    '📅 打卡·角色自动打卡',
-      emotion:'📊 情绪电波仪',
-      dream: '🌙 梦境记录仪',
+      emotion:         '📊 情绪电波仪',
+      dream:           '🌙 梦境记录仪',
+      capsule_seal:    '💊 时光胶囊·封存感言',  // ✅ BLOCK_21 新增
     };
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
       <div class="freq-s-row freq-s-prompt-row">
@@ -588,7 +589,7 @@
         <div class="inline-drawer-content" style="font-size:small;">
           <div class="freq-settings-inner">
             <label class="freq-s-row">
-              <span>副API 地址</span>
+              <span>副API地址</span>
               <input type="text" id="freq_sub_api_url" class="text_pole" placeholder="https://api.openai.com/v1" value="${s.subApiUrl ?? ''}" />
             </label>
             <label class="freq-s-row">
@@ -611,7 +612,7 @@
               <span class="freq-s-collapse-arrow">▼</span>
             </div>
             <div class="freq-s-collapse-body" id="freq-prompt-editor-body" style="display:none;">
-              <div class="freq-s-prompt-tip">覆盖各 App 的默认 Prompt。留空则使用内置默认值。支持 {占位符} 变量（与内置一致）。</div>
+              <div class="freq-s-prompt-tip">覆盖各App 的默认 Prompt。留空则使用内置默认值。支持 {占位符} 变量（与内置一致）。</div>
               ${promptEditorHTML}
             </div>
 
@@ -621,7 +622,8 @@
       </div>
     `;
   }
-    function bindSettingsEvents() {
+
+  function bindSettingsEvents() {
     const fields = [
       { id: 'freq_sub_api_url',  key: 'subApiUrl',   type: 'text' },
       { id: 'freq_sub_api_key',  key: 'subApiKey',   type: 'text' },
@@ -650,15 +652,14 @@
       });
     }
 
-    // Prompt textarea 绑定
-      ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream'].forEach(key => {
+    // Prompt textarea绑定 —✅ BLOCK_21: 新增 capsule_seal
+    ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream', 'capsule_seal'].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
         const s = getSettings();
-        s.prompts[key] = el.value; // 不 trim，保留换行
-        if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();
-        const st = document.getElementById('freq_settings_status');
+        s.prompts[key] = el.value;
+        if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();const st = document.getElementById('freq_settings_status');
         if (st) { st.textContent = '✓ 已保存'; setTimeout(() => { st.textContent = ''; }, 1500); }
       });
     });
@@ -678,7 +679,6 @@
       });
     });
   }
-
 
   function loadSettingsCSS() {
     const extensionPath = `scripts/extensions/third-party/${EXTENSION_NAME}`;
@@ -3327,6 +3327,425 @@ try {
       }
     },
   };
+    // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_21  App · 时光胶囊                │
+  // └──────────────────────────────────────────────────────┘
+  const capsuleApp = {
+    id: 'capsule', name: '时光胶囊', icon: '💊', _badge: 0, _container: null,
+    _currentView: 'list',// 'list' | 'detail' | 'create'
+    _detailId: null,
+    _generating: false,
+    _savedSerials: new Set(), // 用于自动保存去重
+
+    init() {
+      //自动保存：新消息含meow_FM 且 event字段非空时自动存胶囊
+      EventBus.on('meow_fm:updated', (allFM) => {
+        if (!allFM || !allFM.length) return;
+        const latest = allFM[allFM.length - 1];
+        if (latest.event && latest.event.trim()) {
+          this._autoSave(latest);
+        }
+      });},
+
+    mount(container) {
+      this._container = container;
+      this._badge = 0;
+      renderAppGrid();
+      //初始化 _savedSerials（从已有数据恢复）
+      this._syncSavedSerials();
+      if (this._currentView === 'detail' && this._detailId) {
+        this._renderDetail(container, this._detailId);
+      } else if (this._currentView === 'create') {
+        this._renderCreate(container);
+      } else {
+        this._renderList(container);
+      }
+    },
+
+    unmount() {
+      this._container = null;
+    },
+
+    _getCapsules() {
+      return getSettings().capsules ?? [];
+    },
+
+    _saveCapsules(capsules) {
+      const s = getSettings();
+      s.capsules = capsules;
+      if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();},
+
+    _syncSavedSerials() {
+      this._savedSerials.clear();
+      this._getCapsules().forEach(c => {
+        if (c.serial) this._savedSerials.add(c.serial);
+      });
+    },
+
+    //── 自动保存 ──
+    _autoSave(fmData) {
+      // 同一serial 不重复存
+      if (fmData.serial && this._savedSerials.has(fmData.serial)) return;
+
+      const capsule = {
+        id: `cap-${Date.now()}`,
+        title: `📅 ${fmData.event}`,
+        content: fmData.event,
+        scene: fmData.scene || '',
+        plot: fmData.plot || '',
+        serial: fmData.serial || '',
+        date: dateNow(),
+        time: timeNow(),
+        type: 'auto',
+        charName: getCurrentCharName() || '???',
+        sealComment: '',};
+
+      const capsules = this._getCapsules();
+      capsules.unshift(capsule);
+      if (capsules.length > 50) capsules.pop();
+      this._saveCapsules(capsules);
+
+      if (fmData.serial) this._savedSerials.add(fmData.serial);
+
+      this._badge++;
+      renderAppGrid();
+      Notify.add('时光胶囊', `自动封存：${capsule.title}`, '💊');
+
+      // 如果当前正在看列表，刷新
+      if (this._container && this._currentView === 'list') {
+        this._renderList(this._container);
+      }
+    },
+
+    // ── 列表页 ──
+    _renderList(container) {
+      this._currentView = 'list';
+      this._detailId = null;
+
+      const capsules = this._getCapsules();
+      const charName = getCurrentCharName() || '???';
+
+      const listHTML = capsules.length === 0
+        ? `<div class="freq-empty" style="min-height:200px;"><span class="freq-empty-icon">💊</span>
+            <span>尚无时光胶囊</span>
+            <span style="font-size:10px;color:#333;">关键事件会自动封存，也可手动创建</span>
+          </div>`
+        : `<div class="freq-capsule-timeline">
+            ${capsules.map(c => {
+              const isAuto = c.type === 'auto';
+              return `
+                <div class="freq-capsule-item" data-capsule-id="${c.id}">
+                  <div class="freq-capsule-timeline-dot ${isAuto ? 'freq-capsule-dot--auto' : 'freq-capsule-dot--manual'}"></div>
+                  <div class="freq-capsule-item-body">
+                    <div class="freq-capsule-item-header">
+                      <span class="freq-capsule-item-title">${escapeHtml((c.title || '无题').slice(0, 25))}</span>
+                      <span class="freq-capsule-item-type">${isAuto ? '⚡自动' : '✍️手动'}</span>
+                    </div>
+                    <div class="freq-capsule-item-meta">
+                      <span>${escapeHtml(c.charName || '')}</span>
+                      <span>${c.serial ? escapeHtml(c.serial) : ''}</span>
+                      <span>${c.date || ''} ${c.time || ''}</span>
+                    </div>
+                    <div class="freq-capsule-item-preview">${escapeHtml((c.content || '').slice(0, 60))}${(c.content || '').length > 60 ? '...' : ''}</div>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>`;
+
+      container.innerHTML = `
+        <div class="freq-app-header">💊 时光胶囊
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">
+            ${capsules.length} 颗 · ${escapeHtml(charName)}
+          </span>
+        </div>
+        <div class="freq-app-body" id="freq-capsule-body">
+          ${listHTML}
+          <button class="freq-studio-action-btn freq-capsule-create-btn" id="freq-capsule-new">💊 手动封存胶囊
+          </button>${capsules.length > 0 ? `<button class="freq-checkin-delete-btn freq-capsule-clear-btn" id="freq-capsule-clear">🗑️ 清空所有胶囊</button>` : ''}
+        </div>`;
+
+      // 绑定事件
+      container.querySelectorAll('.freq-capsule-item').forEach(item => {
+        item.addEventListener('click', () => {
+          this._detailId = item.dataset.capsuleId;
+          this._renderDetail(container, item.dataset.capsuleId);
+        });
+      });
+
+      container.querySelector('#freq-capsule-new')?.addEventListener('click', () => {
+        this._renderCreate(container);
+      });
+
+      container.querySelector('#freq-capsule-clear')?.addEventListener('click', () => {
+        this._showClearConfirm(container);
+      });
+    },
+
+    // ── 清空确认 ──
+    _showClearConfirm(container) {
+      const clearBtn = container.querySelector('#freq-capsule-clear');
+      if (!clearBtn) return;
+
+      if (clearBtn.dataset.confirming === '1') {
+        // 二次点击：执行清空
+        this._saveCapsules([]);
+        this._savedSerials.clear();
+        this._renderList(container);
+        Notify.add('时光胶囊', '所有胶囊已清空', '🗑️');
+        return;
+      }
+
+      // 第一次点击：变为确认状态
+      clearBtn.dataset.confirming = '1';
+      clearBtn.textContent = '⚠️ 确认清空？再次点击执行';
+      clearBtn.style.borderColor = '#A32D2D';
+      clearBtn.style.color = '#e88';
+
+      // 3秒后恢复
+      setTimeout(() => {
+        if (clearBtn.dataset.confirming === '1') {
+          clearBtn.dataset.confirming = '';
+          clearBtn.textContent = '🗑️ 清空所有胶囊';
+          clearBtn.style.borderColor = '';
+          clearBtn.style.color = '';
+        }
+      }, 3000);
+    },
+
+    // ── 详情页 ──
+    _renderDetail(container, capsuleId) {
+      this._currentView = 'detail';
+
+      const capsule = this._getCapsules().find(c => c.id === capsuleId);
+      if (!capsule) { this._renderList(container); return; }
+
+      const isAuto = capsule.type === 'auto';
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-capsule-back">←</button>
+          💊 ${escapeHtml((capsule.title || '无题').slice(0, 15))}
+        </div>
+        <div class="freq-app-body freq-capsule-detail-body">
+
+          <div class="freq-capsule-detail-meta">
+            <span class="freq-capsule-detail-type ${isAuto ? 'freq-capsule-type--auto' : 'freq-capsule-type--manual'}">
+              ${isAuto ? '⚡ 自动封存' : '✍️ 手动封存'}
+            </span>
+            <span>${capsule.date || ''} ${capsule.time || ''}</span>
+          </div>
+
+          ${capsule.serial ? `<div class="freq-capsule-detail-serial">${escapeHtml(capsule.serial)}</div>` : ''}
+
+          <div class="freq-capsule-detail-char">${escapeHtml(capsule.charName || '')} 的时光胶囊</div>
+
+          ${capsule.scene ? `<div class="freq-capsule-detail-section">
+            <div class="freq-capsule-detail-label">📍 封存场景</div>
+            <div class="freq-capsule-detail-text">${escapeHtml(capsule.scene)}</div>
+          </div>` : ''}
+
+          ${capsule.plot ? `
+          <div class="freq-capsule-detail-section">
+            <div class="freq-capsule-detail-label">📜 剧情快照</div>
+            <div class="freq-capsule-detail-text">${escapeHtml(capsule.plot)}</div>
+          </div>` : ''}
+
+          <div class="freq-capsule-detail-section">
+            <div class="freq-capsule-detail-label">💊 胶囊内容</div>
+            <div class="freq-capsule-content-box">
+              <div class="freq-capsule-content-text">${escapeHtml(capsule.content || '（空）')}</div>
+            </div>
+          </div>
+
+          ${capsule.sealComment ? `
+          <div class="freq-capsule-detail-section">
+            <div class="freq-capsule-detail-label">✉️ 封存感言</div>
+            <div class="freq-capsule-seal-box">
+              <div class="freq-capsule-seal-text">${escapeHtml(capsule.sealComment)}</div>
+            </div>
+          </div>` : `
+          <div class="freq-capsule-detail-section">
+            <button class="freq-studio-action-btn freq-capsule-seal-btn" id="freq-capsule-gen-seal">
+              ✉️ 生成封存感言
+            </button>
+          </div>`}
+
+          <div style="margin-top:16px;text-align:center;">
+            <button class="freq-checkin-delete-btn" id="freq-capsule-delete">🗑️ 删除此胶囊</button>
+          </div>
+        </div>`;
+
+      // 绑定事件
+      container.querySelector('#freq-capsule-back')?.addEventListener('click', () => {
+        this._renderList(container);
+      });
+
+      container.querySelector('#freq-capsule-gen-seal')?.addEventListener('click', () => {
+        this._generateSeal(container, capsuleId);
+      });
+
+      container.querySelector('#freq-capsule-delete')?.addEventListener('click', () => {
+        this._showDeleteConfirm(container, capsuleId);
+      });
+    },
+
+    // ── 删除确认 ──
+    _showDeleteConfirm(container, capsuleId) {
+      const delBtn = container.querySelector('#freq-capsule-delete');
+      if (!delBtn) return;
+
+      if (delBtn.dataset.confirming === '1') {
+        const capsules = this._getCapsules().filter(c => c.id !== capsuleId);
+        this._saveCapsules(capsules);
+        this._syncSavedSerials();
+        this._renderList(container);
+        Notify.add('时光胶囊', '胶囊已删除', '🗑️');
+        return;
+      }
+
+      delBtn.dataset.confirming = '1';
+      delBtn.textContent = '⚠️ 确认删除？再次点击执行';
+      delBtn.style.borderColor = '#A32D2D';
+      delBtn.style.color = '#e88';
+
+      setTimeout(() => {
+        if (delBtn.dataset.confirming === '1') {
+          delBtn.dataset.confirming = '';
+          delBtn.textContent = '🗑️ 删除此胶囊';
+          delBtn.style.borderColor = '';
+          delBtn.style.color = '';
+        }
+      }, 3000);
+    },
+
+    // ── 生成封存感言 ──
+    async _generateSeal(container, capsuleId) {
+      if (this._generating) return;
+      this._generating = true;
+
+      const btn = container.querySelector('#freq-capsule-gen-seal');
+      if (btn) { btn.disabled = true; btn.textContent = '✉️ 封存中...'; }
+
+      const capsule = this._getCapsules().find(c => c.id === capsuleId);
+      if (!capsule) {
+        this._generating = false;
+        return;
+      }
+
+      const charName = capsule.charName || getCurrentCharName() || '角色';
+
+      const systemPrompt = getPrompt('capsule_seal')
+        .replace(/{charName}/g, charName)
+        .replace(/{capsuleTitle}/g, capsule.title || '无题')
+        .replace(/{scene}/g, capsule.scene || '未知')
+        .replace(/{plot}/g, capsule.plot || '暂无')
+        .replace(/{storyTime}/g, capsule.serial || capsule.date || '未知');
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '写封存感言。', {
+          maxTokens: 200,
+          temperature: 0.88,
+        });
+
+        capsule.sealComment = raw.trim().slice(0, 200);
+        this._saveCapsules(this._getCapsules());
+
+        //刷新详情页
+        this._renderDetail(container, capsuleId);
+        Notify.add('时光胶囊', `${charName} 写下了封存感言`, '✉️');
+      } catch (e) {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '✉️ 生成失败，重试';
+        }
+        Notify.error('时光胶囊·封存感言', e);
+      } finally {
+        this._generating = false;
+      }
+    },
+
+    // ── 手动创建页 ──
+    _renderCreate(container) {
+      this._currentView = 'create';
+
+      const charName = getCurrentCharName() || '???';
+      const msgs = getChatMessages();
+      const latestScene = getLatestScene(msgs) || '';
+      const latestPlot = getLatestPlot(msgs) || '';
+      const latestSerial = getLatestMeowTime(msgs) || '';
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-capsule-create-back">←</button>
+          💊 封存新胶囊
+        </div>
+        <div class="freq-app-body">
+          <div class="freq-capsule-create-form">
+            <label class="freq-s-row">
+              <span>胶囊标题</span>
+              <input type="text" id="freq-capsule-title-input" class="freq-forum-input"
+                placeholder="给这颗胶囊起个名字..." maxlength="40" />
+            </label>
+
+            <label class="freq-s-row">
+              <span>胶囊内容</span>
+              <textarea id="freq-capsule-content-input" class="freq-forum-textarea"
+                placeholder="想封存什么？可以是一段话、一个瞬间、一句台词..." rows="4"></textarea>
+            </label>
+
+            <div class="freq-capsule-auto-fill">
+              <div class="freq-capsule-auto-fill-label">📡 自动填充当前剧情数据</div>
+              <div class="freq-capsule-auto-fill-info">
+                ${latestScene ? `<div>📍 场景：${escapeHtml(latestScene.slice(0, 50))}</div>` : '<div>📍 场景：暂无</div>'}
+                ${latestPlot ? `<div>📜 剧情：${escapeHtml(latestPlot.slice(0, 50))}</div>` : '<div>📜 剧情：暂无</div>'}
+                ${latestSerial ? `<div>🕐 时间：${escapeHtml(latestSerial)}</div>` : ''}
+              </div>
+            </div>
+
+            <button class="freq-studio-action-btn" id="freq-capsule-submit" style="width:100%;">
+              💊 封存胶囊
+            </button>
+          </div>
+        </div>`;
+
+      container.querySelector('#freq-capsule-create-back')?.addEventListener('click', () => {
+        this._renderList(container);
+      });
+
+      container.querySelector('#freq-capsule-submit')?.addEventListener('click', () => {
+        const titleInput = container.querySelector('#freq-capsule-title-input');
+        const contentInput = container.querySelector('#freq-capsule-content-input');
+        const title = titleInput?.value.trim();
+        const content = contentInput?.value.trim();
+
+        if (!title && !content) return;
+
+        const capsule = {
+          id: `cap-${Date.now()}`,
+          title: title || '无题胶囊',
+          content: content || '',
+          scene: latestScene,
+          plot: latestPlot,
+          serial: latestSerial,
+          date: dateNow(),
+          time: timeNow(),
+          type: 'manual',
+          charName: charName,
+          sealComment: '',
+        };
+
+        const capsules = this._getCapsules();
+        capsules.unshift(capsule);
+        if (capsules.length > 50) capsules.pop();
+        this._saveCapsules(capsules);Notify.add('时光胶囊', `手动封存：${capsule.title}`, '💊');
+
+        //跳转到详情页（方便用户生成封存感言）
+        this._detailId = capsule.id;
+        this._renderDetail(container, capsule.id);
+      });
+    },
+  };
+
 
 
   // ┌──────────────────────────────────────────────────────┐
@@ -3591,11 +4010,11 @@ try {
   };
 
 
-  // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_99  初始化入口                                 │
+    // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_99初始化入口                                 │
   // └──────────────────────────────────────────────────────┘
   function init() {
-    LOG('Initializing v0.3.0...');
+    LOG('Initializing v0.3.1...');
 
     // 1. 加载样式
     loadSettingsCSS();
@@ -3645,11 +4064,11 @@ try {
     registerApp(cosmicApp);
     registerApp(forumApp);
     registerApp(checkinApp);
-    registerApp(placeholderApp('calendar',   '双线轨道',       '🗓️', 'User + Char日程'));
+    registerApp(placeholderApp('calendar','双线轨道','🗓️','User + Char日程'));
     registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
     registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
     registerApp(placeholderApp('delivery',   '跨次元配送',     '🍜', '角色替你点外卖'));
-    registerApp(placeholderApp('capsule',    '时光胶囊',       '💊', '延迟消息回信'));
+    registerApp(capsuleApp);        // ✅ BLOCK_21 替换 placeholder
     registerApp(dreamApp);
     registerApp(emotionApp);
     registerApp(placeholderApp('blackbox',   '黑匣子',         '🔒', '禁区档案'));
