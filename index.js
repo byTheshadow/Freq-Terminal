@@ -2040,6 +2040,409 @@ ${weatherText
   padding: 12px; animation: freq-fade-in 0.3s ease;
 }
 .freq-weather-line { font-size: 11px; color: #bbb; line-height: 1.6; margin-bottom: 2px; }
+  // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_17  App · 频道留言板                           │
+  // └──────────────────────────────────────────────────────┘
+  const forumApp = {
+    id: 'forum', name: '频道留言板', icon: '💬', _badge: 0, _container: null,
+
+    // 版块定义
+    BOARDS: [
+      { id: 'gossip',  label: '📻 电台八卦',   color: '#A32D2D' },
+      { id: 'news',    label: '🌐 世界新闻',   color: '#2d6ea3' },
+      { id: 'mystic',  label: '🔮 玄学讨论区', color: '#7b5ea7' },
+      { id: 'other',   label: '💭 其他',       color: '#4a7a4a' },
+    ],
+
+    _currentBoard: 'gossip',
+    _posts: [],          // [{ id, board, author, avatar, isUser, title, body, time, upvotes, comments:[] }]
+    _generating: false,
+    _postCounter: 0,
+
+    init() {
+      // 新消息时自动触发角色发帖（30%概率）
+      EventBus.on('meow_fm:updated', () => {
+        if (Math.random() < 0.3) this._autoPost();
+      });
+    },
+
+    mount(container) {
+      this._container = container;
+      this._badge = 0;
+      renderAppGrid();
+      this._render(container);
+    },
+
+    unmount() { this._container = null; },
+
+    // ── 获取酒馆所有角色 ──
+    _getChars() {
+      const ctx = getContext();
+      const chars = [];
+      // 当前对话角色
+      const mainName = getCurrentCharName();
+      if (mainName) chars.push({ name: mainName, avatar: '🎙️', desc: '' });
+      // 其他角色（从 characters 列表）
+      if (ctx?.characters) {
+        ctx.characters.forEach(c => {
+          const name = c.name ?? c.data?.name ?? '';
+          if (name && name !== mainName && name !== getUserName()) {
+            chars.push({ name, avatar: '👤', desc: c.data?.description?.slice(0, 100) ?? '' });
+          }
+        });
+      }
+      return chars.length ? chars : [{ name: mainName || '角色', avatar: '🎙️', desc: '' }];
+    },
+
+    // ── 主渲染 ──
+    _render(container) {
+      const board = this.BOARDS.find(b => b.id === this._currentBoard);
+      const posts = this._posts.filter(p => p.board === this._currentBoard);
+
+      container.innerHTML = `
+        <div class="freq-app-header">💬 频道留言板
+          <span style="float:right;font-size:9px;color:#555;font-weight:normal;">r/FreqTerminal</span>
+        </div>
+        <div class="freq-forum-boards" id="freq-forum-boards">
+          ${this.BOARDS.map(b => `
+            <button class="freq-forum-board-btn${b.id === this._currentBoard ? ' freq-forum-board-active' : ''}"
+              data-board="${b.id}" style="--board-color:${b.color}">
+              ${b.label}
+            </button>`).join('')}
+        </div>
+        <div class="freq-forum-toolbar">
+          <button class="freq-forum-new-btn" id="freq-forum-new">✏️ 发帖</button>
+          <button class="freq-forum-gen-btn" id="freq-forum-gen">🎲 角色发帖</button>
+        </div>
+        <div class="freq-app-body freq-forum-body" id="freq-forum-body">
+          ${posts.length
+            ? posts.map(p => this._postHTML(p)).join('')
+            : `<div class="freq-empty"><span class="freq-empty-icon">💬</span><span>这个版块还没有帖子</span></div>`}
+        </div>
+        <div class="freq-forum-compose" id="freq-forum-compose" style="display:none;">
+          <div class="freq-forum-compose-inner">
+            <div class="freq-forum-compose-header">
+              <span>✏️ 发新帖 · ${board.label}</span>
+              <button class="freq-forum-compose-close" id="freq-forum-compose-close">✕</button>
+            </div>
+            <input class="freq-forum-input" id="freq-forum-title" placeholder="帖子标题..." maxlength="60"/>
+            <textarea class="freq-forum-textarea" id="freq-forum-body-input" placeholder="说点什么..." rows="4"></textarea>
+            <button class="freq-studio-action-btn" id="freq-forum-submit" style="width:100%;">发布</button>
+          </div>
+        </div>`;
+
+      // 版块切换
+      container.querySelector('#freq-forum-boards').addEventListener('click', e => {
+        const btn = e.target.closest('[data-board]');
+        if (btn) { this._currentBoard = btn.dataset.board; this._render(container); }
+      });
+
+      // 发帖按钮
+      container.querySelector('#freq-forum-new').addEventListener('click', () => {
+        container.querySelector('#freq-forum-compose').style.display = 'flex';
+      });
+      container.querySelector('#freq-forum-compose-close').addEventListener('click', () => {
+        container.querySelector('#freq-forum-compose').style.display = 'none';
+      });
+      container.querySelector('#freq-forum-submit').addEventListener('click', () => {
+        this._submitUserPost(container);
+      });
+
+      // 角色发帖
+      container.querySelector('#freq-forum-gen').addEventListener('click', () => {
+        this._autoPost(container);
+      });
+
+      // 帖子交互（点赞 / 展开评论 / 回复）
+      container.querySelector('#freq-forum-body').addEventListener('click', e => {
+        const upvoteBtn = e.target.closest('[data-upvote]');
+        const replyBtn  = e.target.closest('[data-reply]');
+        const postEl    = e.target.closest('[data-post-id]');
+        if (upvoteBtn) { this._upvote(upvoteBtn.dataset.upvote, container); return; }
+        if (replyBtn)  { this._openReply(replyBtn.dataset.reply, container); return; }
+        if (postEl && !e.target.closest('button') && !e.target.closest('textarea')) {
+          this._toggleComments(postEl.dataset.postId, container);
+        }
+      });
+    },
+
+    // ── 帖子 HTML ──
+    _postHTML(post) {
+      const board = this.BOARDS.find(b => b.id === post.board);
+      const commentsHTML = post._commentsOpen ? `
+        <div class="freq-forum-comments">
+          ${post.comments.map(c => `
+            <div class="freq-forum-comment${c.isUser ? ' freq-forum-comment--user' : ''}">
+              <span class="freq-forum-comment-author" style="color:${c.isUser ? '#5b8dd9' : (board?.color ?? '#888')}">${escapeHtml(c.author)}</span>
+              <span class="freq-forum-comment-text">${escapeHtml(c.body)}</span>
+              <span class="freq-forum-comment-time">${c.time}</span>
+            </div>`).join('')}
+          <div class="freq-forum-reply-box" id="freq-forum-reply-${post.id}" style="display:none;">
+            <textarea class="freq-forum-textarea freq-forum-reply-input" placeholder="回复..." rows="2"
+              id="freq-forum-reply-input-${post.id}"></textarea>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <button class="freq-studio-action-btn" style="flex:1;padding:6px;"
+                data-reply-submit="${post.id}">回复</button>
+              <button class="freq-forum-gen-btn" style="flex:1;padding:6px;"
+                data-char-reply="${post.id}">🎲 角色回复</button>
+            </div>
+          </div>
+        </div>` : '';
+
+      return `
+        <div class="freq-forum-post" data-post-id="${post.id}">
+          <div class="freq-forum-post-left">
+            <button class="freq-forum-upvote" data-upvote="${post.id}">
+              <span class="freq-forum-upvote-arrow">▲</span>
+              <span class="freq-forum-upvote-count">${post.upvotes}</span>
+            </button>
+          </div>
+          <div class="freq-forum-post-right">
+            <div class="freq-forum-post-meta">
+              <span class="freq-forum-post-author${post.isUser ? ' freq-forum-post-author--user' : ''}"
+                style="${!post.isUser ? `color:${board?.color ?? '#888'}` : ''}">
+                ${escapeHtml(post.avatar)} ${escapeHtml(post.author)}
+              </span>
+              <span class="freq-forum-post-time">${post.time}</span>
+            </div>
+            <div class="freq-forum-post-title">${escapeHtml(post.title)}</div>
+            <div class="freq-forum-post-body">${escapeHtml(post.body)}</div>
+            <div class="freq-forum-post-footer">
+              <button class="freq-forum-footer-btn" data-reply="${post.id}">
+                💬 ${post.comments.length} 条评论
+              </button>
+            </div>
+          </div>
+        </div>
+        ${commentsHTML}`;
+    },
+
+    // ── 用户发帖 ──
+    _submitUserPost(container) {
+      const title = container.querySelector('#freq-forum-title')?.value.trim();
+      const body  = container.querySelector('#freq-forum-body-input')?.value.trim();
+      if (!title) return;
+      const post = this._makePost({
+        board: this._currentBoard,
+        author: getUserName(),
+        avatar: '🎧',
+        isUser: true,
+        title,
+        body: body || '',
+      });
+      this._posts.unshift(post);
+      container.querySelector('#freq-forum-compose').style.display = 'none';
+      this._render(container);
+      // 自动触发角色回复
+      setTimeout(() => this._charReplyToPost(post.id, container), 800);
+    },
+
+    // ── 角色自动发帖 ──
+    async _autoPost(container) {
+      if (this._generating) return;
+      this._generating = true;
+
+      const genBtn = container?.querySelector('#freq-forum-gen');
+      if (genBtn) { genBtn.disabled = true; genBtn.textContent = '⏳ 生成中...'; }
+
+      const chars = this._getChars();
+      const char = chars[Math.floor(Math.random() * chars.length)];
+      const board = this.BOARDS.find(b => b.id === this._currentBoard);
+      const latestPlot = getLatestPlot(getChatMessages());
+      const latestSeeds = (() => {
+        const all = extractAllMeowFM(getChatMessages());
+        return all.length ? all[all.length - 1].seeds : '';
+      })();
+
+      const systemPrompt = `你现在扮演角色「${char.name}」，正在一个类Reddit的匿名论坛「FreqTerminal」上发帖。
+
+版块：${board.label}
+当前世界剧情：${latestPlot || '暂无'}
+世界观Seeds：${latestSeeds || '暂无'}
+角色描述：${char.desc || '无'}
+
+以${char.name}的性格和口吻，在「${board.label}」版块发一篇帖子。
+要求：
+- 标题吸引眼球，15字以内
+- 正文50-100字，符合角色性格，可以吐槽、爆料、发牢骚、讨论玄学等
+- 带点论坛感，可以用"楼主我"、"求问"、"有没有人"等网络用语
+- 不要提及这是游戏或扮演
+
+严格按JSON输出：
+{"title":"帖子标题","body":"帖子正文"}`;
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '发帖。', { maxTokens: 300, temperature: 0.92 });
+        const match = raw.match(/\{[\s\S]*\}/);
+        const data = match ? JSON.parse(match[0]) : { title: raw.slice(0, 30), body: raw };
+
+        const post = this._makePost({
+          board: this._currentBoard,
+          author: char.name,
+          avatar: char.avatar,
+          isUser: false,
+          title: data.title ?? '无题',
+          body: data.body ?? '',
+        });
+        this._posts.unshift(post);
+        this._badge++;
+        renderAppGrid();
+        Notify.add('频道留言板', `${char.name} 在 ${board.label} 发了新帖`, '💬');
+
+        if (container) {
+          this._render(container);
+          // 有30%概率另一个角色来评论
+          if (chars.length > 1 && Math.random() < 0.3) {
+            setTimeout(() => this._charReplyToPost(post.id, container), 1200);
+          }
+        }
+      } catch (e) {
+        Notify.error('频道留言板·发帖', e);
+      } finally {
+        this._generating = false;
+        if (genBtn) { genBtn.disabled = false; genBtn.textContent = '🎲 角色发帖'; }
+      }
+    },
+
+    // ── 角色回复帖子 ──
+    async _charReplyToPost(postId, container) {
+      const post = this._posts.find(p => p.id === postId);
+      if (!post) return;
+
+      const chars = this._getChars().filter(c => c.name !== post.author);
+      if (!chars.length) return;
+
+      // 随机选1-2个角色来回复，制造互撕感
+      const repliers = chars.sort(() => Math.random() - 0.5).slice(0, Math.min(2, chars.length));
+      const board = this.BOARDS.find(b => b.id === post.board);
+      const latestPlot = getLatestPlot(getChatMessages());
+
+      for (const char of repliers) {
+        const existingComments = post.comments.map(c => `${c.author}: ${c.body}`).join('\n');
+
+        const systemPrompt = `你扮演角色「${char.name}」，正在论坛「FreqTerminal」的「${board.label}」版块回复一篇帖子。
+
+原帖作者：${post.author}
+原帖标题：${post.title}
+原帖内容：${post.body}
+${existingComments ? `已有评论：\n${existingComments}` : ''}
+当前剧情背景：${latestPlot || '暂无'}
+角色描述：${char.desc || '无'}
+
+以${char.name}的性格写一条评论。
+要求：
+- 30-60字
+- 可以赞同、反驳、阴阳怪气、雄竞、吃瓜
+- 符合角色性格，带论坛感
+- 如果已有其他角色评论，可以@他们互撕
+- 只输出评论正文，不加任何前缀`;
+
+        try {
+          const raw = await SubAPI.call(systemPrompt, '评论。', { maxTokens: 150, temperature: 0.93 });
+          post.comments.push({
+            author: char.name,
+            avatar: char.avatar,
+            isUser: false,
+            body: raw.trim(),
+            time: timeNow(),
+          });
+          if (container && this._container === container) {
+            const bodyEl = container.querySelector('#freq-forum-body');
+            if (bodyEl) {
+              const posts = this._posts.filter(p => p.board === this._currentBoard);
+              bodyEl.innerHTML = posts.length
+                ? posts.map(p => this._postHTML(p)).join('')
+                : `<div class="freq-empty"><span class="freq-empty-icon">💬</span><span>这个版块还没有帖子</span></div>`;
+            }
+          }
+        } catch (e) { Notify.error('频道留言板·回复', e); }
+
+        // 两个角色回复之间稍微错开
+        await new Promise(r => setTimeout(r, 600));
+      }
+    },
+
+    // ── 点赞 ──
+    _upvote(postId, container) {
+      const post = this._posts.find(p => p.id === postId);
+      if (!post) return;
+      post.upvotes++;
+      const btn = container.querySelector(`[data-upvote="${postId}"]`);
+      if (btn) {
+        btn.querySelector('.freq-forum-upvote-count').textContent = post.upvotes;
+        btn.classList.add('freq-forum-upvote--active');
+      }
+    },
+
+    // ── 展开/收起评论 ──
+    _toggleComments(postId, container) {
+      const post = this._posts.find(p => p.id === postId);
+      if (!post) return;
+      post._commentsOpen = !post._commentsOpen;
+      const bodyEl = container.querySelector('#freq-forum-body');
+      if (bodyEl) {
+        const posts = this._posts.filter(p => p.board === this._currentBoard);
+        bodyEl.innerHTML = posts.map(p => this._postHTML(p)).join('');
+      }
+    },
+
+    // ── 打开回复框 ──
+    _openReply(postId, container) {
+      const post = this._posts.find(p => p.id === postId);
+      if (!post) return;
+      if (!post._commentsOpen) { post._commentsOpen = true; }
+      const bodyEl = container.querySelector('#freq-forum-body');
+      if (bodyEl) {
+        const posts = this._posts.filter(p => p.board === this._currentBoard);
+        bodyEl.innerHTML = posts.map(p => this._postHTML(p)).join('');
+      }
+      const replyBox = container.querySelector(`#freq-forum-reply-${postId}`);
+      if (replyBox) replyBox.style.display = 'block';
+
+      // 绑定回复提交
+      const submitBtn = container.querySelector(`[data-reply-submit="${postId}"]`);
+      const charReplyBtn = container.querySelector(`[data-char-reply="${postId}"]`);
+      submitBtn?.addEventListener('click', () => this._submitUserReply(postId, container));
+      charReplyBtn?.addEventListener('click', () => this._charReplyToPost(postId, container));
+    },
+
+    // ── 用户回复 ──
+    _submitUserReply(postId, container) {
+      const input = container.querySelector(`#freq-forum-reply-input-${postId}`);
+      const body = input?.value.trim();
+      if (!body) return;
+      const post = this._posts.find(p => p.id === postId);
+      if (!post) return;
+      post.comments.push({
+        author: getUserName(),
+        avatar: '🎧',
+        isUser: true,
+        body,
+        time: timeNow(),
+      });
+      input.value = '';
+      const bodyEl = container.querySelector('#freq-forum-body');
+      if (bodyEl) {
+        const posts = this._posts.filter(p => p.board === this._currentBoard);
+        bodyEl.innerHTML = posts.map(p => this._postHTML(p)).join('');
+      }
+      // 触发角色回复
+      setTimeout(() => this._charReplyToPost(postId, container), 800);
+    },
+
+    // ── 工具：生成帖子对象 ──
+    _makePost({ board, author, avatar, isUser, title, body }) {
+      return {
+        id: `post-${++this._postCounter}`,
+        board, author, avatar, isUser, title, body,
+        time: timeNow(),
+        upvotes: Math.floor(Math.random() * 40) + 1,
+        comments: [],
+        _commentsOpen: false,
+      };
+    },
+  };
+
   // │ BLOCK_90  占位 App工厂                              │
   // └──────────────────────────────────────────────────────┘
   function placeholderApp(id, name, icon, desc) {
@@ -2114,7 +2517,7 @@ ${weatherText
     registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
     registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
     registerApp(placeholderApp('delivery',   '跨次元配送',     '🍜', '角色替你点外卖'));
-    registerApp(placeholderApp('forum',      '频道留言板',     '💬', '多角色发帖互撕'));
+    registerApp(forumApp);
     registerApp(placeholderApp('capsule',    '时光胶囊',       '💊', '延迟消息回信'));
     registerApp(placeholderApp('dream',      '梦境记录仪',     '🌙', '角色视角解梦'));
     registerApp(placeholderApp('emotion',    '情绪电波仪',     '📊', '情绪波形可视化'));
