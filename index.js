@@ -175,6 +175,29 @@
 - 可以吐槽、关心、撒娇、傲娇，取决于角色性格
 - 保持{charName}的语气
 - 只输出台词正文，不加引号或前缀`,
+      //── BLOCK_23 双线轨道 ──
+  calendar_event: `你是"失真电台"的日程分析员。根据以下剧情信息，提取一个值得记录在角色日历上的重要事件。
+
+要求：
+- 从剧情中找出最有纪念意义或推动剧情发展的事件
+- 如果剧情中没有明显事件，可以根据场景和角色状态推断一个合理的日程安排
+- 返回纯JSON，不要包含markdown代码块标记
+
+返回格式（纯JSON）：
+{"title":"事件标题(10字以内)","content":"事件详细描述(30字以内)","date":"YYYY/MM/DD","time":"HH:MM","type":"event"}
+
+type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
+
+角色名：{{charName}}
+当前剧情：{{plot}}
+当前场景：{{scene}}
+当前时间：{{meowTime}}`,calendar_resonance: `你是"失真电台"的共鸣感应器。{{charName}}发现自己和{{userName}}在同一天都有安排：
+
+{{userName}}的日程：{{userEvent}}
+{{charName}}的日程：{{charEvent}}
+
+请用{{charName}}的口吻，写一句简短的感想（20-40字），表达对这个巧合的感受。语气要符合角色性格，可以俏皮、温柔、或若有所思。不要加引号，直接输出感想内容。`,
+
 
 
   };
@@ -596,6 +619,8 @@
       capsule_seal:    '💊 时光胶囊·封存感言',  // ✅ BLOCK_21 新增
       delivery_menu:'🍜跨次元配送·菜单',
       delivery_comment: '🍜 跨次元配送·送餐台词',
+      calendar_event:'🗓️ 双线轨道·事件提取',
+  calendar_resonance: '🗓️ 双线轨道·共鸣感想',
 
     };
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
@@ -687,7 +712,8 @@
     }
 
     // Prompt textarea绑定 —✅ BLOCK_21: 新增 capsule_seal
-    ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream', 'capsule_seal', 'delivery_menu', 'delivery_comment'].forEach(key => {
+    ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream', 'capsule_seal', 'delivery_menu','delivery_comment', 'calendar_event',
+  'calendar_resonance',].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
@@ -4701,6 +4727,983 @@ try {
       }, 3000);
     },
   };
+  //┌─ BLOCK_23 ─┐
+//═══════════════════════════════════════════
+//🗓️ calendarApp — 双线轨道
+// ═══════════════════════════════════════════
+
+const calendarApp = {
+  id: 'calendar', name: '双线轨道', icon: '🗓️',
+  _badge: 0,
+  _container: null,
+
+  // ── 内部状态 ──
+  _currentView: 'month',        // 'month' | 'day' | 'create' | 'ai'
+  _viewYear: new Date().getFullYear(),
+  _viewMonth: new Date().getMonth(),
+  _selectedDate: null,          // 'YYYY/MM/DD'
+  _filter: 'all',               // 'all' | 'user' | 'char'
+  _syncedSerials: new Set(),    // 已同步的 meow_FM serial
+  _resonanceCache: {},          // {'YYYY/MM/DD': { comment, generating } }
+  _macroUnregister: null,       // 宏取消注册函数
+
+  // ── 数据访问 ──
+  _getCalendar() {
+    const s = getSettings();
+    if (!s.calendar) s.calendar = { events: [] };
+    if (!Array.isArray(s.calendar.events)) s.calendar.events = [];
+    return s.calendar;
+  },
+
+  _getEvents() {
+    return this._getCalendar().events;
+  },
+
+  _saveEvents() {
+    saveSettings({ calendar: this._getCalendar() });
+  },
+
+  _getEventsForDate(dateStr) {
+    return this._getEvents().filter(e => e.date === dateStr);
+  },
+
+  _getUserEventsForDate(dateStr) {
+    return this._getEvents().filter(e => e.date === dateStr && e.owner === 'user');
+  },
+
+  _getCharEventsForDate(dateStr) {
+    return this._getEvents().filter(e => e.date === dateStr && e.owner === 'char');
+  },
+
+  // ── 日期工具 ──
+  _todayStr() {
+    const d = new Date();
+    return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+  },
+
+  _formatDateStr(y, m, d) {
+    return y + '/' + String(m + 1).padStart(2, '0') + '/' + String(d).padStart(2, '0');
+  },
+
+  _parseDateStr(str) {
+    if (!str) return null;
+    const p = str.split('/');
+    return { year: parseInt(p[0]), month: parseInt(p[1]) - 1, day: parseInt(p[2]) };
+  },
+
+  _weekdayNames: ['日', '一', '二', '三', '四', '五', '六'],
+
+  // ── meow_FM 时间解析 ──
+  _parseMeowTime(timeStr) {
+    // 格式: "2026.04.28.星期二☆23:00-23:30"
+    if (!timeStr) return null;
+    try {
+      const datePart = timeStr.split('☆')[0].split('.');
+      if (datePart.length < 3) return null;
+      const y = parseInt(datePart[0]);
+      const m = String(parseInt(datePart[1])).padStart(2, '0');
+      const d = String(parseInt(datePart[2])).padStart(2, '0');
+      const timePart = timeStr.split('☆')[1];
+      let time = '';
+      if (timePart) {
+        const t = timePart.split('-')[0];
+        if (t && t.includes(':')) time = t.trim();
+      }
+      return { date: y + '/' + m + '/' + d, time: time };
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // ── 宏注册：{{calendar_today}} ──
+  _registerMacro() {
+    if (this._macroUnregister) return;
+    try {
+      const self = this;
+      const result = window.registerMacroLike(
+        /\{\{calendar_today\}\}/gi,
+        function(_context) {
+          return self._buildMacroContent();
+        }
+      );
+      if (result && result.unregister) {
+        self._macroUnregister = result.unregister;
+      }
+    } catch (e) {
+      console.warn('[Freq Calendar] registerMacroLike not available:', e);
+    }
+  },
+
+  _unregisterMacro() {
+    if (this._macroUnregister) {
+      try { this._macroUnregister(); } catch (e) { /* ignore */ }
+      this._macroUnregister = null;
+    }
+  },
+
+  _buildMacroContent() {
+    const today = this._todayStr();
+    const userEvents = this._getUserEventsForDate(today).filter(e => e.tellChar);
+    if (userEvents.length === 0) return '';
+
+    const userName = getUserName() || 'User';
+    const lines = userEvents.map(e => {
+      let line = '- ' + e.title;
+      if (e.time) line += '（' + e.time + '）';
+      if (e.content) line += '：' + e.content;
+      return line;
+    });
+
+    return '\n[' + userName + '今天的日程]\n' + lines.join('\n') + '\n';
+  },
+
+  // ── meow_FM 自动同步 ──
+  _syncFromMeowFM(allFM) {
+    if (!Array.isArray(allFM)) return;
+    const charName = getCurrentCharName() || 'Char';
+    let added = false;
+
+    allFM.forEach(fm => {
+      if (!fm.event || !fm.event.trim() || fm.event.trim() === '无' || fm.event.trim() === '空') return;
+      if (!fm.serial) return;
+      if (this._syncedSerials.has(fm.serial)) return;
+
+      // 检查是否已存在
+      const exists = this._getEvents().some(e => e.serial === fm.serial);
+      if (exists) {
+        this._syncedSerials.add(fm.serial);
+        return;
+      }
+
+      // 解析时间
+      const parsed = this._parseMeowTime(fm.time);
+      const date = parsed ? parsed.date : this._todayStr();
+      const time = parsed ? parsed.time : '';
+
+      const evt = {
+        id: 'cal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        owner: 'char',
+        ownerName: charName,
+        title: fm.event.length > 15 ? fm.event.substring(0, 15) + '…' : fm.event,
+        content: fm.event,
+        date: date,
+        time: time,
+        type: 'event',
+        serial: fm.serial,
+        tellChar: false,
+        told: false,
+        source: 'auto',
+        createdAt: new Date().toISOString()
+      };
+
+      this._getEvents().push(evt);
+      this._syncedSerials.add(fm.serial);
+      added = true;
+    });
+
+    if (added) {
+      this._saveEvents();
+      this._badge++;
+      renderAppGrid();
+      if (this._container && this._currentView === 'month') {
+        this._renderMonth();
+      }
+    }
+  },
+
+  // ── 初始化 ──
+  init() {
+    const self = this;
+
+    // 注册宏
+    this._registerMacro();
+
+    // 监听 meow_FM 更新
+    EventBus.on('meow_fm:updated', function(allFM) {
+      self._syncFromMeowFM(allFM);
+    });
+
+    // 初始化已同步的 serial集合
+    this._getEvents().forEach(e => {
+      if (e.serial) self._syncedSerials.add(e.serial);
+    });
+  },
+
+  // ── 挂载 ──
+  mount(container) {
+    this._container = container;
+    this._badge = 0;
+    renderAppGrid();
+    this._currentView = 'month';
+    this._viewYear = new Date().getFullYear();
+    this._viewMonth = new Date().getMonth();
+    this._selectedDate = null;
+    this._filter = 'all';
+    this._renderMonth();
+  },
+
+  // ── 卸载 ──
+  unmount() {
+    this._container = null;
+  },
+
+  // ═══════════════════════════════════════
+  //  月历主视图
+  // ═══════════════════════════════════════
+  _renderMonth() {
+    if (!this._container) return;
+    const self = this;
+    const y = this._viewYear;
+    const m = this._viewMonth;
+    const today = this._todayStr();
+
+    const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月','7月', '8月', '9月', '10月', '11月', '12月'];
+
+    // 计算日历网格
+    const firstDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+    // 统计本月事件
+    const eventMap = {}; // { 'YYYY/MM/DD': { user: count, char: count } }
+    this._getEvents().forEach(e => {
+      const p = this._parseDateStr(e.date);
+      if (!p || p.year !== y || p.month !== m) return;
+      if (!eventMap[e.date]) eventMap[e.date] = { user: 0, char: 0 };
+      if (e.owner === 'user') eventMap[e.date].user++;
+      else eventMap[e.date].char++;
+    });
+
+    // 筛选按钮状态
+    const filterBtns = [
+      { key: 'all',  label: '全部',  cls: '' },
+      { key: 'user', label: '🔵 我的', cls: 'freq-cal23-filter-user' },
+      { key: 'char', label: '🔴 角色', cls: 'freq-cal23-filter-char' }
+    ];
+
+    let html = '';
+    html += '<div class="freq-app-header">';
+    html += '  <div class="freq-cal23-nav">';
+    html += '    <button class="freq-cal23-nav-btn" data-dir="prev">◀</button>';
+    html += '    <span class="freq-cal23-nav-title">' + y + '年 ' + monthNames[m] + '</span>';
+    html += '    <button class="freq-cal23-nav-btn" data-dir="next">▶</button>';
+    html += '  </div>';
+    html += '  <div class="freq-cal23-filters">';
+    filterBtns.forEach(f => {
+      const active = self._filter === f.key ? ' freq-cal23-filter-active' : '';
+      html += '<button class="freq-cal23-filter-btn' + active + ' ' + f.cls + '" data-filter="' + f.key + '">' + f.label + '</button>';
+    });
+    html += '  </div>';
+    html += '</div>';
+
+    html += '<div class="freq-app-body">';
+
+    // 星期头
+    html += '<div class="freq-cal23-weekrow">';
+    this._weekdayNames.forEach(w => {
+      html += '<div class="freq-cal23-weekcell">' + w + '</div>';
+    });
+    html += '</div>';
+
+    // 日期网格
+    html += '<div class="freq-cal23-grid">';
+    // 空白填充
+    for (let i = 0; i < firstDay; i++) {
+      html += '<div class="freq-cal23-cell freq-cal23-cell-empty"></div>';
+    }
+    // 日期
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = this._formatDateStr(y, m, d);
+      const info = eventMap[dateStr] || { user: 0, char: 0 };
+      const isToday = dateStr === today;
+      const hasUser = info.user > 0;
+      const hasChar = info.char > 0;
+      const isResonance = hasUser && hasChar;
+
+      let cellCls = 'freq-cal23-cell';
+      if (isToday) cellCls += ' freq-cal23-today';
+      if (isResonance) cellCls += ' freq-cal23-resonance';
+      if (this._selectedDate === dateStr) cellCls += ' freq-cal23-selected';
+
+      // 根据筛选决定是否显示色点
+      const showUser = (this._filter === 'all' || this._filter === 'user') && hasUser;
+      const showChar = (this._filter === 'all' || this._filter === 'char') && hasChar;
+
+      html += '<div class="' + cellCls + '" data-date="' + dateStr + '">';
+      html += '  <span class="freq-cal23-day">' + d + '</span>';
+      html += '  <div class="freq-cal23-dots">';
+      if (showUser) html += '<span class="freq-cal23-dot freq-cal23-dot-user"></span>';
+      if (showChar) html += '<span class="freq-cal23-dot freq-cal23-dot-char"></span>';
+      if (isResonance && this._filter === 'all') html += '<span class="freq-cal23-dot freq-cal23-dot-resonance">✦</span>';
+      html += '  </div>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    // 底部操作栏
+    html += '<div class="freq-cal23-actions">';
+    html += '  <button class="freq-studio-action-btn freq-cal23-add-btn" data-action="add">＋ 添加日程</button>';
+    html += '  <button class="freq-cal23-ai-btn" data-action="ai">🤖 AI提取</button>';
+    html += '</div>';
+
+    // 今日预览
+    const todayEvents = this._getEventsForDate(today);
+    if (todayEvents.length > 0) {
+      html += '<div class="freq-cal23-preview">';
+      html += '  <div class="freq-cal23-preview-title">📌 今日日程</div>';
+      todayEvents.forEach(e => {
+        const ownerIcon = e.owner === 'user' ? '🔵' : '🔴';
+        const typeIcon = e.type === 'milestone' ? '⭐' : (e.type === 'plan' ? '📋' : '📝');
+        html += '<div class="freq-cal23-preview-item" data-id="' + e.id + '">';
+        html += '  <span class="freq-cal23-preview-owner">' + ownerIcon + '</span>';
+        html += '  <span class="freq-cal23-preview-type">' + typeIcon + '</span>';
+        html += '  <span class="freq-cal23-preview-text">' + self._escHtml(e.title) + '</span>';
+        if (e.time) html += '<span class="freq-cal23-preview-time">' + e.time + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div>'; // freq-app-body
+
+    this._container.innerHTML = html;
+    this._bindMonthEvents();
+  },
+
+  _bindMonthEvents() {
+    if (!this._container) return;
+    const self = this;
+
+    // 导航按钮 — cloneNode 防重复
+    this._container.querySelectorAll('.freq-cal23-nav-btn').forEach(btn => {
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+      newBtn.addEventListener('click', function() {
+        const dir = this.dataset.dir;
+        if (dir === 'prev') {
+          self._viewMonth--;
+          if (self._viewMonth < 0) { self._viewMonth = 11; self._viewYear--; }
+        } else {
+          self._viewMonth++;
+          if (self._viewMonth > 11) { self._viewMonth = 0; self._viewYear++; }
+        }
+        self._renderMonth();
+      });
+    });
+
+    // 筛选按钮
+    this._container.querySelectorAll('.freq-cal23-filter-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        self._filter = this.dataset.filter;
+        self._renderMonth();
+      });
+    });
+
+    // 日期格子点击
+    this._container.querySelectorAll('.freq-cal23-cell[data-date]').forEach(cell => {
+      cell.addEventListener('click', function() {
+        self._selectedDate = this.dataset.date;
+        self._currentView = 'day';
+        self._renderDay();
+      });
+    });
+
+    // 添加按钮
+    const addBtn = this._container.querySelector('[data-action="add"]');
+    if (addBtn) {
+      addBtn.addEventListener('click', function() {
+        self._currentView = 'create';
+        self._renderCreate();
+      });
+    }
+
+    // AI提取按钮
+    const aiBtn = this._container.querySelector('[data-action="ai"]');
+    if (aiBtn) {
+      aiBtn.addEventListener('click', function() {
+        self._currentView = 'ai';
+        self._renderAI();
+      });
+    }
+
+    // 今日预览项点击
+    this._container.querySelectorAll('.freq-cal23-preview-item').forEach(item => {
+      item.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const evt = self._getEvents().find(e => e.id === id);
+        if (evt) {
+          self._selectedDate = evt.date;
+          self._currentView = 'day';
+          self._renderDay();
+        }
+      });
+    });
+  },
+
+  // ═══════════════════════════════════════
+  //  日期详情视图
+  // ═══════════════════════════════════════
+  _renderDay() {
+    if (!this._container || !this._selectedDate) return;
+    const self = this;
+    const dateStr = this._selectedDate;
+    const parsed = this._parseDateStr(dateStr);
+    const dayLabel = parsed ? (parsed.month + 1) + '月' + parsed.day + '日' : dateStr;
+
+    const userEvents = this._getUserEventsForDate(dateStr);
+    const charEvents = this._getCharEventsForDate(dateStr);
+    const isResonance = userEvents.length > 0 && charEvents.length > 0;
+
+    let html = '';
+    html += '<div class="freq-app-header">';
+    html += '  <button class="freq-checkin-back-btn" data-action="back">← 返回</button>';
+    html += '  <span class="freq-cal23-day-title">' + dayLabel + '</span>';
+    html += '  <button class="freq-cal23-day-add" data-action="add-day">＋</button>';
+    html += '</div>';
+
+    html += '<div class="freq-app-body">';
+
+    // 双轨道并排
+    html += '<div class="freq-cal23-dual">';
+
+    // 🔵 User轨道
+    html += '<div class="freq-cal23-track freq-cal23-track-user">';
+    html += '  <div class="freq-cal23-track-label">🔵 ' + self._escHtml(getUserName() || 'User') + '</div>';
+    if (userEvents.length === 0) {
+      html += '<div class="freq-cal23-track-empty">暂无日程</div>';
+    } else {
+      userEvents.forEach(e => {
+        html += self._renderEventCard(e);
+      });
+    }
+    html += '</div>';
+
+    // 🔴 Char 轨道
+    html += '<div class="freq-cal23-track freq-cal23-track-char">';
+    html += '  <div class="freq-cal23-track-label">🔴 ' + self._escHtml(getCurrentCharName() || 'Char') + '</div>';
+    if (charEvents.length === 0) {
+      html += '<div class="freq-cal23-track-empty">暂无日程</div>';
+    } else {
+      charEvents.forEach(e => {
+        html += self._renderEventCard(e);
+      });
+    }
+    html += '</div>';
+
+    html += '</div>'; // dual
+
+    // 🟡 共鸣时刻
+    if (isResonance) {
+      const cached = this._resonanceCache[dateStr];
+      html += '<div class="freq-cal23-resonance-box">';
+      html += '  <div class="freq-cal23-resonance-title">✦ 共鸣时刻</div>';
+      if (cached && cached.comment) {
+        html += '<div class="freq-cal23-resonance-comment">"' + self._escHtml(cached.comment) + '"</div>';
+      } else {
+        html += '<button class="freq-cal23-resonance-gen" data-action="gen-resonance" data-date="' + dateStr + '">';
+        html += cached && cached.generating ? '<span class="freq-studio-loading">感应中…</span>' : '💫 生成角色感想';
+        html += '</button>';
+      }
+      html += '</div>';
+    }
+
+    html += '</div>'; // freq-app-body
+
+    this._container.innerHTML = html;
+    this._bindDayEvents();
+  },
+
+  _renderEventCard(e) {
+    const typeIcon = e.type === 'milestone' ? '⭐' : (e.type === 'plan' ? '📋' : '📝');
+    const sourceTag = e.source === 'auto' ? '<span class="freq-cal23-tag-auto">自动</span>' : '';
+    const tellTag = (e.owner === 'user' && e.tellChar) ? '<span class="freq-cal23-tag-tell">📢 已告知角色</span>' : '';
+
+    let html = '<div class="freq-cal23-event-card" data-id="' + e.id + '">';
+    html += '  <div class="freq-cal23-event-head">';
+    html += '    <span class="freq-cal23-event-type">' + typeIcon + '</span>';
+    html += '    <span class="freq-cal23-event-title">' + this._escHtml(e.title) + '</span>';
+    if (e.time) html += '<span class="freq-cal23-event-time">' + e.time + '</span>';
+    html += '  </div>';
+    if (e.content && e.content !== e.title) {
+      html += '<div class="freq-cal23-event-content">' + this._escHtml(e.content) + '</div>';
+    }
+    html += '  <div class="freq-cal23-event-foot">';
+    html += sourceTag + tellTag;
+    html += '  </div>';
+    html += '<div class="freq-cal23-event-actions">';
+    if (e.owner === 'user') {
+      const tellLabel = e.tellChar ? '取消告知' : '告诉角色';
+      html += '<button class="freq-cal23-evt-btn" data-action="toggle-tell" data-id="' + e.id + '">' + tellLabel + '</button>';
+    }
+    html += '  <button class="freq-checkin-delete-btn freq-cal23-evt-btn" data-action="delete" data-id="' + e.id + '">删除</button>';
+    html += '  </div>';
+    html += '</div>';
+    return html;
+  },
+
+  _bindDayEvents() {
+    if (!this._container) return;
+    const self = this;
+
+    // 返回
+    const backBtn = this._container.querySelector('[data-action="back"]');
+    if (backBtn) {
+      backBtn.addEventListener('click', function() {
+        self._currentView = 'month';
+        self._renderMonth();
+      });
+    }
+
+    // 添加（带预填日期）
+    const addBtn = this._container.querySelector('[data-action="add-day"]');
+    if (addBtn) {
+      addBtn.addEventListener('click', function() {
+        self._currentView = 'create';
+        self._renderCreate(self._selectedDate);
+      });
+    }
+
+    // 告诉角色 / 取消告知
+    this._container.querySelectorAll('[data-action="toggle-tell"]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const evt = self._getEvents().find(e => e.id === id);
+        if (evt) {
+          evt.tellChar = !evt.tellChar;
+          if (!evt.tellChar) evt.told = false;
+          self._saveEvents();
+          self._renderDay();
+        }
+      });
+    });
+
+    // 删除（二次确认）
+    this._container.querySelectorAll('[data-action="delete"]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        if (this.dataset.confirming === '1') {
+          // 确认删除
+          const events = self._getEvents();
+          const idx = events.findIndex(e => e.id === id);
+          if (idx !== -1) events.splice(idx, 1);
+          self._saveEvents();
+          // 如果当天没事件了回月历
+          const remaining = self._getEventsForDate(self._selectedDate);
+          if (remaining.length === 0) {
+            self._currentView = 'month';
+            self._renderMonth();
+          } else {
+            self._renderDay();
+          }
+        } else {
+          this.dataset.confirming = '1';
+          this.textContent = '确认删除？';
+          const btnRef = this;
+          setTimeout(function() {
+            if (btnRef.dataset.confirming === '1') {
+              btnRef.dataset.confirming = '0';
+              btnRef.textContent = '删除';
+            }
+          }, 3000);
+        }
+      });
+    });
+
+    // 生成共鸣感想
+    const resBtn = this._container.querySelector('[data-action="gen-resonance"]');
+    if (resBtn) {
+      resBtn.addEventListener('click', function() {
+        const date = this.dataset.date;
+        self._generateResonance(date);
+      });
+    }
+  },
+
+  // ── 共鸣感想生成 ──
+  async _generateResonance(dateStr) {
+    if (!this._container) return;
+    const userEvents = this._getUserEventsForDate(dateStr);
+    const charEvents = this._getCharEventsForDate(dateStr);
+    if (userEvents.length === 0 || charEvents.length === 0) return;
+
+    this._resonanceCache[dateStr] = { comment: '', generating: true };
+    this._renderDay();
+
+    const charName = getCurrentCharName() || 'Char';
+    const userName = getUserName() || 'User';
+    const userEventText = userEvents.map(e => e.title + (e.content ? '：' + e.content : '')).join('；');
+    const charEventText = charEvents.map(e => e.title + (e.content ? '：' + e.content : '')).join('；');
+
+    const promptTemplate = getPrompt('calendar_resonance');
+    const systemPrompt = promptTemplate
+      .replace(/\{\{charName\}\}/g, charName)
+      .replace(/\{\{userName\}\}/g, userName)
+      .replace(/\{\{userEvent\}\}/g, userEventText)
+      .replace(/\{\{charEvent\}\}/g, charEventText);
+
+    try {
+      const result = await SubAPI.call(
+        systemPrompt,
+        '请生成共鸣感想。',
+        { maxTokens: 200, temperature: 0.9 }
+      );
+      this._resonanceCache[dateStr] = { comment: result.trim(), generating: false };
+    } catch (e) {
+      this._resonanceCache[dateStr] = { comment: '', generating: false };
+      console.warn('[Freq Calendar] Resonance generation failed:', e);
+      EventBus.emit('error:new', { app: 'calendar', message: '共鸣感想生成失败：' + e.message });
+    }
+
+    if (this._container && this._currentView === 'day' && this._selectedDate === dateStr) {
+      this._renderDay();
+    }
+  },
+
+  // ═══════════════════════════════════════
+  //  创建事件视图
+  // ═══════════════════════════════════════
+  _renderCreate(prefillDate) {
+    if (!this._container) return;
+    const self = this;
+    const today = this._todayStr();
+    const dateVal = prefillDate || today;
+
+    let html = '';
+    html += '<div class="freq-app-header">';
+    html += '  <button class="freq-checkin-back-btn" data-action="back">← 返回</button>';
+    html += '  <span>添加日程</span>';
+    html += '</div>';
+
+    html += '<div class="freq-app-body">';
+    html += '<div class="freq-cal23-form">';
+
+    // 轨道选择
+    html += '<div class="freq-cal23-form-row">';
+    html += '  <label class="freq-cal23-form-label">轨道</label>';
+    html += '  <div class="freq-cal23-form-toggle">';
+    html += '    <button class="freq-cal23-owner-btn freq-cal23-owner-active" data-owner="user">🔵 我的日程</button>';
+    html += '    <button class="freq-cal23-owner-btn" data-owner="char">🔴 角色日程</button>';
+    html += '  </div>';
+    html += '</div>';
+
+    // 标题
+    html += '<div class="freq-cal23-form-row">';
+    html += '  <label class="freq-cal23-form-label">标题</label>';
+    html += '  <input class="freq-forum-input" id="freq-cal23-title" placeholder="事件标题" maxlength="30" />';
+    html += '</div>';
+
+    // 内容
+    html += '<div class="freq-cal23-form-row">';
+    html += '  <label class="freq-cal23-form-label">详情</label>';
+    html += '  <textarea class="freq-forum-textarea" id="freq-cal23-content" placeholder="事件详情（可选）" rows="3" maxlength="200"></textarea>';
+    html += '</div>';
+
+    // 日期
+    html += '<div class="freq-cal23-form-row">';
+    html += '  <label class="freq-cal23-form-label">日期</label>';
+    html += '  <input class="freq-forum-input" id="freq-cal23-date" placeholder="YYYY/MM/DD" value="' + dateVal + '" />';
+    html += '</div>';
+
+    // 时间
+    html += '<div class="freq-cal23-form-row">';
+    html += '  <label class="freq-cal23-form-label">时间</label>';
+    html += '  <input class="freq-forum-input" id="freq-cal23-time" placeholder="HH:MM（可选）" />';
+    html += '</div>';
+
+    // 类型
+    html += '<div class="freq-cal23-form-row">';
+    html += '  <label class="freq-cal23-form-label">类型</label>';
+    html += '  <div class="freq-cal23-type-btns">';
+    html += '    <button class="freq-cal23-type-btn freq-cal23-type-active" data-type="event">📝 事件</button>';
+    html += '    <button class="freq-cal23-type-btn" data-type="plan">📋 计划</button>';
+    html += '    <button class="freq-cal23-type-btn" data-type="milestone">⭐ 里程碑</button>';
+    html += '  </div>';
+    html += '</div>';
+
+    // 告诉角色（仅User轨道显示）
+    html += '<div class="freq-cal23-form-row freq-cal23-tell-row">';
+    html += '  <label class="freq-cal23-form-label">告诉角色</label>';
+    html += '  <div class="freq-cal23-tell-toggle">';
+    html += '    <button class="freq-cal23-tell-btn" data-tell="off">关闭</button>';
+    html += '  </div>';
+    html += '  <div class="freq-cal23-tell-hint">开启后，角色将在下次对话中知道这个日程</div>';
+    html += '</div>';
+
+    // 保存按钮
+    html += '<button class="freq-studio-action-btn freq-cal23-save-btn" data-action="save">保存日程</button>';
+
+    html += '</div>'; // form
+    html += '</div>'; // body
+
+    this._container.innerHTML = html;
+    this._bindCreateEvents();
+  },
+
+  _bindCreateEvents() {
+    if (!this._container) return;
+    const self = this;
+    let selectedOwner = 'user';
+    let selectedType = 'event';
+    let tellChar = false;
+
+    // 返回
+    const backBtn = this._container.querySelector('[data-action="back"]');
+    if (backBtn) {
+      backBtn.addEventListener('click', function() {
+        if (self._selectedDate) {
+          self._currentView = 'day';
+          self._renderDay();
+        } else {
+          self._currentView = 'month';
+          self._renderMonth();
+        }
+      });
+    }
+
+    //轨道切换
+    this._container.querySelectorAll('.freq-cal23-owner-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        self._container.querySelectorAll('.freq-cal23-owner-btn').forEach(b => b.classList.remove('freq-cal23-owner-active'));
+        this.classList.add('freq-cal23-owner-active');
+        selectedOwner = this.dataset.owner;
+        // 告诉角色行仅User轨道可见
+        const tellRow = self._container.querySelector('.freq-cal23-tell-row');
+        if (tellRow) {
+          tellRow.style.display = selectedOwner === 'user' ? '' : 'none';
+        }
+      });
+    });
+
+    // 类型切换
+    this._container.querySelectorAll('.freq-cal23-type-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        self._container.querySelectorAll('.freq-cal23-type-btn').forEach(b => b.classList.remove('freq-cal23-type-active'));
+        this.classList.add('freq-cal23-type-active');
+        selectedType = this.dataset.type;
+      });
+    });
+
+    // 告诉角色切换
+    const tellBtn = this._container.querySelector('.freq-cal23-tell-btn');
+    if (tellBtn) {
+      tellBtn.addEventListener('click', function() {
+        tellChar = !tellChar;
+        this.textContent = tellChar ? '✅ 已开启' : '关闭';
+        this.dataset.tell = tellChar ?'on' : 'off';
+        this.classList.toggle('freq-cal23-tell-on', tellChar);
+      });
+    }
+
+    // 保存
+    const saveBtn = this._container.querySelector('[data-action="save"]');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function() {
+        const title = (self._container.querySelector('#freq-cal23-title') || {}).value || '';
+        const content = (self._container.querySelector('#freq-cal23-content') || {}).value || '';
+        const date = (self._container.querySelector('#freq-cal23-date') || {}).value || '';
+        const time = (self._container.querySelector('#freq-cal23-time') || {}).value || '';
+
+        if (!title.trim()) {
+          EventBus.emit('notification:new', { app: 'calendar', message: '请输入事件标题' });
+          return;
+        }
+        if (!date.trim() || !/^\d{4}\/\d{2}\/\d{2}$/.test(date.trim())) {
+          EventBus.emit('notification:new', { app: 'calendar', message: '日期格式应为 YYYY/MM/DD' });
+          return;
+        }
+
+        const ownerName = selectedOwner === 'user'
+          ? (getUserName() || 'User')
+          : (getCurrentCharName() || 'Char');
+
+        const evt = {
+          id: 'cal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          owner: selectedOwner,
+          ownerName: ownerName,
+          title: title.trim(),
+          content: content.trim(),
+          date: date.trim(),
+          time: time.trim(),
+          type: selectedType,
+          serial: '',
+          tellChar: selectedOwner === 'user' ? tellChar : false,
+          told: false,
+          source: 'manual',
+          createdAt: new Date().toISOString()
+        };
+
+        self._getEvents().push(evt);
+        self._saveEvents();
+
+        EventBus.emit('notification:new', { app: 'calendar', message: '日程已添加：' + evt.title });
+
+        //跳转到该日期的详情
+        self._selectedDate = evt.date;
+        self._currentView = 'day';
+        self._renderDay();
+      });
+    }
+  },
+
+  // ═══════════════════════════════════════
+  //  AI提取视图
+  // ═══════════════════════════════════════
+  _renderAI() {
+    if (!this._container) return;
+
+    let html = '';
+    html += '<div class="freq-app-header">';
+    html += '  <button class="freq-checkin-back-btn" data-action="back">← 返回</button>';
+    html += '  <span>🤖 AI 事件提取</span>';
+    html += '</div>';
+
+    html += '<div class="freq-app-body">';
+    html += '<div class="freq-cal23-ai-box">';
+    html += '  <div class="freq-cal23-ai-desc">根据当前剧情，让AI分析并提取一个值得记录的事件到角色轨道。</div>';
+    html += '  <button class="freq-studio-action-btn" data-action="extract">🔍 开始提取</button>';
+    html += '  <div class="freq-cal23-ai-result" id="freq-cal23-ai-result"></div>';
+    html += '</div>';
+    html += '</div>';
+
+    this._container.innerHTML = html;
+    this._bindAIEvents();
+  },
+
+  _bindAIEvents() {
+    if (!this._container) return;
+    const self = this;
+
+    // 返回
+    const backBtn = this._container.querySelector('[data-action="back"]');
+    if (backBtn) {
+      backBtn.addEventListener('click', function() {
+        self._currentView = 'month';
+        self._renderMonth();
+      });
+    }
+
+    // 提取
+    const extractBtn = this._container.querySelector('[data-action="extract"]');
+    if (extractBtn) {
+      extractBtn.addEventListener('click', function() {
+        self._doAIExtract();
+      });
+    }
+  },
+
+  async _doAIExtract() {
+    if (!this._container) return;
+    const resultDiv = this._container.querySelector('#freq-cal23-ai-result');
+    if (!resultDiv) return;
+
+    resultDiv.innerHTML = '<span class="freq-studio-loading">正在分析剧情…</span>';
+
+    const messages = getChatMessages();
+    const plot = getLatestPlot(messages) || '（无剧情信息）';
+    const scene = getLatestScene(messages) || '（无场景信息）';
+    const meowTime = getLatestMeowTime(messages) || '';
+    const charName = getCurrentCharName() || 'Char';
+
+    const promptTemplate = getPrompt('calendar_event');
+    const systemPrompt = promptTemplate
+      .replace(/\{\{charName\}\}/g, charName)
+      .replace(/\{\{plot\}\}/g, plot)
+      .replace(/\{\{scene\}\}/g, scene)
+      .replace(/\{\{meowTime\}\}/g, meowTime);
+
+    try {
+      const raw = await SubAPI.call(
+        systemPrompt,
+        '请从当前剧情中提取一个值得记录的事件，返回纯JSON。',
+        { maxTokens: 400, temperature: 0.7 }
+      );
+
+      // 清理可能的 markdown 代码块
+      let cleaned = raw.trim();
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+
+      let parsed;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (parseErr) {
+        resultDiv.innerHTML = '<div class="freq-studio-error">AI返回格式异常，无法解析</div>'
+          + '<div class="freq-cal23-ai-raw">' + this._escHtml(raw) + '</div>';
+        return;
+      }
+
+      if (!parsed.title || !parsed.date) {
+        resultDiv.innerHTML = '<div class="freq-studio-error">AI返回数据不完整</div>';
+        return;
+      }
+
+      // 显示预览
+      const typeIcon = parsed.type === 'milestone' ? '⭐' : (parsed.type === 'plan' ? '📋' : '📝');
+      let previewHtml = '<div class="freq-cal23-ai-preview">';
+      previewHtml += '  <div class="freq-cal23-ai-preview-head">';
+      previewHtml += '    <span>' + typeIcon + '</span>';
+      previewHtml += '    <strong>' + this._escHtml(parsed.title) + '</strong>';
+      previewHtml += '  </div>';
+      if (parsed.content) {
+        previewHtml += '<div class="freq-cal23-ai-preview-content">' + this._escHtml(parsed.content) + '</div>';
+      }
+      previewHtml += '  <div class="freq-cal23-ai-preview-meta">';
+      previewHtml += '    📅 ' + parsed.date;
+      if (parsed.time) previewHtml += ' ⏰ ' + parsed.time;
+      previewHtml += '  </div>';
+      previewHtml += '<button class="freq-studio-action-btn freq-cal23-ai-confirm" data-action="confirm-ai">✅ 添加到角色轨道</button>';
+      previewHtml += '  <button class="freq-checkin-delete-btn freq-cal23-ai-discard" data-action="discard-ai">放弃</button>';
+      previewHtml += '</div>';
+
+      resultDiv.innerHTML = previewHtml;
+
+      // 绑定确认/放弃
+      const confirmBtn = resultDiv.querySelector('[data-action="confirm-ai"]');
+      if (confirmBtn) {
+        const self = this;
+        confirmBtn.addEventListener('click', function() {
+          const evt = {
+            id: 'cal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            owner: 'char',
+            ownerName: charName,
+            title: parsed.title,
+            content: parsed.content || '',
+            date: parsed.date,
+            time: parsed.time || '',
+            type: parsed.type || 'event',
+            serial: '',
+            tellChar: false,
+            told: false,
+            source: 'auto',
+            createdAt: new Date().toISOString()
+          };
+          self._getEvents().push(evt);
+          self._saveEvents();
+          EventBus.emit('notification:new', { app: 'calendar', message: 'AI事件已添加：' + evt.title });
+
+          self._selectedDate = evt.date;
+          self._currentView = 'day';
+          self._renderDay();
+        });
+      }
+
+      const discardBtn = resultDiv.querySelector('[data-action="discard-ai"]');
+      if (discardBtn) {
+        discardBtn.addEventListener('click', function() {
+          resultDiv.innerHTML = '<div class="freq-cal23-ai-desc">已放弃。可以重新提取。</div>';
+        });
+      }} catch (e) {
+      resultDiv.innerHTML = '<div class="freq-studio-error">AI提取失败：' + this._escHtml(e.message) + '</div>';
+      console.warn('[Freq Calendar] AI extract failed:', e);
+    }
+  },
+
+  // ── HTML转义 ──
+  _escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+};
+//└─ BLOCK_23─┘
+
 
 
 
@@ -4758,7 +5761,7 @@ try {
     registerApp(cosmicApp);
     registerApp(forumApp);
     registerApp(checkinApp);
-    registerApp(placeholderApp('calendar','双线轨道','🗓️','User + Char日程'));
+    registerApp(calendarApp);
     registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
     registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
     registerApp(deliveryApp);// ✅ BLOCK_22 替换 placeholder
