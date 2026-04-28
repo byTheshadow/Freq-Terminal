@@ -146,6 +146,37 @@
 严格按JSON输出，不加其他文字：
 {{"title":"梦境标题","content":"梦境内容","mood":"一个情绪标签2-4字","dreamType":"{defaultDreamType}"}}`,
 
+        delivery_menu: `你是{charName}，你正在替{userName}点外卖。
+当前信息：
+- 现实时间：{realTime}
+- 天气/气温：{weatherHint}
+- 当前BGM：{bgm}
+- 最近剧情：{latestPlot}
+- 当前场景：{latestScene}
+
+任务：以{charName}的身份，推荐一家餐厅和3-5道菜品（真实存在的菜名）。
+规则：
+-餐厅名可以带点异世界风格，但菜品必须是真实菜名
+- 每道菜附上{charName}风格的点评（为什么推荐这道菜，15-30字）
+- 价格用虚构货币"频率币"，范围8-88
+- 根据天气、BGM情绪、剧情综合推荐（冷天推荐热食，悲伤BGM推荐甜食等）
+- 保持{charName}的性格特征
+- 不提及AI/模型
+
+严格按JSON输出，不加其他文字：
+{{"restaurant":"餐厅名","items":[{{"name":"菜名","price":18,"desc":"角色点评"}}]}}`,delivery_comment: `你是{charName}，你刚刚替{userName}点的外卖"送到了"。
+餐厅：{restaurant}
+菜品：{itemNames}
+当前时间：{realTime}
+
+任务：写一句送餐台词（20-50字）。
+规则：
+- 像是{charName}亲自把外卖送到{userName}手上时说的话
+- 可以吐槽、关心、撒娇、傲娇，取决于角色性格
+- 保持{charName}的语气
+- 只输出台词正文，不加引号或前缀`,
+
+
   };
 
 
@@ -563,6 +594,9 @@
       emotion:         '📊 情绪电波仪',
       dream:           '🌙 梦境记录仪',
       capsule_seal:    '💊 时光胶囊·封存感言',  // ✅ BLOCK_21 新增
+      delivery_menu:'🍜跨次元配送·菜单',
+      delivery_comment: '🍜 跨次元配送·送餐台词',
+
     };
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
       <div class="freq-s-row freq-s-prompt-row">
@@ -653,7 +687,7 @@
     }
 
     // Prompt textarea绑定 —✅ BLOCK_21: 新增 capsule_seal
-    ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream', 'capsule_seal'].forEach(key => {
+    ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream', 'capsule_seal', 'delivery_menu', 'delivery_comment'].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
@@ -4008,6 +4042,666 @@ try {
       return map[type] ?? '📊';
     },
   };
+      // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_22App · 跨次元配送                │
+  // └──────────────────────────────────────────────────────┘
+  const deliveryApp = {
+    id: 'delivery', name: '跨次元配送', icon: '🍜', _badge: 0, _container: null,
+    _currentView: 'home', // 'home' | 'menu' | 'delivering' | 'delivered' | 'history' | 'detail'
+    _currentOrder: null,   // 当前正在进行的订单对象
+    _detailId: null,
+    _generating: false,
+    _deliveryTimer: null,
+    _deliveryProgress: 0,
+
+    init() {
+      // 无需EventBus监听，用户主动触发
+    },
+
+    mount(container) {
+      this._container = container;
+      this._badge =0;
+      renderAppGrid();
+
+      // 恢复视图状态
+      if (this._currentView === 'delivering' && this._currentOrder) {
+        this._renderDelivering(container);
+      } else if (this._currentView === 'delivered' && this._currentOrder) {
+        this._renderDelivered(container);
+      } else if (this._currentView === 'menu' && this._currentOrder) {
+        this._renderMenu(container);
+      } else if (this._currentView === 'history') {
+        this._renderHistory(container);
+      } else if (this._currentView === 'detail' && this._detailId) {
+        this._renderDetail(container, this._detailId);
+      } else {
+        this._renderHome(container);
+      }
+    },
+
+    unmount() {
+      this._container = null;
+      // 注意：不清除_deliveryTimer，因为配送可能在后台继续
+    },
+
+    // ── 数据方法 ──
+    _getOrders() {
+      const s = getSettings();
+      if (!s.delivery) s.delivery = { orders: [] };
+      if (!s.delivery.orders) s.delivery.orders = [];
+      return s.delivery.orders;
+    },
+
+    _saveOrders(orders) {
+      const s = getSettings();
+      if (!s.delivery) s.delivery = {};
+      s.delivery.orders = orders;
+      if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();
+    },
+
+    // ── 首页──
+    _renderHome(container) {
+      this._currentView = 'home';
+      this._currentOrder = null;
+      this._detailId = null;
+
+      const charName = getCurrentCharName() || '???';
+      const orders = this._getOrders();
+      const deliveredCount = orders.filter(o => o.status === 'delivered').length;
+
+      container.innerHTML = `
+        <div class="freq-app-header">🍜 跨次元配送
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">
+            ${escapeHtml(charName)}</span>
+        </div>
+        <div class="freq-app-body" id="freq-delivery-body">
+          <div class="freq-delivery-hero">
+            <div class="freq-delivery-hero-icon">🍜</div>
+            <div class="freq-delivery-hero-title">跨次元配送</div>
+            <div class="freq-delivery-hero-desc">让${escapeHtml(charName)} 替你点外卖<br>菜单基于天气·BGM·剧情生成</div>
+          </div>
+
+          <button class="freq-studio-action-btn freq-delivery-order-btn" id="freq-delivery-new">📋 让${escapeHtml(charName)}点单
+          </button>
+
+          ${deliveredCount > 0 ? `
+          <button class="freq-checkin-delete-btn freq-delivery-history-btn" id="freq-delivery-history">📦 历史订单 (${deliveredCount})
+          </button>` : `
+          <div class="freq-delivery-no-history">
+            <span style="font-size:10px;color:#333;">还没有订单记录</span>
+          </div>`}
+
+          <div class="freq-delivery-footer-note">
+            ⏱ 预计送达：永远不会送到。这是异次元外卖。
+          </div>
+        </div>`;
+
+      container.querySelector('#freq-delivery-new')?.addEventListener('click', () => {
+        this._generateMenu(container);
+      });
+
+      container.querySelector('#freq-delivery-history')?.addEventListener('click', () => {
+        this._renderHistory(container);
+      });
+    },
+
+    // ── 生成菜单 ──
+    async _generateMenu(container) {
+      if (this._generating) return;
+      this._generating = true;
+
+      const charName = getCurrentCharName() || '???';
+      const userName = getUserName() || '用户';
+
+      // 显示加载状态
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-delivery-back-loading">←</button>
+          🍜 ${escapeHtml(charName)}正在看菜单...
+        </div>
+        <div class="freq-app-body">
+          <div class="freq-delivery-loading">
+            <div class="freq-delivery-loading-icon">🤔</div>
+            <div class="freq-studio-loading">正在研究你想吃什么...</div>
+            <div class="freq-delivery-loading-sub">（${escapeHtml(charName)}正在翻菜单）</div>
+          </div></div>`;
+
+      container.querySelector('#freq-delivery-back-loading')?.addEventListener('click', () => {
+        this._generating = false;
+        this._renderHome(container);
+      });
+
+      // 收集上下文
+      const msgs = getChatMessages();
+      const latestPlot = getLatestPlot(msgs) || '暂无剧情';
+      const latestScene = getLatestScene(msgs) || '未知场景';
+      const radioShow = extractRadioShow(msgs);
+      const bgm = radioShow?.bgm || '未知';
+      const now = new Date();
+      const realTime = now.toLocaleString('zh-CN', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', weekday: 'long'
+      });
+
+      // 天气提示
+      let weatherHint = '未知天气';
+      try {
+        const s = getSettings();
+        if (s.weatherKey) {
+          weatherHint = '（天气数据需通过气象站获取）';
+        }
+      } catch (e) { /* ignore */ }
+
+      const systemPrompt = getPrompt('delivery_menu')
+        .replace(/{charName}/g, charName)
+        .replace(/{userName}/g, userName)
+        .replace(/{realTime}/g, realTime)
+        .replace(/{weatherHint}/g, weatherHint)
+        .replace(/{bgm}/g, bgm)
+        .replace(/{latestPlot}/g, latestPlot)
+        .replace(/{latestScene}/g, latestScene);
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '替我点外卖吧。', {
+          maxTokens: 600,
+          temperature: 0.9,
+        });
+
+        // 解析JSON
+        let menuData;
+        try {
+          const jsonMatch = raw.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) throw new Error('未找到JSON');
+          menuData = JSON.parse(jsonMatch[0]);
+        } catch (parseErr) {
+          throw new Error('菜单解析失败：' + parseErr.message);
+        }
+
+        if (!menuData.restaurant || !Array.isArray(menuData.items) || menuData.items.length === 0) {
+          throw new Error('菜单数据不完整');
+        }
+
+        // 计算总价
+        let totalPrice = 0;
+        menuData.items.forEach(item => {
+          item.price = Number(item.price) || 18;
+          totalPrice += item.price;
+        });
+
+        // 构建订单对象
+        this._currentOrder = {
+          id: 'del-' + Date.now(),
+          charName: charName,
+          restaurant: menuData.restaurant,
+          items: menuData.items,
+          totalPrice: totalPrice,
+          status: 'preparing',
+          orderTime: dateNow() + ' ' + timeNow(),
+          deliveryTime: '',
+          deliveryComment: '',
+          deliveryPerson: charName,
+        };
+
+        this._renderMenu(container);
+      } catch (e) {
+        container.innerHTML = `
+          <div class="freq-app-header">
+            <button class="freq-checkin-back-btn" id="freq-delivery-back-err">←</button>
+            🍜 跨次元配送
+          </div>
+          <div class="freq-app-body">
+            <div class="freq-studio-error">
+              ❌ 点单失败：${escapeHtml(String(e.message || e))}
+            </div>
+            <button class="freq-studio-action-btn" id="freq-delivery-retry" style="width:100%;margin-top:12px;">
+              🔄 重新点单
+            </button>
+          </div>`;
+
+        container.querySelector('#freq-delivery-back-err')?.addEventListener('click', () => {
+          this._renderHome(container);
+        });container.querySelector('#freq-delivery-retry')?.addEventListener('click', () => {
+          this._generateMenu(container);
+        });Notify.error('跨次元配送', e);
+      } finally {
+        this._generating = false;
+      }
+    },
+
+    // ── 菜单展示页──
+    _renderMenu(container) {
+      this._currentView = 'menu';
+      const order = this._currentOrder;
+      if (!order) { this._renderHome(container); return; }
+
+      const itemsHTML = order.items.map((item, i) => `
+        <div class="freq-delivery-menu-item">
+          <div class="freq-delivery-menu-item-header">
+            <span class="freq-delivery-menu-item-name">${escapeHtml(item.name)}</span>
+            <span class="freq-delivery-menu-item-price">¤${item.price}</span>
+          </div>
+          <div class="freq-delivery-menu-item-desc">"${escapeHtml(item.desc)}"</div>
+        </div>
+      `).join('');
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-delivery-back-menu">←</button>
+          🍜 ${escapeHtml(order.restaurant)}
+        </div>
+        <div class="freq-app-body">
+          <div class="freq-delivery-restaurant-tag">
+            <span class="freq-delivery-chef-icon">👨‍🍳</span>
+            <span>${escapeHtml(order.charName)} 为你推荐</span>
+          </div>
+
+          <div class="freq-delivery-menu-list">
+            ${itemsHTML}
+          </div>
+
+          <div class="freq-delivery-total-row">
+            <span>合计</span>
+            <span class="freq-delivery-total-price">¤${order.totalPrice}</span>
+          </div>
+
+          <button class="freq-studio-action-btn freq-delivery-confirm-btn" id="freq-delivery-confirm">
+            🛒 下单！让${escapeHtml(order.charName)}去买
+          </button>
+
+          <button class="freq-checkin-delete-btn" id="freq-delivery-reroll" style="width:100%;margin-top:6px;">
+            🔄 换一家店
+          </button>
+        </div>`;
+
+      container.querySelector('#freq-delivery-back-menu')?.addEventListener('click', () => {
+        this._currentOrder = null;
+        this._renderHome(container);
+      });
+
+      container.querySelector('#freq-delivery-confirm')?.addEventListener('click', () => {
+        this._startDelivery(container);
+      });
+
+      container.querySelector('#freq-delivery-reroll')?.addEventListener('click', () => {
+        this._currentOrder = null;
+        this._generateMenu(container);
+      });
+    },
+
+    // ── 开始配送 ──
+    _startDelivery(container) {
+      if (!this._currentOrder) return;
+      this._currentOrder.status = 'delivering';
+      this._deliveryProgress = 0;
+      this._renderDelivering(container);
+
+      // 配送进度模拟（总共约25秒）
+      const stages = [
+        { pct: 15, time: 2000 },
+        { pct: 30, time: 3000 },
+        { pct: 45, time: 3500 },
+        { pct: 60, time: 3000 },
+        { pct: 75, time: 3500 },
+        { pct: 88, time: 3000 },
+        { pct: 95, time: 2500 },
+        { pct: 99, time: 3000 },
+        { pct: 100, time: 1500 },
+      ];
+
+      let stageIdx = 0;
+      const advance = () => {
+        if (stageIdx >= stages.length) {
+          this._deliveryTimer = null;
+          this._onDeliveryComplete(container);
+          return;
+        }
+        const stage = stages[stageIdx];
+        this._deliveryProgress = stage.pct;
+        this._updateDeliveryUI();
+        stageIdx++;
+        this._deliveryTimer = setTimeout(advance, stage.time);
+      };
+
+      this._deliveryTimer = setTimeout(advance, 1000);
+    },
+
+    _getDeliveryStageText(pct) {
+      const charName = this._currentOrder?.charName || '???';
+      if (pct <= 15) return '🔥 后厨正在备餐...';
+      if (pct <= 30) return '👨‍🍳 ' + charName + '正在偷吃你的菜...';
+      if (pct <= 45) return '🌀 正在穿越次元壁...';
+      if (pct <= 60) return '📡 信号不稳定，骑手迷路了...';
+      if (pct <= 75) return '🏃 正在全力奔跑中...';
+      if (pct <= 88) return '🌌穿越异次元隧道...';
+      if (pct <= 95) return '📦 马上就到了！';
+      if (pct <= 99) return '⏳ 就差一点点...真的吗？';
+      return '✅ 送达！';
+    },
+
+    _updateDeliveryUI() {
+      if (!this._container) return;
+      const bar = this._container.querySelector('#freq-delivery-progress-fill');
+      const pctEl = this._container.querySelector('#freq-delivery-progress-pct');
+      const stageEl = this._container.querySelector('#freq-delivery-stage-text');
+      if (bar) bar.style.width = this._deliveryProgress + '%';
+      if (pctEl) pctEl.textContent = this._deliveryProgress + '%';
+      if (stageEl) stageEl.textContent = this._getDeliveryStageText(this._deliveryProgress);
+    },
+
+    // ── 配送中页面 ──
+    _renderDelivering(container) {
+      this._currentView = 'delivering';
+      const order = this._currentOrder;
+      if (!order) { this._renderHome(container); return; }
+
+      container.innerHTML = `
+        <div class="freq-app-header">🍜 配送中...</div>
+        <div class="freq-app-body">
+          <div class="freq-delivery-delivering-box">
+            <div class="freq-delivery-delivering-icon">🛵</div>
+            <div class="freq-delivery-delivering-restaurant">${escapeHtml(order.restaurant)}</div>
+
+            <div class="freq-delivery-progress-wrap">
+              <div class="freq-delivery-progress-bar">
+                <div class="freq-delivery-progress-fill" id="freq-delivery-progress-fill"
+                     style="width:${this._deliveryProgress}%"></div>
+              </div>
+              <div class="freq-delivery-progress-pct" id="freq-delivery-progress-pct">${this._deliveryProgress}%</div>
+            </div>
+
+            <div class="freq-delivery-stage-text" id="freq-delivery-stage-text">
+              ${this._getDeliveryStageText(this._deliveryProgress)}
+            </div>
+
+            <div class="freq-delivery-items-summary">
+              ${order.items.map(item => `<span class="freq-delivery-item-tag">${escapeHtml(item.name)}</span>`).join('')}
+            </div>
+
+            <div class="freq-delivery-footer-note" style="margin-top:16px;">
+              ⏱ 预计送达：永远不会送到。这是异次元外卖。
+            </div>
+          </div>
+        </div>`;
+    },
+
+    // ── 配送完成 ──
+    async _onDeliveryComplete(container) {
+      if (!this._currentOrder) return;
+      this._currentOrder.status = 'delivered';
+      this._currentOrder.deliveryTime = dateNow() + ' ' + timeNow();
+
+      // 尝试生成送餐台词
+      const charName = this._currentOrder.charName;
+      const userName = getUserName() || '用户';
+      const itemNames = this._currentOrder.items.map(i => i.name).join('、');
+
+      try {
+        const systemPrompt = getPrompt('delivery_comment')
+          .replace(/{charName}/g, charName)
+          .replace(/{userName}/g, userName)
+          .replace(/{restaurant}/g, this._currentOrder.restaurant)
+          .replace(/{itemNames}/g, itemNames)
+          .replace(/{realTime}/g, timeNow());
+
+        const raw = await SubAPI.call(systemPrompt, '外卖送到了。', {
+          maxTokens: 150,
+          temperature: 0.88,
+        });
+        this._currentOrder.deliveryComment = raw.trim().slice(0, 200);
+      } catch (e) {
+        this._currentOrder.deliveryComment = '……给你，趁热吃。';
+        WARN('delivery_comment generation failed:', e);
+      }
+
+      // 保存订单
+      const orders = this._getOrders();
+      orders.unshift(this._currentOrder);
+      if (orders.length > 30) orders.pop();
+      this._saveOrders(orders);Notify.add('跨次元配送', `${charName} 的外卖送到了！`, '🍜');
+
+      //渲染送达页
+      if (this._container) {
+        this._renderDelivered(this._container);
+      }
+    },
+
+    // ── 送达页 ──
+    _renderDelivered(container) {
+      this._currentView = 'delivered';
+      const order = this._currentOrder;
+      if (!order) { this._renderHome(container); return; }
+
+      container.innerHTML = `
+        <div class="freq-app-header">🍜 外卖送达！</div>
+        <div class="freq-app-body">
+          <div class="freq-delivery-delivered-box">
+            <div class="freq-delivery-delivered-icon">🎉</div>
+            <div class="freq-delivery-delivered-restaurant">${escapeHtml(order.restaurant)}</div>
+
+            <div class="freq-delivery-delivered-items">
+              ${order.items.map(item => `
+                <div class="freq-delivery-delivered-item">
+                  <span class="freq-delivery-delivered-item-name">${escapeHtml(item.name)}</span>
+                  <span class="freq-delivery-delivered-item-price">¤${item.price}</span>
+                </div>
+              `).join('')}<div class="freq-delivery-delivered-total">
+                合计 <span>¤${order.totalPrice}</span>
+              </div>
+            </div>
+
+            <div class="freq-delivery-comment-box">
+              <div class="freq-delivery-comment-char">${escapeHtml(order.charName)} 说：</div>
+              <div class="freq-delivery-comment-text">"${escapeHtml(order.deliveryComment)}"</div>
+            </div>
+
+            <div class="freq-delivery-footer-note">
+              ⏱ 实际送达时间：${escapeHtml(order.deliveryTime)}<br>
+              （当然，这一切都是假的。但好吃是真的。）
+            </div>
+
+            <button class="freq-studio-action-btn" id="freq-delivery-done" style="width:100%;margin-top:12px;">
+              🏠 返回首页
+            </button><button class="freq-checkin-delete-btn" id="freq-delivery-reorder" style="width:100%;margin-top:6px;">
+              🍜 再点一单
+            </button>
+          </div>
+        </div>`;
+
+      container.querySelector('#freq-delivery-done')?.addEventListener('click', () => {
+        this._currentOrder = null;
+        this._renderHome(container);
+      });
+
+      container.querySelector('#freq-delivery-reorder')?.addEventListener('click', () => {
+        this._currentOrder = null;
+        this._generateMenu(container);
+      });
+    },
+
+    // ── 历史订单列表 ──
+    _renderHistory(container) {
+      this._currentView = 'history';
+      this._detailId = null;
+
+      const orders = this._getOrders().filter(o => o.status === 'delivered');
+
+      const listHTML = orders.length === 0
+        ? `<div class="freq-empty" style="min-height:200px;"><span class="freq-empty-icon">📦</span>
+            <span>暂无历史订单</span>
+          </div>`
+        : orders.map(o => `
+          <div class="freq-delivery-history-card" data-order-id="${o.id}">
+            <div class="freq-delivery-history-card-header">
+              <span class="freq-delivery-history-card-restaurant">${escapeHtml(o.restaurant)}</span>
+              <span class="freq-delivery-history-card-price">¤${o.totalPrice}</span>
+            </div>
+            <div class="freq-delivery-history-card-meta">
+              <span>${escapeHtml(o.charName)} 点单</span>
+              <span>${o.orderTime || ''}</span>
+            </div>
+            <div class="freq-delivery-history-card-items">
+              ${o.items.map(item => escapeHtml(item.name)).join(' · ')}
+            </div>
+          </div>
+        `).join('');
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-delivery-back-history">←</button>
+          📦 历史订单
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">
+            ${orders.length} 单
+          </span>
+        </div>
+        <div class="freq-app-body">
+          ${listHTML}
+          ${orders.length > 0 ? `<button class="freq-checkin-delete-btn" id="freq-delivery-clear" style="width:100%;margin-top:12px;">
+            🗑️ 清空所有订单
+          </button>` : ''}
+        </div>`;
+
+      container.querySelector('#freq-delivery-back-history')?.addEventListener('click', () => {
+        this._renderHome(container);
+      });
+
+      container.querySelectorAll('.freq-delivery-history-card').forEach(card => {
+        card.addEventListener('click', () => {
+          this._detailId = card.dataset.orderId;
+          this._renderDetail(container, card.dataset.orderId);
+        });
+      });
+
+      container.querySelector('#freq-delivery-clear')?.addEventListener('click', () => {
+        this._showClearConfirm(container);
+      });
+    },
+
+    // ── 清空确认 ──
+    _showClearConfirm(container) {
+      const clearBtn = container.querySelector('#freq-delivery-clear');
+      if (!clearBtn) return;
+
+      if (clearBtn.dataset.confirming === '1') {
+        this._saveOrders([]);
+        this._renderHistory(container);
+        Notify.add('跨次元配送', '所有订单已清空', '🗑️');
+        return;
+      }
+
+      clearBtn.dataset.confirming = '1';
+      clearBtn.textContent = '⚠️ 确认清空？再次点击执行';
+      clearBtn.style.borderColor = '#A32D2D';
+      clearBtn.style.color = '#e88';
+
+      setTimeout(() => {
+        if (clearBtn.dataset.confirming === '1') {
+          clearBtn.dataset.confirming = '';
+          clearBtn.textContent = '🗑️ 清空所有订单';
+          clearBtn.style.borderColor = '';
+          clearBtn.style.color = '';
+        }
+      }, 3000);
+    },
+
+    // ── 订单详情 ──
+    _renderDetail(container, orderId) {
+      this._currentView = 'detail';
+
+      const order = this._getOrders().find(o => o.id === orderId);
+      if (!order) { this._renderHistory(container); return; }
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-delivery-back-detail">←</button>
+          🍜 ${escapeHtml(order.restaurant)}
+        </div>
+        <div class="freq-app-body freq-delivery-detail-body">
+          <div class="freq-delivery-detail-meta">
+            <span class="freq-delivery-detail-status">✅ 已送达</span>
+            <span>${order.orderTime || ''}</span>
+          </div>
+
+          <div class="freq-delivery-detail-char">
+            ${escapeHtml(order.charName)} 的点单
+          </div>
+
+          <div class="freq-delivery-detail-section">
+            <div class="freq-delivery-detail-label">📋 菜品清单</div>
+            ${order.items.map(item => `
+              <div class="freq-delivery-detail-item">
+                <div class="freq-delivery-detail-item-header">
+                  <span class="freq-delivery-detail-item-name">${escapeHtml(item.name)}</span>
+                  <span class="freq-delivery-detail-item-price">¤${item.price}</span>
+                </div>
+                <div class="freq-delivery-detail-item-desc">"${escapeHtml(item.desc)}"</div>
+              </div>
+            `).join('')}
+            <div class="freq-delivery-detail-total">
+              合计 <span>¤${order.totalPrice}</span>
+            </div>
+          </div>
+
+          ${order.deliveryComment ? `
+          <div class="freq-delivery-detail-section">
+            <div class="freq-delivery-detail-label">💬 送餐台词</div>
+            <div class="freq-delivery-comment-box">
+              <div class="freq-delivery-comment-char">${escapeHtml(order.charName)} 说：</div>
+              <div class="freq-delivery-comment-text">"${escapeHtml(order.deliveryComment)}"</div>
+            </div>
+          </div>` : ''}
+
+          <div class="freq-delivery-detail-section">
+            <div class="freq-delivery-detail-label">📦 配送信息</div>
+            <div class="freq-delivery-detail-info">
+              <div>下单时间：${order.orderTime || '未知'}</div>
+              <div>送达时间：${order.deliveryTime || '未知'}</div>
+              <div>配送员：${escapeHtml(order.deliveryPerson || order.charName)}</div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;text-align:center;">
+            <button class="freq-checkin-delete-btn" id="freq-delivery-delete">🗑️ 删除此订单</button>
+          </div>
+        </div>`;
+
+      container.querySelector('#freq-delivery-back-detail')?.addEventListener('click', () => {
+        this._renderHistory(container);
+      });
+
+      container.querySelector('#freq-delivery-delete')?.addEventListener('click', () => {
+        this._showDeleteConfirm(container, orderId);
+      });
+    },
+
+    // ── 删除确认 ──
+    _showDeleteConfirm(container, orderId) {
+      const delBtn = container.querySelector('#freq-delivery-delete');
+      if (!delBtn) return;
+
+      if (delBtn.dataset.confirming === '1') {
+        const orders = this._getOrders().filter(o => o.id !== orderId);
+        this._saveOrders(orders);
+        this._renderHistory(container);
+        Notify.add('跨次元配送', '订单已删除', '🗑️');
+        return;
+      }
+
+      delBtn.dataset.confirming = '1';
+      delBtn.textContent = '⚠️ 确认删除？再次点击执行';
+      delBtn.style.borderColor = '#A32D2D';
+      delBtn.style.color = '#e88';
+
+      setTimeout(() => {
+        if (delBtn.dataset.confirming === '1') {
+          delBtn.dataset.confirming = '';
+          delBtn.textContent = '🗑️ 删除此订单';
+          delBtn.style.borderColor = '';
+          delBtn.style.color = '';
+        }
+      }, 3000);
+    },
+  };
+
 
 
     // ┌──────────────────────────────────────────────────────┐
@@ -4067,7 +4761,7 @@ try {
     registerApp(placeholderApp('calendar','双线轨道','🗓️','User + Char日程'));
     registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
     registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
-    registerApp(placeholderApp('delivery',   '跨次元配送',     '🍜', '角色替你点外卖'));
+    registerApp(deliveryApp);// ✅ BLOCK_22 替换 placeholder
     registerApp(capsuleApp);        // ✅ BLOCK_21 替换 placeholder
     registerApp(dreamApp);
     registerApp(emotionApp);
