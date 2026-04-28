@@ -1,4 +1,5 @@
-/* ══════════════════════════════════════════════════════════📻 FREQ · TERMINAL —扩展设置面板样式
+/* ══════════════════════════════════════════════════════════
+   📻 FREQ · TERMINAL —扩展设置面板样式
    ══════════════════════════════════════════════════════════ */
 #freq-terminal-settings { margin-top: 4px; }
 #freq-terminal-settings .inline-drawer-toggle {
@@ -11,3 +12,47 @@
 .freq-s-row input.text_pole { font-size: 12px; }
 .freq-s-toggle { flex-direction: row; align-items: center; justify-content: space-between; }
 .freq-s-toggle input[type="checkbox"] { accent-color: #A32D2D; width: 16px; height: 16px; }
+
+/* 分隔线 */
+.freq-s-section-divider {
+  height: 1px; background: #2a2a2a; margin: 12px 0;
+}
+
+/* 折叠区*/
+.freq-s-collapse {
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; padding: 6px 4px; border-radius: 4px;
+  transition: background 0.15s;
+}
+.freq-s-collapse:hover { background: rgba(255,255,255,0.03); }
+.freq-s-collapse > span:first-child { font-size: 12px; color: #aaa; font-weight: bold; }
+.freq-s-collapse-arrow { font-size: 10px; color: #555; transition: transform 0.2s; }
+.freq-s-collapse-body { padding: 8px 0; }
+
+/* Prompt Editor */
+.freq-s-prompt-tip {
+  font-size: 10px; color: #555; line-height: 1.5;
+  padding: 6px 8px; background: #161616; border-radius: 6px;
+  margin-bottom: 10px; border-left: 3px solid #333;
+}
+.freq-s-prompt-row { margin-bottom: 12px; }
+.freq-s-prompt-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.freq-s-prompt-header > span { font-size: 11px; color: #888; font-weight: bold; }
+.freq-s-reset-btn {
+  background: none; border: 1px solid #2a2a2a; border-radius: 4px;
+  color: #555; font-size: 9px; padding: 2px 6px; cursor: pointer;
+  transition: all 0.15s;
+}
+.freq-s-reset-btn:hover { border-color: #A32D2D; color: #A32D2D; }
+.freq-s-prompt-textarea {
+  width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 6px;
+  padding: 8px 10px; color: #ccc; font-size: 10px; outline: none;
+  box-sizing: border-box; resize: vertical; font-family: inherit;
+  transition: border-color 0.15s; min-height: 80px; line-height: 1.5;
+}
+.freq-s-prompt-textarea:focus { border-color: #A32D2D; }
+.freq-s-prompt-textarea::placeholder { color: #333; font-size: 9px; }
+.freq-s-prompt-hint { font-size: 9px; color: #333; }
