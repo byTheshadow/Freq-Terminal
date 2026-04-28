@@ -1,4 +1,4 @@
-/* ══════════════════════════════════════════════════════════📻 FREQ · TERMINAL — 全局样式
+/* ══════════════════════════════════════════════════════════📻FREQ · TERMINAL v0.2.0
    ══════════════════════════════════════════════════════════ */
 
 /* ──悬浮球 ── */
@@ -31,7 +31,7 @@
   box-shadow: 0 6px 28px rgba(163,45,45,0.8);
 }
 
-/* ── 手机外壳容器 ── */
+/* ── 手机外壳 ── */
 #freq-phone-shell {
   position: fixed;
   bottom: 140px;
@@ -47,25 +47,20 @@
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
-/* ── 手机本体 ── */
 .freq-phone {
   width: 320px;
   height: 580px;
   background: #0e0e0e;
   border-radius: 36px;
   border: 2px solid #2a2a2a;
-  box-shadow:
-    0 0 0 1px #111,
-    0 20px 60px rgba(0,0,0,0.8),
-    inset 0 1px 0 rgba(255,255,255,0.05);
+  box-shadow: 0 0 0 1px #111, 0 20px 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
 }
 
-/* ── 顶部刘海 ── */
+/* ── 刘海 ── */
 .freq-phone-notch {
   height: 44px;
   background: #0a0a0a;
@@ -77,285 +72,258 @@
   flex-shrink: 0;
 }
 .freq-phone-signal { font-size: 12px; }
-.freq-phone-title {
-  font-size: 11px;
-  font-weight: bold;
-  color: #A32D2D;
-  letter-spacing: 2px;
-}
-.freq-phone-time {
-  font-size: 12px;
-  color: #666;
-  font-variant-numeric: tabular-nums;
-}
+.freq-phone-title { font-size: 11px; font-weight: bold; color: #A32D2D; letter-spacing: 2px; }
+.freq-phone-time { font-size: 12px; color: #666; font-variant-numeric: tabular-nums; }
 
-/* ── 屏幕区域 ── */
-.freq-phone-screen {
-  flex: 1;
-  overflow: hidden;
-  position: relative;background: #111;
-}
-
-/* ── 主屏幕 ── */
-.freq-home {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  box-sizing: border-box;
-}
-.freq-app-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  padding: 16px 10px;
-}
+/* ── 屏幕 ── */
+.freq-phone-screen { flex: 1; overflow: hidden; position: relative; background: #111; }
+.freq-home { width: 100%; height: 100%; display: flex; flex-direction: column; overflow-y: auto; box-sizing: border-box; }
+.freq-app-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px 10px; }
 
 /* ── App 图标 ── */
 .freq-app-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 2px;
-  border-radius: 12px;
-  position: relative;
-  transition: background0.15s;
-  color: inherit;
+  background: none; border: none; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 2px; border-radius: 12px; position: relative;
+  transition: background0.15s; color: inherit;
 }
 .freq-app-icon:hover { background: rgba(255,255,255,0.06); }
 .freq-app-icon-emoji { font-size: 26px; line-height: 1; }
-.freq-app-icon-name {
-  font-size: 9px;
-  color: #aaa;
-  text-align: center;
-  line-height: 1.2;
-  max-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.freq-app-icon-name { font-size: 9px; color: #aaa; text-align: center; line-height: 1.2; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── 角标 ── */
 .freq-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  background: #A32D2D;
-  color: #fff;
-  font-size: 9px;
-  font-weight: bold;
-  min-width: 16px;
-  height: 16px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 3px;
-  line-height: 1;
+  position: absolute; top: 2px; right: 2px;
+  background: #A32D2D; color: #fff; font-size: 9px; font-weight: bold;
+  min-width: 16px; height: 16px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px; line-height: 1;
+}
+.freq-notif-badge {
+  position: relative; top: auto; right: auto;
+  margin-left: 2px; font-size: 8px; min-width: 14px; height: 14px;
 }
 
-/* ── App 视图容器 ── */
-#freq-app-view {
-  width: 100%;
-  height: 100%;
-  flex-direction: column;
-  overflow: hidden;
-  color: #ddd;
-}
+/* ── App 视图 ── */
+#freq-app-view { width: 100%; height: 100%; flex-direction: column; overflow: hidden; color: #ddd; }
 
-/* ── 底部 Home 条 ── */
+/* ── 底部栏 ── */
 .freq-phone-bar {
-  height: 40px;
-  background: #0a0a0a;
-  border-top: 1px solid #1e1e1e;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  height: 40px; background: #0a0a0a; border-top: 1px solid #1e1e1e;
+  display: flex; align-items: center; justify-content: center; gap: 24px; flex-shrink: 0;
 }
-.freq-home-btn {
-  background: none;
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: #666;
-  font-size: 10px;
-  padding: 4px 16px;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
+.freq-bar-btn {
+  background: none; border: 1px solid #333; border-radius: 6px;
+  color: #666; font-size: 10px; padding: 4px 14px; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s; position: relative;
 }
-.freq-home-btn:hover { border-color: #A32D2D; color: #A32D2D; }
+.freq-bar-btn:hover { border-color: #A32D2D; color: #A32D2D; }
 
-/* ── 关闭按钮 ── */
+/* ── 关闭 ── */
 .freq-close-btn {
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 50%;
-  color: #666;
-  width: 28px;
-  height: 28px;
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: border-color 0.15s, color 0.15s;align-self: flex-end;padding: 0;
-  line-height: 1;
+  background: #1a1a1a; border: 1px solid #333; border-radius: 50%;
+  color: #666; width: 28px; height: 28px; font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s, color 0.15s; align-self: flex-end; padding: 0; line-height: 1;
 }
 .freq-close-btn:hover { border-color: #A32D2D; color: #A32D2D; }
 
-/* ── App 通用内部样式 ── */
+/* ── App 通用 ── */
 .freq-app-header {
-  padding: 12px 16px;
-  background: #0d0d0d;
-  border-bottom: 1px solid #1e1e1e;
-  font-size: 13px;
-  font-weight: bold;
-  color: #A32D2D;
-  letter-spacing: 1px;flex-shrink: 0;
+  padding: 12px 16px; background: #0d0d0d; border-bottom: 1px solid #1e1e1e;
+  font-size: 13px; font-weight: bold; color: #A32D2D; letter-spacing: 1px; flex-shrink: 0;
 }
-.freq-app-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-}
+.freq-app-body { flex: 1; overflow-y: auto; padding: 12px; }
 .freq-app-body::-webkit-scrollbar { width: 3px; }
 .freq-app-body::-webkit-scrollbar-track { background: transparent; }
 .freq-app-body::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
-
-/* ── 空状态 ── */
 .freq-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 300px;
-  color: #444;
-  font-size: 12px;
-  gap: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; min-height: 300px; color: #444; font-size: 12px; gap: 8px;
 }
 .freq-empty-icon { font-size: 32px; opacity: 0.4; }
 
-/* ── 电台归档 App ── */
+/* ── 电台归档 ── */
 .freq-archive-search { padding: 0 0 10px; }
 .freq-archive-search input {
-  width: 100%;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 8px;
-  padding: 8px 12px;
-  color: #ccc;
-  font-size: 11px;
-  outline: none;
-  box-sizing: border-box;transition: border-color 0.15s;
+  width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+  padding: 8px 12px; color: #ccc; font-size: 11px; outline: none; box-sizing: border-box;
+  transition: border-color 0.15s;
 }
 .freq-archive-search input:focus { border-color: #A32D2D; }
 .freq-archive-search input::placeholder { color: #444; }
-
-.freq-archive-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+.freq-archive-list { display: flex; flex-direction: column; gap: 8px; }
 .freq-archive-card {
-  background: #161616;
-  border: 1px solid #222;
-  border-radius: 10px;
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  background: #161616; border: 1px solid #222; border-radius: 10px;
+  padding: 10px 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
 }
 .freq-archive-card:hover { border-color: #333; background: #1a1a1a; }
 .freq-archive-card--open { border-color: rgba(163,45,45,0.27); background: #1a1212; }
-
-.freq-archive-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
+.freq-archive-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .freq-archive-serial {
-  font-size: 10px;
-  font-weight: bold;
-  color: #A32D2D;background: rgba(163,45,45,0.13);
-  padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.5px;
+  font-size: 10px; font-weight: bold; color: #A32D2D;
+  background: rgba(163,45,45,0.13); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.5px;
 }
-.freq-archive-time {
-  font-size: 10px;
-  color: #555;
-  font-variant-numeric: tabular-nums;
-}
-.freq-archive-scene {
-  font-size: 11px;
-  color: #888;
-  line-height: 1.4;
-}
+.freq-archive-time { font-size: 10px; color: #555; font-variant-numeric: tabular-nums; }
+.freq-archive-scene { font-size: 11px; color: #888; line-height: 1.4; }
 .freq-archive-detail { margin-top: 8px; }
-.freq-archive-plot {
-  font-size: 11px;
-  color: #aaa;
-  line-height: 1.5;
-  padding-top: 8px;
-  border-top: 1px solid #222;
-  white-space: pre-wrap;word-break: break-word;
+.freq-archive-plot { font-size: 11px; color: #aaa; line-height: 1.5; padding-top: 8px; border-top: 1px solid #222; white-space: pre-wrap; word-break: break-word; }
+.freq-archive-seeds { font-size: 10px; color: rgba(163,45,45,0.6); line-height: 1.4; margin-top: 6px; padding: 6px 8px; background: rgba(163,45,45,0.07); border-radius: 6px; }
+.freq-archive-event { font-size: 10px; color: #6a9955; margin-top: 4px; }
+
+/* ══════════════════════════════════════════════════════════
+   后台录音室
+   ══════════════════════════════════════════════════════════ */
+.freq-studio-modes {
+  display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap;
 }
-.freq-archive-seeds {
-  font-size: 10px;
-  color: rgba(163,45,45,0.6);
-  line-height: 1.4;
-  margin-top: 6px;
-  padding: 6px 8px;
-  background: rgba(163,45,45,0.07);
-  border-radius: 6px;
+.freq-studio-mode-btn {
+  background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+  color: #888; font-size: 11px; padding: 6px 10px; cursor: pointer;
+  transition: all 0.15s; flex: 1; min-width: 80px; text-align: center;
 }
-.freq-archive-event {
-  font-size: 10px;
-  color: #6a9955;
-  margin-top: 4px;
+.freq-studio-mode-btn:hover { border-color: #444; color: #ccc; }
+.freq-studio-mode-active {
+  background: #A32D2D22; border-color: #A32D2D; color: #A32D2D;
 }
 
-/* ── 扩展设置面板 ── */
-#freq-terminal-settings {
-  margin-top: 4px;
+.freq-studio-panel { animation: freq-fade-in 0.2s ease; }
+@keyframes freq-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.freq-studio-panel-desc {
+  font-size: 11px; color: #666; line-height: 1.5; margin-bottom: 12px;
+  padding: 8px 10px; background: #161616; border-radius: 8px; border-left: 3px solid #333;
 }
-#freq-terminal-settings .inline-drawer-toggle {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 4px;
+.freq-studio-panel-desc b { color: #A32D2D; }
+
+.freq-studio-textarea {
+  width: 100%; background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+  padding: 8px 12px; color: #ccc; font-size: 11px; outline: none; box-sizing: border-box;
+  resize: vertical; font-family: inherit; transition: border-color 0.15s; min-height: 60px;
 }
-.freq-settings-inner {
-  padding: 8px 4px;
+.freq-studio-textarea:focus { border-color: #A32D2D; }
+.freq-studio-textarea::placeholder { color: #444; }
+
+.freq-studio-input-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+
+.freq-studio-action-btn {
+  background: #A32D2D; color: #fff; border: none; border-radius: 8px;
+  padding: 8px 16px; font-size: 12px; cursor: pointer; transition: all 0.15s;
+  font-weight: bold; letter-spacing: 0.5px;
 }
-.freq-s-row {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-bottom: 8px;
+.freq-studio-action-btn:hover { background: #c43a3a; }
+.freq-studio-action-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+.freq-studio-result { margin-top: 12px; }
+
+.freq-studio-loading {
+  text-align: center; color: #A32D2D; font-size: 12px; padding: 20px;
+  animation: freq-pulse 1.5s ease-in-out infinite;
 }
-.freq-s-row > span {
-  font-size: 12px;
-  color: #aaa;
+@keyframes freq-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+.freq-studio-error {
+  background: #2a1515; border: 1px solid #A32D2D44; border-radius: 8px;
+  padding: 10px 12px; color: #e88; font-size: 11px; line-height: 1.4;
 }
-.freq-s-row input.text_pole {
-  font-size: 12px;
+
+.freq-studio-output {
+  background: #161616; border: 1px solid #222; border-radius: 10px;
+  padding: 12px; animation: freq-fade-in 0.3s ease;
 }
-.freq-s-toggle {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
+
+/* ── 对话体 ── */
+.freq-dialogue-line { margin-bottom: 8px; line-height: 1.5; }
+.freq-dialogue-name {
+  font-size: 11px; font-weight: bold; padding: 1px 6px; border-radius: 4px;
+  margin-right: 6px; display: inline-block;
 }
-.freq-s-toggle input[type="checkbox"] {
-  accent-color: #A32D2D;
-  width: 16px;
-  height: 16px;
+.freq-dialogue-host { background: #A32D2D33; color: #A32D2D; }
+.freq-dialogue-guest { background: #085041; color: #4ec9a0; }
+.freq-dialogue-text { font-size: 11px; color: #ccc; }
+.freq-dialogue-narration { font-size: 10px; color: #555; font-style: italic; margin: 4px 0; }
+
+/* ── 独白 ── */
+.freq-studio-monologue-output { border-left: 3px solid #A32D2D44; }
+.freq-studio-monologue-header { font-size: 11px; color: #A32D2D; font-weight: bold; margin-bottom: 8px; }
+.freq-studio-monologue-text { font-size: 11px; color: #bbb; line-height: 1.6; white-space: pre-wrap; }
+
+/* ── Thinking列表 ── */
+.freq-thinking-list { display: flex; flex-direction: column; gap: 8px; }
+.freq-thinking-card {
+  background: #161616; border: 1px solid #222; border-radius: 10px;
+  padding: 10px 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
 }
+.freq-thinking-card:hover { border-color: #333; background: #1a1a1a; }
+.freq-thinking-card--open { border-color: #3C348944; background: #18161f; }
+.freq-thinking-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.freq-thinking-serial { font-size: 10px; font-weight: bold; color: #9b8ec4; }
+.freq-thinking-msg-idx { font-size: 9px; color: #555; }
+.freq-thinking-preview { font-size: 11px; color: #777; line-height: 1.4; }
+.freq-thinking-full { font-size: 11px; color: #aaa; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+
+/* ── 录音存档 ── */
+.freq-studio-history { margin-top: 16px; border-top: 1px solid #222; padding-top: 12px; }
+.freq-studio-history-title { font-size: 11px; color: #666; font-weight: bold; margin-bottom: 8px; }
+.freq-history-card {
+  background: #131313; border: 1px solid #1e1e1e; border-radius: 8px;
+  padding: 8px 10px; margin-bottom: 6px; cursor: pointer; transition: border-color 0.15s;
+}
+.freq-history-card:hover { border-color: #333; }
+.freq-history-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.freq-history-card-header span:first-child { font-size: 11px; color: #aaa; }
+.freq-history-time { font-size: 9px; color: #444; }
+.freq-history-preview { font-size: 10px; color: #555; line-height: 1.3; }
+.freq-history-full { font-size: 11px; color: #bbb; line-height: 1.5; margin-top: 6px; padding-top: 6px; border-top: 1px solid #1e1e1e; }
+
+/* ══════════════════════════════════════════════════════════
+   通知中心
+   ══════════════════════════════════════════════════════════ */
+.freq-notif-tab-btn {
+  background: none; border: 1px solid #333; border-radius: 4px;
+  color: #666; font-size: 10px; padding: 2px 8px; cursor: pointer;
+  transition: all 0.15s;
+}
+.freq-notif-tab-btn:hover { border-color: #555; color: #aaa; }
+.freq-notif-tab-active { border-color: #A32D2D; color: #A32D2D; }
+
+.freq-notif-list, .freq-error-list { display: flex; flex-direction: column; gap: 6px; }
+
+.freq-notif-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px; background: #161616; border-radius: 8px;
+  border: 1px solid #1e1e1e; transition: border-color 0.15s;
+}
+.freq-notif-unread { border-color: #A32D2D44; background: #1a1212; }
+.freq-notif-icon { font-size: 16px; flex-shrink: 0; margin-top: 2px; }
+.freq-notif-content { flex: 1; min-width: 0; }
+.freq-notif-title { font-size: 11px; color: #ccc; font-weight: bold; }
+.freq-notif-msg { font-size: 10px; color: #888; margin-top: 2px; line-height: 1.3; }
+.freq-notif-time { font-size: 9px; color: #444; flex-shrink: 0; margin-top: 2px; }
+
+.freq-error-item {
+  padding: 8px 10px; background: #1a1515; border-radius: 8px;
+  border: 1px solid #2a1e1e; cursor: pointer; transition: border-color 0.15s;
+}
+.freq-error-item:hover { border-color: #A32D2D44; }
+.freq-error-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.freq-error-source { font-size: 10px; color: #e88; font-weight: bold; }
+.freq-error-time { font-size: 9px; color: #555; }
+.freq-error-msg { font-size: 11px; color: #c99; line-height: 1.4; }
+.freq-error-stack {
+  font-size: 9px; color: #666; margin-top: 6px; padding: 6px 8px;
+  background: #111; border-radius: 4px; font-family: monospace;
+  white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow-y: auto;
+}
+
+/* ── 设置面板 ── */
+#freq-terminal-settings { margin-top: 4px; }
+#freq-terminal-settings .inline-drawer-toggle { cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; }
+.freq-settings-inner { padding: 8px 4px; }
+.freq-s-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.freq-s-row > span { font-size: 12px; color: #aaa; }
+.freq-s-row input.text_pole { font-size: 12px; }
+.freq-s-toggle { flex-direction: row; align-items: center; justify-content: space-between; }
+.freq-s-toggle input[type="checkbox"] { accent-color: #A32D2D; width: 16px; height: 16px; }
+
 
