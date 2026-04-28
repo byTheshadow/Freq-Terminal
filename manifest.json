@@ -1,14 +1,13 @@
 {
-  "display_name": "📻 Freq · Terminal",
-  "name": "freq-terminal",
-  "version": "1.0.0",
-  "description": "「失真电台」专属虚拟手机面板",
-  "author": "freq-terminal",
-  "homePage": "",
+  "display_name": "📻Freq Terminal",
+  "loading_order": 10,
   "requires": [],
   "optional": [],
   "js": "index.js",
   "css": "style.css",
-  "author_note": "",
-  "loading_order": 10
+  "author": "FreqTerminal",
+  "version": "0.1.0",
+  "homePage": "",
+  "auto_update": true
 }
+
