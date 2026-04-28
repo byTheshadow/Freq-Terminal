@@ -2437,6 +2437,488 @@
 #freq-novel-summon-status {
   font-size: 10px; color: #8b6914; text-align: center; min-height: 16px; margin-top: 4px;
 }
+/* ══ BLOCK_26 黑匣子·禁区档案 ══ */
+
+/* ──禁区警告横幅 ── */
+.freq-bb-warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #1a05050%, #2a0a0a 50%, #1a0505 100%);
+  border: 1px solid #8b1a1a;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.freq-bb-warning-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(139, 26, 26, 0.1), transparent);
+  animation: freq-bb-scan 3s linear infinite;
+}
+
+@keyframes freq-bb-scan {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.freq-bb-warning-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  animation: freq-bb-pulse 2s ease-in-out infinite;
+}
+
+@keyframes freq-bb-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.freq-bb-warning-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.freq-bb-warning-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #cc3333;
+  letter-spacing: 4px;
+  margin-bottom: 3px;
+}
+
+.freq-bb-warning-sub {
+  font-size: 10px;
+  color: #884444;
+  line-height: 1.4;
+}
+
+/* ── 档案列表 ── */
+.freq-bb-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;max-height: 320px;
+  overflow-y: auto;
+}
+
+.freq-bb-file-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.freq-bb-file-item:hover {
+  border-color: #8b1a1a;
+  background: #161010;
+}
+
+.freq-bb-file-item.freq-bb-unlocked {
+  border-left: 3px solid #8b1a1a;
+}
+
+.freq-bb-file-item.freq-bb-locked {
+  border-left: 3px solid #333;
+  opacity: 0.75;
+}
+
+.freq-bb-file-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.freq-bb-file-info {
+  flex: 1;min-width: 0;
+}
+
+.freq-bb-file-title {
+  font-size: 13px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.freq-bb-title-unlocked {
+  color: #ddd;
+}
+
+.freq-bb-title-locked {
+  color: #555;
+  font-family: monospace;
+  letter-spacing: 2px;
+}
+
+.freq-bb-file-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.freq-bb-class-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.freq-bb-type-label {
+  font-size: 10px;
+  color: #777;
+}
+
+.freq-bb-lock-icon {
+  font-size: 11px;
+}
+
+/* ── 解密动画 ── */
+.freq-bb-decrypting {
+  color: #8b1a1a !important;
+  text-shadow: 0 0 8px rgba(139, 26, 26, 0.6);
+  animation: freq-bb-glitch-text 0.1s infinite;
+}
+
+@keyframes freq-bb-glitch-text {
+  0% { opacity: 1; }
+  50% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+.freq-bb-decrypted {
+  color: #e8c44a !important;
+  text-shadow: 0 0 6px rgba(232, 196, 74, 0.4);
+  transition: color 0.5s, text-shadow 0.5s;
+}
+
+/* ── 操作栏 ── */
+.freq-bb-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.freq-bb-action-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 8px 12px;
+  border: 1px solid #8b1a1a;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #1a0808 0%, #0d0404 100%);
+  color: #cc5555;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;text-align: center;
+}
+
+.freq-bb-action-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #2a0e0e 0%, #1a0808 100%);
+  color: #ee7777;
+  border-color: #aa2222;
+}
+
+.freq-bb-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 类型选择器 ── */
+.freq-bb-type-selector {
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #0d0808;
+  border: 1px solid #331111;
+  border-radius: 6px;
+}
+
+.freq-bb-type-title {
+  font-size: 11px;
+  color: #884444;
+  margin-bottom: 8px;
+}
+
+.freq-bb-type-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.freq-bb-type-btn {
+  padding: 6px 10px;
+  border: 1px solid #442222;
+  border-radius: 4px;
+  background: #111;
+  color: #aa6666;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.freq-bb-type-btn:hover {
+  background: #1a0e0e;
+  border-color: #8b1a1a;
+  color: #dd8888;
+}
+
+/* ── 阅读视图 ── */
+.freq-bb-detail-header {
+  padding: 12px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #1a0505 0%, #110808 100%);
+  border: 1px solid #331111;
+  border-radius: 6px;
+}
+
+.freq-bb-detail-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ddd;
+  margin-bottom: 8px;
+}
+
+.freq-bb-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.freq-bb-detail-info {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #777;
+}
+
+.freq-bb-detail-serial {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #555;
+  font-style: italic;
+}
+
+.freq-bb-detail-content {
+  margin-bottom: 16px;
+}
+
+.freq-bb-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid #1a1a1a;
+}
+
+/* ── 对话气泡 ── */
+.freq-bb-chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.freq-bb-chat-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+}
+
+.freq-bb-chat-left {
+  align-self: flex-start;align-items: flex-start;
+}
+
+.freq-bb-chat-right {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.freq-bb-chat-name {
+  font-size: 10px;
+  color: #777;
+  margin-bottom: 2px;
+  padding: 0 8px;
+}
+
+.freq-bb-chat-bubble {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.freq-bb-bubble-left {
+  background: #1a1515;
+  border: 1px solid #332222;
+  color: #ccc;
+  border-bottom-left-radius: 4px;
+}
+
+.freq-bb-bubble-right {
+  background: #1a0808;
+  border: 1px solid #442222;
+  color: #daa;
+  border-bottom-right-radius: 4px;
+}
+
+.freq-bb-chat-system {
+  text-align: center;
+  font-size: 10px;
+  color: #555;
+  padding: 4px 0;
+  font-style: italic;
+}
+
+/* ── 日记手写体 ── */
+.freq-bb-diary-container {
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #110e08 0%, #0d0a06 100%);
+  border: 1px solid #332b1a;
+  border-radius: 6px;
+  position: relative;
+}
+
+.freq-bb-diary-container::before {
+  content: '📓';
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 20px;
+  opacity: 0.2;
+}
+
+.freq-bb-diary-para {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #c4b896;
+  font-style: italic;
+  margin-bottom: 12px;
+  text-indent: 2em;
+  letter-spacing: 0.5px;
+}
+
+.freq-bb-diary-para:last-child {
+  margin-bottom: 0;
+}
+
+/* ── 策划文件 ── */
+.freq-bb-plan-container {
+  padding: 16px;
+  background: #0d0d0d;
+  border: 1px solid #222;
+  border-radius: 6px;
+  position: relative;
+  font-family: monospace;
+}
+
+.freq-bb-plan-stamp {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 14px;
+  font-weight: bold;
+  color: rgba(139, 26, 26, 0.25);
+  letter-spacing: 4px;
+  transform: rotate(-15deg);
+  border: 2px solid rgba(139, 26, 26, 0.2);
+  padding: 2px 8px;
+  pointer-events: none;
+}
+
+.freq-bb-plan-heading {
+  font-size: 13px;
+  font-weight: bold;
+  color: #cc8844;
+  margin: 8px 0 4px 0;
+  border-bottom: 1px solid #332211;
+  padding-bottom: 2px;
+}
+
+.freq-bb-plan-line {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.6;
+  padding-left: 8px;
+}
+
+.freq-bb-plan-spacer {
+  height: 8px;
+}
+
+/* ── 内部通讯 ── */
+.freq-bb-comm-container {
+  padding: 12px;
+  background: #080d08;
+  border: 1px solid #1a331a;
+  border-radius: 6px;
+  font-family: monospace;
+}
+
+.freq-bb-comm-header-bar {
+  padding: 4px 8px;
+  margin-bottom: 10px;
+  background: #0a1a0a;
+  border: 1px solid #1a331a;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.freq-bb-comm-signal {
+  font-size: 10px;
+  color: #44aa44;
+  letter-spacing: 2px;
+  animation: freq-bb-pulse 2s ease-in-out infinite;
+}
+
+.freq-bb-comm-field {
+  font-size: 11px;
+  color: #88aa88;
+  padding: 2px 0;
+  border-bottom: 1px dashed #1a2a1a;
+}
+
+.freq-bb-comm-label {
+  color: #55cc55;
+  font-weight: bold;
+}
+
+.freq-bb-comm-line {
+  font-size: 12px;
+  color: #99bb99;
+  line-height: 1.6;
+  padding: 2px 0;
+}
+
+/* ── 通用内容文本 ── */
+.freq-bb-content-text {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.6;
+  padding: 12px;
+}
+
+/* ── 清空按钮样式覆盖 ── */
+.freq-bb-clear-btn {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
 
 
 
