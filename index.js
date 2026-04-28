@@ -197,8 +197,49 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
 {{charName}}的日程：{{charEvent}}
 
 请用{{charName}}的口吻，写一句简短的感想（20-40字），表达对这个巧合的感受。语气要符合角色性格，可以俏皮、温柔、或若有所思。不要加引号，直接输出感想内容。`,
+        // ── BLOCK_24 异界探索 ──
+    map_generate: `你是世界观构建师。根据以下角色和剧情信息，生成这个故事世界的地点列表。
 
+角色名：{charName}
+世界观背景（来自剧情）：
+{worldContext}
 
+任务：生成 {locationCount} 个地点，构成这个故事世界的地图。
+规则：
+- 地点类型从以下选择：city（城镇/聚落）、ruin（废墟/遗迹）、wild（荒野/自然）、dungeon（危险地带/秘境）、special（特殊/神秘）
+- x/y 为 0-100 的相对坐标，代表在地图上的位置，地点之间保持合理间距，不要全部堆在一起
+- desc 为地点简介，20-40字，带有世界观氛围
+- 地点名称要符合故事世界的风格，不要用现实地名
+- 严格返回JSON数组，不加任何其他文字，不加markdown代码块
+
+返回格式：
+[{"name":"地点名","type":"city","desc":"地点简介","x":25,"y":40},...]`,
+
+    map_detail: `你是{charName}，正在回忆一个你熟悉的地方。
+
+地点名称：{locationName}
+地点类型：{locationType}
+地点简介：{locationDesc}
+当前剧情背景：{latestPlot}
+
+用{charName}的口吻，写一段对这个地点的详细描述或感受（80-150字）。
+要求：
+- 带有角色的个人视角和情感色彩
+- 可以描述这里的氛围、气味、声音、记忆
+- 符合角色性格
+- 只输出描述正文，不加标题或前缀`,
+
+    map_event: `你是{charName}，你刚刚来到或想起了「{locationName}」。
+
+地点简介：{locationDesc}
+当前剧情：{latestPlot}
+当前场景：{latestScene}
+
+写一句{charName}在这个地点的感想或发生的事（30-60字）。
+要求：
+- 符合角色性格和当前剧情氛围
+- 可以是感叹、回忆、发现、或简短的行动描述
+- 只输出正文，不加引号或前缀`,
 
   };
 
@@ -621,6 +662,9 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
       delivery_comment: '🍜 跨次元配送·送餐台词',
       calendar_event:'🗓️ 双线轨道·事件提取',
   calendar_resonance: '🗓️ 双线轨道·共鸣感想',
+            map_generate:  '🗺️ 异界探索·世界生成',
+      map_detail:    '🗺️ 异界探索·地点详情',
+      map_event:     '🗺️ 异界探索·探索感想',
 
     };
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
@@ -663,6 +707,10 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
               <span>和风天气 Key（可选）</span>
               <input type="text" id="freq_weather_key" class="text_pole" placeholder="信号气象站使用" value="${s.weatherKey ?? ''}" />
             </label>
+                        <label class="freq-s-row">
+              <span>异界探索·地点数量（首次生成）</span>
+              <input type="number" id="freq_map_location_count" class="text_pole" min="4" max="20" placeholder="10" value="${s.mapLocationCount ?? 10}" />
+            </label>
 
             <div class="freq-s-section-divider"></div>
 
@@ -688,6 +736,7 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
       { id: 'freq_sub_api_key',  key: 'subApiKey',   type: 'text' },
       { id: 'freq_sub_api_model',key: 'subApiModel', type: 'text' },
       { id: 'freq_weather_key',  key: 'weatherKey',  type: 'text' },
+      { id: 'freq_map_location_count', key: 'mapLocationCount', type: 'text' },
     ];
     fields.forEach(f => {
       const el = document.getElementById(f.id);
@@ -713,7 +762,7 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
 
     // Prompt textarea绑定 —✅ BLOCK_21: 新增 capsule_seal
     ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream', 'capsule_seal', 'delivery_menu','delivery_comment', 'calendar_event',
-  'calendar_resonance',].forEach(key => {
+  'calendar_resonance','map_generate', 'map_detail', 'map_event',].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
@@ -5703,6 +5752,883 @@ const calendarApp = {
   }
 };
 //└─ BLOCK_23─┘
+  //┌─ BLOCK_24 ─┐
+  //═══════════════════════════════════════════
+  //🗺️ mapApp — 异界探索
+  //═══════════════════════════════════════════
+
+  const mapApp = {
+    id: 'map', name: '异界探索', icon: '🗺️',
+    _badge: 0,
+    _container: null,
+
+    // ── 内部状态 ──
+    _currentView: 'map',          // 'map' | 'detail'
+    _selectedLoc: null,           // 当前查看的地点对象
+    _mapState: { scale: 1, tx: 0, ty: 0 },
+    _isPanning: false,
+    _panStart: { x: 0, y: 0, tx: 0, ty: 0 },
+    _generating: false,           // 世界生成中
+    _exploring: false,            // AI探索中
+    _detailCache: {},             // { locationId: string } 地点详情缓存
+    _eventCache: {},              // { locationId: string } 探索感想缓存
+
+    // ── 数据访问 ──
+    _getMap() {
+      const s = getSettings();
+      if (!s.map) s.map = { locations: [], explorations: [] };
+      if (!Array.isArray(s.map.locations)) s.map.locations = [];
+      if (!Array.isArray(s.map.explorations)) s.map.explorations = [];
+      return s.map;
+    },
+
+    _getLocations() { return this._getMap().locations; },
+    _getExplorations() { return this._getMap().explorations; },
+
+    _saveMap() { saveSettings({ map: this._getMap() }); },
+
+    // ── 迷雾解锁：扫描 meow_FM 文本匹配地点名 ──
+    _checkUnlock(allFM) {
+      if (!Array.isArray(allFM)) return;
+      const locs = this._getLocations();
+      let unlocked = false;
+
+      locs.forEach(loc => {
+        if (loc.discovered) return;
+        for (const fm of allFM) {
+          const text = (fm.scene || '') + ' ' + (fm.plot || '') + ' ' + (fm.event || '');
+          if (text.includes(loc.name)) {
+            loc.discovered = true;
+            loc.serial = fm.serial || '';
+            unlocked = true;
+            EventBus.emit('notification:new', {
+              app: 'map', icon: '🗺️',
+              title: '新地点发现',
+              body: '「' + loc.name + '」的迷雾已揭开'
+            });
+            break;
+          }
+        }
+      });
+
+      if (unlocked) {
+        this._saveMap();
+        this._badge++;
+        renderAppGrid();
+        if (this._container && this._currentView === 'map') {
+          this._renderMap();
+        }
+      }
+    },
+
+    // ── 初始化 ──
+    init() {
+      const self = this;
+      EventBus.on('meow_fm:updated', function(allFM) {
+        self._checkUnlock(allFM);
+      });
+    },
+
+    // ── 挂载 ──
+    mount(container) {
+      this._container = container;
+      this._badge = 0;
+      renderAppGrid();
+      this._currentView = 'map';
+      this._selectedLoc = null;
+      this._mapState = { scale: 1, tx: 0, ty: 0 };
+      this._renderMap();
+    },
+
+    // ── 卸载 ──
+    unmount() {
+      this._container = null;
+    },
+
+    // ═══════════════════════════════════════
+    //  主地图视图
+    // ═══════════════════════════════════════
+    _renderMap() {
+      if (!this._container) return;
+      const self = this;
+      const locs = this._getLocations();
+      const hasLocations = locs.length > 0;
+
+      let html = '<div class="freq-app-header">';
+      html += '  <span>🗺️ 异界探索</span>';
+      html += '  <div class="freq-map-header-btns">';
+      html += '    <button class="freq-map-icon-btn" data-action="add" title="手动添加地点">＋</button>';
+      html += '    <button class="freq-map-icon-btn" data-action="explore" title="AI探索新地点"' + (this._exploring ? ' disabled' : '') + '>';
+      html += this._exploring ? '<span class="freq-studio-loading" style="font-size:10px;padding:0">探索中</span>' : '🔍';
+      html += '    </button>';
+      html += '    <button class="freq-map-icon-btn" data-action="reset-view" title="重置视角">⊙</button>';
+      html += '  </div>';
+      html += '</div>';
+
+      html += '<div class="freq-app-body freq-map-body">';
+
+      if (!hasLocations) {
+        // 空状态：首次生成
+        html += '<div class="freq-map-empty">';
+        html += '  <div class="freq-empty-icon">🗺️</div>';
+        html += '  <div style="font-size:12px;color:#555;margin-bottom:12px;">世界地图尚未生成</div>';
+        if (this._generating) {
+          html += '  <div class="freq-studio-loading">正在构建世界…</div>';
+        } else {
+          html += '  <button class="freq-studio-action-btn freq-map-gen-btn" data-action="generate">✨ 生成世界地图</button>';
+          html += '  <div style="font-size:10px;color:#444;margin-top:8px;text-align:center">将根据当前剧情自动生成地点</div>';
+        }
+        html += '</div>';
+      } else {
+        // SVG 地图
+        html += '<div class="freq-map-viewport" id="freq-map-viewport">';
+        html += '<div class="freq-map-canvas" id="freq-map-canvas" style="transform:scale(' + this._mapState.scale + ') translate(' + this._mapState.tx + 'px,' + this._mapState.ty + 'px)">';
+        html += this._buildSVG(locs);
+        html += '</div>';
+        html += '</div>';
+
+        // 图例
+        html += '<div class="freq-map-legend">';
+        const typeInfo = { city:'🏙️城镇', ruin:'🏚️废墟', wild:'🌲荒野', dungeon:'⚔️秘境', special:'✨特殊' };
+        Object.entries(typeInfo).forEach(([t, label]) => {
+          html += '<span class="freq-map-legend-item"><span class="freq-map-dot freq-map-dot-' + t + '"></span>' + label + '</span>';
+        });
+        html += '</div>';
+
+        // 统计
+        const discovered = locs.filter(l => l.discovered).length;
+        html += '<div class="freq-map-stats">已发现 ' + discovered + ' / ' + locs.length + ' 个地点</div>';
+      }
+
+      html += '</div>'; // freq-map-body
+
+      this._container.innerHTML = html;
+      this._bindMapEvents();
+    },
+
+    // ── 构建 SVG ──
+    _buildSVG(locs) {
+      let svg = '<svg class="freq-map-svg" viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg">';
+
+      // 背景装饰：随机地形线条（固定seed，用地点数量决定）
+      svg += '<defs>';
+      svg += '  <filter id="freq-map-fog"><feGaussianBlur stdDeviation="3"/></filter>';
+      svg += '</defs>';
+
+      // 背景
+      svg += '<rect width="300" height="260" fill="#0a0a0a"/>';
+
+      // 装饰性地形线（固定，不随机）
+      svg += '<g stroke="#1a2a1a" stroke-width="0.5" fill="none" opacity="0.6">';
+      svg += '  <path d="M20,80 Q60,60 100,90 Q140,120 180,85 Q220,50 270,70"/>';
+      svg += '  <path d="M10,150 Q50,130 90,160 Q130,190 170,155 Q210,120 260,140"/>';
+      svg += '  <path d="M30,200 Q80,185 130,210 Q180,235 240,200 Q270,185 290,195"/>';
+      svg += '  <circle cx="150" cy="130" r="60" stroke="#1a2a1a" stroke-width="0.3"/>';
+      svg += '  <circle cx="150" cy="130" r="100" stroke="#1a2a1a" stroke-width="0.3"/>';
+      svg += '</g>';
+
+      // 地点连线（已发现的地点之间画细线）
+      const discovered = locs.filter(l => l.discovered);
+      if (discovered.length > 1) {
+        svg += '<g stroke="#2a3a2a" stroke-width="0.4" opacity="0.5">';
+        for (let i = 0; i < discovered.length - 1; i++) {
+          const a = discovered[i];
+          const b = discovered[i + 1];
+          const ax = a.x * 3, ay = a.y * 2.6;
+          const bx = b.x * 3, by = b.y * 2.6;
+          svg += '<line x1="' + ax + '" y1="' + ay + '" x2="' + bx + '" y2="' + by + '"/>';
+        }
+        svg += '</g>';
+      }
+
+      // 地点标记
+      const typeColors = {
+        city:    '#4a7c59',
+        ruin:    '#8b6914',
+        wild:    '#2d6b3f',
+        dungeon: '#7b3b3b',
+        special: '#7b5ea7'
+      };
+
+      locs.forEach(loc => {
+        const cx = loc.x * 3;
+        const cy = loc.y * 2.6;
+        const color = typeColors[loc.type] || '#4a7c59';
+
+        if (!loc.discovered) {
+          // 迷雾状态：模糊灰色圆
+          svg += '<g class="freq-map-loc-fog" data-id="' + loc.id + '">';
+          svg += '  <circle cx="' + cx + '" cy="' + cy + '" r="7" fill="#1a1a1a" stroke="#2a2a2a" stroke-width="0.5" filter="url(#freq-map-fog)"/>';
+          svg += '  <text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="6" fill="#2a2a2a">???</text>';
+          svg += '</g>';
+        } else {
+          // 已发现：彩色标记，可点击
+          svg += '<g class="freq-map-loc" data-id="' + loc.id + '" style="cursor:pointer">';
+          svg += '  <circle cx="' + cx + '" cy="' + cy + '" r="7" fill="' + color + '" fill-opacity="0.25" stroke="' + color + '" stroke-width="1"/>';
+          svg += '  <circle cx="' + cx + '" cy="' + cy + '" r="3" fill="' + color + '"/>';
+          svg += '  <text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="6.5" fill="' + color + '" class="freq-map-loc-label">' + this._escHtml(loc.name) + '</text>';
+          svg += '</g>';
+        }
+      });
+
+      svg += '</svg>';
+      return svg;
+    },
+
+    // ── 绑定地图事件 ──
+    _bindMapEvents() {
+      if (!this._container) return;
+      const self = this;
+
+      // 生成世界
+      const genBtn = this._container.querySelector('[data-action="generate"]');
+      if (genBtn) {
+        genBtn.addEventListener('click', function() { self._generateWorld(); });
+      }
+
+      // 手动添加
+      const addBtn = this._container.querySelector('[data-action="add"]');
+      if (addBtn) {
+        addBtn.addEventListener('click', function() { self._renderAddForm(); });
+      }
+
+      // AI探索
+      const exploreBtn = this._container.querySelector('[data-action="explore"]');
+      if (exploreBtn) {
+        exploreBtn.addEventListener('click', function() { self._aiExplore(); });
+      }
+
+      // 重置视角
+      const resetBtn = this._container.querySelector('[data-action="reset-view"]');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+          self._mapState = { scale: 1, tx: 0, ty: 0 };
+          const canvas = self._container.querySelector('#freq-map-canvas');
+          if (canvas) canvas.style.transform = 'scale(1) translate(0px,0px)';
+        });
+      }
+
+      // 地点点击
+      this._container.querySelectorAll('.freq-map-loc').forEach(el => {
+        el.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const id = this.dataset.id;
+          const loc = self._getLocations().find(l => l.id === id);
+          if (loc) {
+            loc.visitCount = (loc.visitCount || 0) + 1;
+            self._saveMap();
+            self._selectedLoc = loc;
+            self._currentView = 'detail';
+            self._renderDetail(loc);
+          }
+        });
+      });
+
+      // 地图缩放（滚轮）
+      const viewport = this._container.querySelector('#freq-map-viewport');
+      if (viewport) {
+        viewport.addEventListener('wheel', function(e) {
+          e.preventDefault();
+          const delta = e.deltaY > 0 ? -0.1 : 0.1;
+          self._mapState.scale = Math.min(3, Math.max(0.5, self._mapState.scale + delta));
+          const canvas = self._container.querySelector('#freq-map-canvas');
+          if (canvas) canvas.style.transform = 'scale(' + self._mapState.scale + ') translate(' + self._mapState.tx + 'px,' + self._mapState.ty + 'px)';
+        }, { passive: false });
+
+        // 拖拽平移
+        viewport.addEventListener('pointerdown', function(e) {
+          self._isPanning = true;
+          self._panStart = { x: e.clientX, y: e.clientY, tx: self._mapState.tx, ty: self._mapState.ty };
+          viewport.setPointerCapture(e.pointerId);
+        });
+
+        viewport.addEventListener('pointermove', function(e) {
+          if (!self._isPanning) return;
+          const dx = (e.clientX - self._panStart.x) / self._mapState.scale;
+          const dy = (e.clientY - self._panStart.y) / self._mapState.scale;
+          self._mapState.tx = self._panStart.tx + dx;
+          self._mapState.ty = self._panStart.ty + dy;
+          const canvas = self._container.querySelector('#freq-map-canvas');
+          if (canvas) canvas.style.transform = 'scale(' + self._mapState.scale + ') translate(' + self._mapState.tx + 'px,' + self._mapState.ty + 'px)';
+        });
+
+        viewport.addEventListener('pointerup', function() { self._isPanning = false; });
+        viewport.addEventListener('pointercancel', function() { self._isPanning = false; });
+      }
+    },
+
+    // ═══════════════════════════════════════
+    //  地点详情视图
+    // ═══════════════════════════════════════
+    _renderDetail(loc) {
+      if (!this._container) return;
+      const self = this;
+
+      const typeLabels = { city:'城镇', ruin:'废墟', wild:'荒野', dungeon:'秘境', special:'特殊' };
+      const typeIcons  = { city:'🏙️', ruin:'🏚️', wild:'🌲', dungeon:'⚔️', special:'✨' };
+      const typeColors = { city:'#4a7c59', ruin:'#8b6914', wild:'#2d6b3f', dungeon:'#7b3b3b', special:'#7b5ea7' };
+      const color = typeColors[loc.type] || '#4a7c59';
+      const icon  = typeIcons[loc.type]  || '📍';
+      const label = typeLabels[loc.type] || loc.type;
+
+      // 该地点的探索记录
+      const explorations = this._getExplorations().filter(e => e.locationId === loc.id);
+
+      let html = '<div class="freq-app-header">';
+      html += '  <button class="freq-checkin-back-btn" data-action="back">← 返回</button>';
+      html += '  <span style="color:' + color + '">' + icon + ' ' + this._escHtml(loc.name) + '</span>';
+      html += '</div>';
+
+      html += '<div class="freq-app-body">';
+
+      // 地点信息卡
+      html += '<div class="freq-map-detail-card" style="border-color:' + color + '33">';
+      html += '  <div class="freq-map-detail-type" style="color:' + color + '">' + icon + ' ' + label + '</div>';
+      html += '  <div class="freq-map-detail-desc">' + this._escHtml(loc.desc) + '</div>';
+      if (loc.visitCount > 0) {
+        html += '  <div class="freq-map-detail-meta">访问 ' + loc.visitCount + ' 次</div>';
+      }
+      html += '</div>';
+
+      // 角色详情（副API生成，缓存）
+      const cachedDetail = this._detailCache[loc.id];
+      html += '<div class="freq-map-section-title">角色感知</div>';
+      html += '<div class="freq-map-detail-comment" id="freq-map-detail-comment">';
+      if (cachedDetail) {
+        html += '<div class="freq-map-comment-text">' + this._escHtml(cachedDetail) + '</div>';
+      } else {
+        html += '<button class="freq-map-gen-detail-btn" data-action="gen-detail" data-id="' + loc.id + '">💭 生成角色感知</button>';
+      }
+      html += '</div>';
+
+      // 探索记录
+      html += '<div class="freq-map-section-title">探索记录</div>';
+      if (explorations.length === 0) {
+        html += '<div class="freq-map-no-record">暂无探索记录</div>';
+      } else {
+        html += '<div class="freq-map-explorations">';
+        explorations.slice().reverse().forEach(exp => {
+          html += '<div class="freq-map-exp-item">';
+          html += '  <div class="freq-map-exp-header">';
+          html += '    <span class="freq-map-exp-date">' + (exp.date || '') + '</span>';
+          if (exp.serial) html += '    <span class="freq-map-exp-serial">' + this._escHtml(exp.serial) + '</span>';
+          html += '  </div>';
+          if (exp.content) html += '  <div class="freq-map-exp-content">' + this._escHtml(exp.content) + '</div>';
+          if (exp.charComment) html += '  <div class="freq-map-exp-comment">' + this._escHtml(exp.charComment) + '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+
+      // 手动添加探索记录
+      html += '<button class="freq-map-add-exp-btn" data-action="add-exp" data-id="' + loc.id + '">＋ 添加探索记录</button>';
+
+      // 危险操作
+      html += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #1a1a1a">';
+      html += '  <button class="freq-checkin-delete-btn freq-map-delete-btn" data-action="delete-loc" data-id="' + loc.id + '">删除地点</button>';
+      html += '</div>';
+
+      html += '</div>'; // freq-app-body
+
+      this._container.innerHTML = html;
+      this._bindDetailEvents(loc);
+    },
+
+    _bindDetailEvents(loc) {
+      if (!this._container) return;
+      const self = this;
+
+      // 返回
+      const backBtn = this._container.querySelector('[data-action="back"]');
+      if (backBtn) {
+        backBtn.addEventListener('click', function() {
+          self._currentView = 'map';
+          self._renderMap();
+        });
+      }
+
+      // 生成角色感知
+      const genDetailBtn = this._container.querySelector('[data-action="gen-detail"]');
+      if (genDetailBtn) {
+        genDetailBtn.addEventListener('click', function() {
+          self._generateDetail(loc);
+        });
+      }
+
+      // 添加探索记录
+      const addExpBtn = this._container.querySelector('[data-action="add-exp"]');
+      if (addExpBtn) {
+        addExpBtn.addEventListener('click', function() {
+          self._renderAddExp(loc);
+        });
+      }
+
+      // 删除地点（二次确认）
+      const deleteBtn = this._container.querySelector('[data-action="delete-loc"]');
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+          if (this.dataset.confirming === '1') {
+            const locs = self._getLocations();
+            const idx = locs.findIndex(l => l.id === loc.id);
+            if (idx !== -1) locs.splice(idx, 1);
+            // 同时删除该地点的探索记录
+            const map = self._getMap();
+            map.explorations = map.explorations.filter(e => e.locationId !== loc.id);
+            self._saveMap();
+            delete self._detailCache[loc.id];
+            delete self._eventCache[loc.id];
+            self._currentView = 'map';
+            self._renderMap();
+          } else {
+            this.dataset.confirming = '1';
+            this.textContent = '确认删除？';
+            const btnRef = this;
+            setTimeout(function() {
+              if (btnRef.dataset.confirming === '1') {
+                btnRef.dataset.confirming = '0';
+                btnRef.textContent = '删除地点';
+              }
+            }, 3000);
+          }
+        });
+      }
+    },
+
+    // ═══════════════════════════════════════
+    //  添加探索记录视图
+    // ═══════════════════════════════════════
+    _renderAddExp(loc) {
+      if (!this._container) return;
+      const self = this;
+
+      let html = '<div class="freq-app-header">';
+      html += '  <button class="freq-checkin-back-btn" data-action="back">← 返回</button>';
+      html += '  <span>添加探索记录</span>';
+      html += '</div>';
+
+      html += '<div class="freq-app-body">';
+      html += '<div class="freq-map-exp-form">';
+      html += '  <div class="freq-map-form-label">地点：' + this._escHtml(loc.name) + '</div>';
+      html += '  <div class="freq-map-form-label" style="margin-top:10px">探索内容</div>';
+      html += '  <textarea class="freq-forum-textarea" id="freq-map-exp-content" rows="4" placeholder="记录在这里发生的事…" maxlength="300"></textarea>';
+      html += '  <button class="freq-map-gen-event-btn" data-action="gen-event" style="margin-top:8px">🤖 AI生成角色感想</button>';
+      html += '  <div id="freq-map-event-result" style="margin-top:8px"></div>';
+      html += '  <button class="freq-studio-action-btn" data-action="save-exp" style="margin-top:12px;width:100%">保存记录</button>';
+      html += '</div>';
+      html += '</div>';
+
+      this._container.innerHTML = html;
+
+      // 返回
+      const backBtn = this._container.querySelector('[data-action="back"]');
+      if (backBtn) {
+        backBtn.addEventListener('click', function() {
+          self._renderDetail(loc);
+        });
+      }
+
+      // AI生成感想
+      const genEventBtn = this._container.querySelector('[data-action="gen-event"]');
+      if (genEventBtn) {
+        genEventBtn.addEventListener('click', function() {
+          self._generateEvent(loc);
+        });
+      }
+
+      // 保存
+      const saveBtn = this._container.querySelector('[data-action="save-exp"]');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', function() {
+          const content = (self._container.querySelector('#freq-map-exp-content') || {}).value || '';
+          const charComment = self._eventCache[loc.id] || '';
+          if (!content.trim() && !charComment) {
+            return;
+          }
+          const exp = {
+            id: 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            locationId: loc.id,
+            locationName: loc.name,
+            content: content.trim(),
+            charComment: charComment,
+                      const exp = {
+            id: 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            locationId: loc.id,
+            locationName: loc.name,
+            content: content.trim(),
+            charComment: charComment,
+            date: dateNow(),
+            time: timeNow(),
+            serial: '',
+            createdAt: new Date().toISOString()
+          };
+          self._getExplorations().push(exp);
+          self._saveMap();
+          self._renderDetail(loc);
+        });
+      }
+    },
+
+    // ═══════════════════════════════════════
+    //  手动添加地点表单
+    // ═══════════════════════════════════════
+    _renderAddForm() {
+      if (!this._container) return;
+      const self = this;
+
+      const typeOptions = [
+        { v: 'city',    label: '🏙️ 城镇' },
+        { v: 'ruin',    label: '🏚️ 废墟' },
+        { v: 'wild',    label: '🌲 荒野' },
+        { v: 'dungeon', label: '⚔️ 秘境' },
+        { v: 'special', label: '✨ 特殊' }
+      ];
+
+      let html = '<div class="freq-app-header">';
+      html += '  <button class="freq-checkin-back-btn" data-action="back">← 返回</button>';
+      html += '  <span>手动添加地点</span>';
+      html += '</div>';
+
+      html += '<div class="freq-app-body">';
+      html += '<div class="freq-map-exp-form">';
+
+      html += '<div class="freq-map-form-label">地点名称</div>';
+      html += '<input class="freq-forum-input" id="freq-map-add-name" placeholder="地点名称" maxlength="20" style="margin-bottom:10px"/>';
+
+      html += '<div class="freq-map-form-label">类型</div>';
+      html += '<div class="freq-map-type-btns" style="margin-bottom:10px">';
+      typeOptions.forEach((t, i) => {
+        const active = i === 0 ? ' freq-map-type-active' : '';
+        html += '<button class="freq-map-type-btn' + active + '" data-type="' + t.v + '">' + t.label + '</button>';
+      });
+      html += '</div>';
+
+      html += '<div class="freq-map-form-label">简介</div>';
+      html += '<textarea class="freq-forum-textarea" id="freq-map-add-desc" rows="3" placeholder="地点简介（可选）" maxlength="100" style="margin-bottom:10px"></textarea>';
+
+      html += '<div class="freq-map-form-label">是否已发现</div>';
+      html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
+      html += '  <button class="freq-map-type-btn freq-map-type-active" data-discovered="true">✅ 已发现</button>';
+      html += '  <button class="freq-map-type-btn" data-discovered="false">🌫️ 迷雾中</button>';
+      html += '</div>';
+
+      html += '<button class="freq-studio-action-btn" data-action="save-add" style="width:100%">添加地点</button>';
+
+      html += '</div>';
+      html += '</div>';
+
+      this._container.innerHTML = html;
+
+      let selectedType = 'city';
+      let selectedDiscovered = true;
+
+      // 返回
+      const backBtn = this._container.querySelector('[data-action="back"]');
+      if (backBtn) {
+        backBtn.addEventListener('click', function() {
+          self._currentView = 'map';
+          self._renderMap();
+        });
+      }
+
+      // 类型切换
+      this._container.querySelectorAll('.freq-map-type-btn[data-type]').forEach(btn => {
+        btn.addEventListener('click', function() {
+          self._container.querySelectorAll('.freq-map-type-btn[data-type]').forEach(b => b.classList.remove('freq-map-type-active'));
+          this.classList.add('freq-map-type-active');
+          selectedType = this.dataset.type;
+        });
+      });
+
+      // 发现状态切换
+      this._container.querySelectorAll('.freq-map-type-btn[data-discovered]').forEach(btn => {
+        btn.addEventListener('click', function() {
+          self._container.querySelectorAll('.freq-map-type-btn[data-discovered]').forEach(b => b.classList.remove('freq-map-type-active'));
+          this.classList.add('freq-map-type-active');
+          selectedDiscovered = this.dataset.discovered === 'true';
+        });
+      });
+
+      // 保存
+      const saveBtn = this._container.querySelector('[data-action="save-add"]');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', function() {
+          const name = (self._container.querySelector('#freq-map-add-name') || {}).value || '';
+          const desc = (self._container.querySelector('#freq-map-add-desc') || {}).value || '';
+          if (!name.trim()) return;
+
+          // 随机找一个不太拥挤的坐标
+          const locs = self._getLocations();
+          let x, y, attempts = 0;
+          do {
+            x = 10 + Math.floor(Math.random() * 80);
+            y = 10 + Math.floor(Math.random() * 80);
+            attempts++;
+          } while (attempts < 20 && locs.some(l => Math.abs(l.x - x) < 12 && Math.abs(l.y - y) < 12));
+
+          const loc = {
+            id: 'loc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            name: name.trim(),
+            type: selectedType,
+            desc: desc.trim() || '一个神秘的地方。',
+            x: x,
+            y: y,
+            discovered: selectedDiscovered,
+            serial: '',
+            visitCount: 0,
+            createdAt: new Date().toISOString()
+          };
+
+          self._getLocations().push(loc);
+          self._saveMap();
+          self._currentView = 'map';
+          self._renderMap();
+        });
+      }
+    },
+
+    // ═══════════════════════════════════════
+    //  副API：批量生成世界
+    // ═══════════════════════════════════════
+    async _generateWorld() {
+      if (this._generating) return;
+      this._generating = true;
+      this._renderMap();
+
+      const messages = getChatMessages();
+      const allFM = extractAllMeowFM(messages);
+      const charName = getCurrentCharName() || 'Char';
+      const count = getSettings().mapLocationCount || 10;
+
+      // 拼接世界观上下文（最近5条 meow_FM）
+      const recentFM = allFM.slice(-5);
+      const worldContext = recentFM.length > 0
+        ? recentFM.map(fm => [fm.scene, fm.plot, fm.event].filter(Boolean).join('；')).join('\n')
+        : getLatestPlot(messages) || '（暂无剧情信息）';
+
+      const promptTemplate = getPrompt('map_generate');
+      const systemPrompt = promptTemplate
+        .replace(/\{charName\}/g, charName)
+        .replace(/\{worldContext\}/g, worldContext)
+        .replace(/\{locationCount\}/g, String(count));
+
+      try {
+        const raw = await SubAPI.call(
+          systemPrompt,
+          '请生成世界地图地点列表，返回纯JSON数组。',
+          { maxTokens: 1200, temperature: 0.85 }
+        );
+
+        let cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+        let parsed;
+        try {
+          parsed = JSON.parse(cleaned);
+        } catch (e) {
+          throw new Error('JSON解析失败：' + e.message);
+        }
+
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+          throw new Error('返回数据格式异常');
+        }
+
+        const locs = parsed.map(item => ({
+          id: 'loc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          name: String(item.name || '未知地点'),
+          type: ['city','ruin','wild','dungeon','special'].includes(item.type) ? item.type : 'wild',
+          desc: String(item.desc || ''),
+          x: Math.min(95, Math.max(5, Number(item.x) || 50)),
+          y: Math.min(95, Math.max(5, Number(item.y) || 50)),
+          discovered: false,
+          serial: '',
+          visitCount: 0,
+          createdAt: new Date().toISOString()
+        }));
+
+        this._getMap().locations = locs;
+        this._saveMap();
+
+        EventBus.emit('notification:new', {
+          app: 'map', icon: '🗺️',
+          title: '世界地图已生成',
+          body: '共 ' + locs.length + ' 个地点，等待探索'
+        });
+
+      } catch (e) {
+        console.warn('[Freq Map] World generation failed:', e);
+        EventBus.emit('error:new', { app: 'map', message: '世界生成失败：' + e.message });
+      }
+
+      this._generating = false;
+      this._renderMap();
+    },
+
+    // ═══════════════════════════════════════
+    //  副API：AI探索（追加一个新地点）
+    // ═══════════════════════════════════════
+    async _aiExplore() {
+      if (this._exploring) return;
+      this._exploring = true;
+      this._renderMap();
+
+      const messages = getChatMessages();
+      const allFM = extractAllMeowFM(messages);
+      const charName = getCurrentCharName() || 'Char';
+      const recentFM = allFM.slice(-3);
+      const worldContext = recentFM.length > 0
+        ? recentFM.map(fm => [fm.scene, fm.plot, fm.event].filter(Boolean).join('；')).join('\n')
+        : getLatestPlot(messages) || '（暂无剧情信息）';
+
+      const promptTemplate = getPrompt('map_generate');
+      const systemPrompt = promptTemplate
+        .replace(/\{charName\}/g, charName)
+        .replace(/\{worldContext\}/g, worldContext)
+        .replace(/\{locationCount\}/g, '1');
+
+      try {
+        const raw = await SubAPI.call(
+          systemPrompt,
+          '请根据最新剧情，生成1个新发现的地点，返回纯JSON数组（只含1个元素）。',
+          { maxTokens: 300, temperature: 0.9 }
+        );
+
+        let cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+        let parsed;
+        try {
+          parsed = JSON.parse(cleaned);
+        } catch (e) {
+          throw new Error('JSON解析失败');
+        }
+
+        const item = Array.isArray(parsed) ? parsed[0] : parsed;
+        if (!item || !item.name) throw new Error('返回数据不完整');
+
+        // 找一个不拥挤的坐标
+        const locs = this._getLocations();
+        let x = Math.min(95, Math.max(5, Number(item.x) || 50));
+        let y = Math.min(95, Math.max(5, Number(item.y) || 50));
+        let attempts = 0;
+        while (attempts < 15 && locs.some(l => Math.abs(l.x - x) < 10 && Math.abs(l.y - y) < 10)) {
+          x = 10 + Math.floor(Math.random() * 80);
+          y = 10 + Math.floor(Math.random() * 80);
+          attempts++;
+        }
+
+        const newLoc = {
+          id: 'loc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          name: String(item.name),
+          type: ['city','ruin','wild','dungeon','special'].includes(item.type) ? item.type : 'wild',
+          desc: String(item.desc || ''),
+          x: x, y: y,
+          discovered: true,   // AI探索发现的，直接解锁
+          serial: '',
+          visitCount: 0,
+          createdAt: new Date().toISOString()
+        };
+
+        this._getLocations().push(newLoc);
+        this._saveMap();
+
+        EventBus.emit('notification:new', {
+          app: 'map', icon: '🗺️',
+          title: '探索发现',
+          body: '「' + newLoc.name + '」已加入地图'
+        });
+
+      } catch (e) {
+        console.warn('[Freq Map] AI explore failed:', e);
+        EventBus.emit('error:new', { app: 'map', message: 'AI探索失败：' + e.message });
+      }
+
+      this._exploring = false;
+      this._renderMap();
+    },
+
+    // ═══════════════════════════════════════
+    //  副API：生成地点详情
+    // ═══════════════════════════════════════
+    async _generateDetail(loc) {
+      if (!this._container) return;
+      const commentDiv = this._container.querySelector('#freq-map-detail-comment');
+      if (commentDiv) commentDiv.innerHTML = '<span class="freq-studio-loading">感知中…</span>';
+
+      const messages = getChatMessages();
+      const charName = getCurrentCharName() || 'Char';
+      const latestPlot = getLatestPlot(messages) || '';
+      const typeLabels = { city:'城镇', ruin:'废墟', wild:'荒野', dungeon:'秘境', special:'特殊' };
+
+      const promptTemplate = getPrompt('map_detail');
+      const systemPrompt = promptTemplate
+        .replace(/\{charName\}/g, charName)
+        .replace(/\{locationName\}/g, loc.name)
+        .replace(/\{locationType\}/g, typeLabels[loc.type] || loc.type)
+        .replace(/\{locationDesc\}/g, loc.desc)
+        .replace(/\{latestPlot\}/g, latestPlot);
+
+      try {
+        const result = await SubAPI.call(
+          systemPrompt,
+          '请生成角色对这个地点的感知描述。',
+          { maxTokens: 300, temperature: 0.85 }
+        );
+        this._detailCache[loc.id] = result.trim();
+      } catch (e) {
+        console.warn('[Freq Map] Detail generation failed:', e);
+        if (commentDiv) {
+          commentDiv.innerHTML = '<div class="freq-studio-error">生成失败：' + this._escHtml(e.message) + '</div>';
+          return;
+        }
+      }
+
+      if (this._container && this._currentView === 'detail') {
+        this._renderDetail(loc);
+      }
+    },
+
+    // ═══════════════════════════════════════
+    //  副API：生成探索感想
+    // ═══════════════════════════════════════
+    async _generateEvent(loc) {
+      if (!this._container) return;
+      const resultDiv = this._container.querySelector('#freq-map-event-result');
+      if (resultDiv) resultDiv.innerHTML = '<span class="freq-studio-loading">生成中…</span>';
+
+      const messages = getChatMessages();
+      const charName = getCurrentCharName() || 'Char';
+      const latestPlot = getLatestPlot(messages) || '';
+      const latestScene = getLatestScene(messages) || '';
+
+      const promptTemplate = getPrompt('map_event');
+      const systemPrompt = promptTemplate
+        .replace(/\{charName\}/g, charName)
+        .replace(/\{locationName\}/g, loc.name)
+        .replace(/\{locationDesc\}/g, loc.desc)
+        .replace(/\{latestPlot\}/g, latestPlot)
+        .replace(/\{latestScene\}/g, latestScene);
+
+      try {
+        const result = await SubAPI.call(
+          systemPrompt,
+          '请生成角色在这个地点的感想。',
+          { maxTokens: 200, temperature: 0.9 }
+        );
+        this._eventCache[loc.id] = result.trim();
+        if (resultDiv) {
+          resultDiv.innerHTML = '<div class="freq-map-comment-text" style="margin-top:4px">' + this._escHtml(result.trim()) + '</div>';
+        }
+      } catch (e) {
+        console.warn('[Freq Map] Event generation failed:', e);
+        if (resultDiv) {
+          resultDiv.innerHTML = '<div class="freq-studio-error">生成失败：' + this._escHtml(e.message) + '</div>';
+        }
+      }
+    },
+
+    // ── HTML转义 ──
+    _escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  };
+  //└─ BLOCK_24 ─┘
 
 
 
