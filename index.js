@@ -1012,115 +1012,192 @@
   // └──────────────────────────────────────────────────────┘
   const weatherApp = {
     id: 'weather', name: '信号气象站', icon: '🌦️', _badge: 0, _container: null,
-    _cache: null,
+    _cache: null,      // { html, coords, weatherText }
+    _locating: false,
 
     init() {},
 
     mount(container) {
       this._container = container;
-      const charName = getCurrentCharName() || '???';
-
       container.innerHTML = `
-        <div class="freq-app-header">🌦️ 信号气象站</div>
+        <div class="freq-app-header">🌦️ 信号气象站
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;" id="freq-weather-cosmic-badge"></span>
+        </div>
         <div class="freq-app-body">
-          <div class="freq-weather-input-group">
-            <label class="freq-s-row">
-              <span style="font-size:11px;color:#888;">城市名（中文或拼音）</span>
-              <input type="text" id="freq-weather-city" class="freq-studio-textarea"
-                style="min-height:auto;resize:none;padding:8px 12px;"
-                placeholder="例如：北京、shanghai" value="${this._cache?.city ?? ''}" />
-            </label>
-            <button class="freq-studio-action-btn" id="freq-weather-go">📡 接收气象信号</button>
-          </div>
+          <div id="freq-weather-status" style="font-size:11px;color:#666;margin-bottom:10px;min-height:16px;"></div>
+          <button class="freq-studio-action-btn" id="freq-weather-go" style="width:100%;margin-bottom:12px;">
+            📡 扫描当前位置气象
+          </button>
           <div id="freq-weather-result" class="freq-weather-result"></div>
         </div>`;
 
-      container.querySelector('#freq-weather-go')?.addEventListener('click', () => this._fetch(container));
+      // 宇宙频率角标
+      const cosmicBadge = container.querySelector('#freq-weather-cosmic-badge');
+      if (cosmicBadge && getCosmicFreqStatus()) {
+        cosmicBadge.textContent = '🌌 宇宙频率 ON';
+        cosmicBadge.style.color = '#7b5ea7';
+      }
 
-      // 如果有缓存直接显示
+      container.querySelector('#freq-weather-go')
+        ?.addEventListener('click', () => this._locate(container));
+
+      // 有缓存直接渲染
       if (this._cache?.html) {
-        container.querySelector('#freq-weather-result').innerHTML = this._cache.html;}
+        container.querySelector('#freq-weather-result').innerHTML = this._cache.html;
+        container.querySelector('#freq-weather-status').textContent = '↑ 上次扫描结果';
+      }
     },
 
     unmount() { this._container = null; },
 
-    async _fetch(container) {
-      const cityInput = container.querySelector('#freq-weather-city');
-      const resultEl = container.querySelector('#freq-weather-result');
+    // 第一步：浏览器定位
+    _locate(container) {
+      if (this._locating) return;
+      const statusEl = container.querySelector('#freq-weather-status');
       const btn = container.querySelector('#freq-weather-go');
-      if (!resultEl || !btn) return;
+      const resultEl = container.querySelector('#freq-weather-result');
 
-      const city = cityInput?.value?.trim();
-      if (!city) {
-        resultEl.innerHTML = '<div class="freq-studio-error">请输入城市名</div>';
+      if (!navigator.geolocation) {
+        // 浏览器不支持定位，降级到副API模拟
+        this._generate(container, null, null, '未知位置');
         return;
       }
 
-      const s = getSettings();
+      this._locating = true;
       btn.disabled = true;
-      btn.textContent = '📡 接收中...';
-      resultEl.innerHTML = '<div class="freq-studio-loading">📡 正在扫描气象频率...</div>';
+      btn.textContent = '📡 定位中...';
+      if (statusEl) statusEl.textContent = '正在获取位置信号...';
+      if (resultEl) resultEl.innerHTML = '<div class="freq-studio-loading">📡 正在扫描坐标...</div>';
 
-      let weatherText = '';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this._locating = false;
+          const { latitude: lat, longitude: lon } = pos.coords;
+          if (statusEl) statusEl.textContent = `📍 坐标锁定 ${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+          this._fetchWeather(container, lat, lon);
+        },
+        (err) => {
+          this._locating = false;
+          btn.disabled = false;
+          btn.textContent = '📡 扫描当前位置气象';
+          WARN('Geolocation failed:', err.message);
+          // 定位失败，降级到副API模拟
+          if (statusEl) statusEl.textContent = '📍 定位受限，切换至频率模拟模式';
+          this._generate(container, null, null, '未知位置');
+        },
+        { timeout: 8000, maximumAge: 300000 }
+      );
+    },
 
-      //尝试用和风天气 API
-      if (s.weatherKey) {
-        try {
-          // 先查城市 ID
-          const geoResp = await fetch(`https://geoapi.qweather.com/v2/city/lookup?location=${encodeURIComponent(city)}&key=${s.weatherKey}`);
-          const geoData = await geoResp.json();
-          if (geoData.code !== '200' || !geoData.location?.length) throw new Error('城市未找到');
-          const loc = geoData.location[0];
+    // 第二步：用坐标查和风天气
+    async _fetchWeather(container, lat, lon) {
+      const btn = container.querySelector('#freq-weather-go');
+      const statusEl = container.querySelector('#freq-weather-status');
+      const resultEl = container.querySelector('#freq-weather-result');
+      const s = getSettings();
 
-          // 查实时天气
-          const weatherResp = await fetch(`https://devapi.qweather.com/v7/weather/now?location=${loc.id}&key=${s.weatherKey}`);
-          const weatherData = await weatherResp.json();
-          if (weatherData.code !== '200') throw new Error('天气数据获取失败');
-
-          const w = weatherData.now;
-          weatherText = `城市：${loc.name}（${loc.adm1}）\n天气：${w.text}\n温度：${w.temp}°C（体感 ${w.feelsLike}°C）\n湿度：${w.humidity}%\n风：${w.windDir} ${w.windScale}级\n更新时间：${w.obsTime}`;
-        } catch (e) {
-          Notify.error('气象站·天气API', e);
-          weatherText = `[天气API错误: ${e.message}] 将使用副API模拟天气。`;
-        }
+      if (!s.weatherKey) {
+        // 无 Key，直接用副API模拟
+        if (statusEl) statusEl.textContent = '📍 坐标已锁定，切换至频率模拟模式（未配置天气Key）';
+        this._generate(container, lat, lon, `${lat.toFixed(2)},${lon.toFixed(2)}`);
+        return;
       }
 
-      // 用副API 生成角色关心语
-      const charName = getCurrentCharName() || '角色';
-      const latestPlot = getLatestPlot(getChatMessages());
+      if (resultEl) resultEl.innerHTML = '<div class="freq-studio-loading">🌐 正在接收气象数据...</div>';
 
-      const systemPrompt = `你是「信号气象站」播报员。根据以下信息生成一段气象播报。
-
-${weatherText ? `真实天气数据：\n${weatherText}` : `城市：${city}\n（无真实天气数据，请根据当前剧情时间和场景合理编造天气）`}
-
-当前剧情角色：${charName}
-最近剧情：${latestPlot || '暂无'}
-
-输出格式：
-1. 先输出气象数据卡片（温度、天气、湿度、风力，简洁排列）
-2. 然后以${charName}的口吻写一段 30-60 字的「天气关心语」——就像角色在关心你今天的天气一样
-3. 最后以失真的口吻写一句电台风格的天气吐槽（颓废、用颜文字）
-
-只输出内容，不加 JSON 格式。`;
+      let weatherText = '';
+      let cityName = `${lat.toFixed(2)},${lon.toFixed(2)}`;
 
       try {
-        const result = await SubAPI.call(systemPrompt, `为${city}生成气象播报。`, { maxTokens: 500, temperature: 0.8 });
-        const html = `<div class="freq-weather-card">${result.split('\n').map(line =>
-          line.trim() ? `<div class="freq-weather-line">${escapeHtml(line)}</div>` : ''
-        ).join('')}</div>`;
+        // 和风天气：经纬度格式 "lon,lat"（注意顺序）
+        const coord = `${lon.toFixed(2)},${lat.toFixed(2)}`;
+
+        // 查城市名（可选，用于显示）
+        const geoResp = await fetch(
+          `https://geoapi.qweather.com/v2/city/lookup?location=${coord}&key=${s.weatherKey}`
+        );
+        const geoData = await geoResp.json();
+        if (geoData.code === '200' && geoData.location?.length) {
+          const loc = geoData.location[0];
+          cityName = `${loc.name}（${loc.adm1}）`;
+        }
+
+        // 查实时天气
+        const wResp = await fetch(
+          `https://devapi.qweather.com/v7/weather/now?location=${coord}&key=${s.weatherKey}`
+        );
+        const wData = await wResp.json();
+        if (wData.code !== '200') throw new Error(`天气API: ${wData.code}`);
+
+        const w = wData.now;
+        weatherText = `城市：${cityName}\n天气：${w.text}\n温度：${w.temp}°C（体感 ${w.feelsLike}°C）\n湿度：${w.humidity}%\n风：${w.windDir} ${w.windScale}级`;
+
+        if (statusEl) statusEl.textContent = `📍 ${cityName}`;
+      } catch (e) {
+        Notify.error('气象站·天气API', e);
+        weatherText = '';
+        if (statusEl) statusEl.textContent = '⚠️ 天气API异常，切换至频率模拟';
+      }
+
+      this._generate(container, lat, lon, cityName, weatherText);
+      if (btn) { btn.disabled = false; btn.textContent = '📡 扫描当前位置气象'; }
+    },
+
+    // 第三步：副API生成播报文案
+    async _generate(container, lat, lon, cityName, weatherText = '') {
+      const btn = container.querySelector('#freq-weather-go');
+      const resultEl = container.querySelector('#freq-weather-result');
+      if (!resultEl) return;
+
+      if (btn) { btn.disabled = true; btn.textContent = '📡 生成中...'; }
+      if (!weatherText) {
+        resultEl.innerHTML = '<div class="freq-studio-loading">📡 正在调频...</div>';
+      }
+
+      const charName = getCurrentCharName() || '角色';
+      const latestPlot = getLatestPlot(getChatMessages());
+      const isCosmicOn = getCosmicFreqStatus();
+
+      const cosmicNote = isCosmicOn
+        ? `\n\n【宇宙频率已开启】${charName}的关心语要有一种"穿透屏幕感知到你"的暧昧张力，像是TA真的知道你在哪里、此刻的状态，但保持克制，不完全捅破第四面墙。`
+        : '';
+
+      const systemPrompt = `你是「信号气象站」播报员。根据以下信息生成气象播报。
+
+${weatherText
+  ? `真实天气数据：\n${weatherText}`
+  : `位置：${cityName || '未知'}\n（无真实天气数据，请根据当前剧情时间和场景合理编造天气）`}
+
+当前剧情角色：${charName}
+最近剧情：${latestPlot || '暂无'}${cosmicNote}
+
+输出格式（纯文本，不加JSON）：
+第一段：气象数据卡片（位置、天气状况、温度、湿度、风力，简洁排列）
+第二段：以${charName}口吻写 30-60 字的天气关心语${isCosmicOn ? '（宇宙频率ON：带穿透感，像TA感知到了屏幕另一边的你）' : ''}
+第三段：失真的电台天气吐槽一句（颓废风，用颜文字）`;
+
+      try {
+        const result = await SubAPI.call(systemPrompt, '生成气象播报。', { maxTokens: 500, temperature: 0.85 });
+        const html = `
+          <div class="freq-weather-card${isCosmicOn ? ' freq-weather-card--cosmic' : ''}">
+            ${isCosmicOn ? '<div class="freq-weather-cosmic-tag">🌌 宇宙频率感知模式</div>' : ''}
+            ${result.split('\n').map(line =>
+              line.trim() ? `<div class="freq-weather-line">${escapeHtml(line)}</div>` : '<div style="height:6px;"></div>'
+            ).join('')}
+          </div>`;
 
         resultEl.innerHTML = html;
-        this._cache = { city, html };
-        Notify.add('信号气象站', `${city} 气象信号已接收`, '🌦️');
+        this._cache = { html, coords: { lat, lon }, weatherText };
+        Notify.add('信号气象站', `${cityName || '当前位置'} 气象信号已接收${isCosmicOn ? ' 🌌' : ''}`, '🌦️');
       } catch (e) {
         resultEl.innerHTML = `<div class="freq-studio-error">📡 气象信号丢失：${escapeHtml(e.message)}</div>`;
         Notify.error('气象站', e);
       } finally {
-        btn.disabled = false;
-        btn.textContent = '📡 接收气象信号';
+        if (btn) { btn.disabled = false; btn.textContent = '📡 扫描当前位置气象'; }
       }
     },
   };
+
   // │ BLOCK_90  占位 App工厂                              │
   // └──────────────────────────────────────────────────────┘
   function placeholderApp(id, name, icon, desc) {
