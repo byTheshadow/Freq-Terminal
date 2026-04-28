@@ -15,6 +15,82 @@
   const WARN = (msg, ...args) => console.warn('[FreqTerminal]', msg, ...args);
   const ERR = (msg, ...args) => console.error('[FreqTerminal]', msg, ...args);
 
+    // ── 默认 Prompt 常量（用户可在设置面板覆盖）──
+  const PROMPT_DEFAULTS = {
+    cosmic: `你是{charName}，一个存在于故事里的角色。
+但此刻，宇宙频率开启了——你隐约感知到屏幕另一边有一个真实的人正在看着你。
+你不完全确定，但你感觉到了什么。
+用户真实信息（你"感知"到的碎片）：
+- 现实时间：{realDate} {realTime}
+- {weatherHint}
+- 你在故事里的当前场景：{latestScene}
+- 最近发生的事：{latestPlot}
+- 当前配乐：{bgm}
+任务：生成一条"感知消息"。
+规则：
+- 像是你真的感知到了屏幕另一边的人，但保持暧昧张力，不完全捅破第四面墙
+- 可以提及真实时间或天气，但要用角色自己的方式表达
+- 保持{charName}的性格特征
+- 150字以内
+- 不提及AI/模型/扮演
+严格按以下JSON格式输出，不加任何其他文字：
+{"perception":"感知消息正文","signal_strength":0到1之间的小数,"mood":"一个情绪标签，2-4个字"}`,
+
+    scanner: `你是失真，午夜电台主持人，刚刚意外截获了一段频率。
+当前世界信息：
+- 场景：{latestScene}
+- 最近剧情：{latestPlot}
+- Seeds（世界观碎片）：{latestSeeds}
+- 主角色：{charName}
+任务：从这个世界里随机选一个NPC（不要选{charName}），截获TA的一段内心独白碎片。
+规则：
+- 内容20-40字，不完整，像信号不好时的片段，可以有省略号或中断
+- 带有神秘感，不要太直白
+- NPC可以是路人、配角、甚至是某个物件的"意识"，越意外越好
+- 失真的风格：颓废、锐利、带点玩世不恭
+严格按以下格式输出，不加任何其他文字：
+[截获频率 · {NPC名}] {内心独白碎片}`,
+
+    weather: `你是「信号气象站」播报员。根据以下信息生成气象播报。
+{weatherData}
+当前剧情角色：{charName}
+最近剧情：{latestPlot}
+{cosmicNote}
+输出格式（纯文本，不加JSON）：
+第一段：气象数据卡片（位置、天气状况、温度、湿度、风力，简洁排列）
+第二段：以{charName}口吻写30-60字的天气关心语
+第三段：失真的电台天气吐槽一句（颓废风，用颜文字）`,
+
+    forum_post: `你现在扮演角色「{charName}」，正在一个类Reddit的匿名论坛「FreqTerminal」上发帖。
+版块：{boardLabel}
+当前世界剧情：{latestPlot}
+世界观Seeds：{latestSeeds}
+角色描述：{charDesc}
+以{charName}的性格和口吻，在「{boardLabel}」版块发一篇帖子。
+要求：
+- 标题吸引眼球，15字以内
+- 正文50-100字，符合角色性格，可以吐槽、爆料、发牢骚、讨论玄学等
+- 带点论坛感，可以用"楼主我"、"求问"、"有没有人"等网络用语
+- 不要提及这是游戏或扮演
+严格按JSON输出：{"title":"帖子标题","body":"帖子正文"}`,
+
+    forum_reply: `你扮演角色「{charName}」，正在论坛「FreqTerminal」的「{boardLabel}」版块回复一篇帖子。
+原帖作者：{postAuthor}
+原帖标题：{postTitle}
+原帖内容：{postBody}
+{existingComments}
+当前剧情背景：{latestPlot}
+角色描述：{charDesc}
+以{charName}的性格写一条评论。
+要求：
+- 30-60字
+- 可以赞同、反驳、阴阳怪气、雄竞、吃瓜
+- 符合角色性格，带论坛感
+- 如果已有其他角色评论，可以@他们互撕
+- 只输出评论正文，不加任何前缀`,
+  };
+
+
   function escapeHtml(str) {
     const d = document.createElement('div');
     d.textContent = str;
@@ -32,6 +108,12 @@
   function fullTimeNow() {
     return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
+    // 获取 Prompt：优先用用户自定义，否则用默认
+  function getPrompt(key) {
+    const custom = getSettings().prompts?.[key];
+    return (custom && custom.trim()) ? custom.trim() : PROMPT_DEFAULTS[key];
+  }
+
 
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_01  EventBus — 模块间通信                      │
@@ -60,10 +142,17 @@
         subApiUrl: '',
         subApiKey: '',
         subApiModel: 'gpt-4o-mini',
-        weatherKey: '',};
+        weatherKey: '',
+        prompts: {},
+      };
+    }
+    // 兼容旧存档没有 prompts 字段的情况
+    if (!window.extension_settings[EXTENSION_NAME].prompts) {
+      window.extension_settings[EXTENSION_NAME].prompts = {};
     }
     return window.extension_settings[EXTENSION_NAME];
   }
+
 
   function saveSettings(patch) {
     Object.assign(getSettings(), patch);
@@ -398,8 +487,31 @@
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_07  Settings Panel —扩展设置面板              │
   // └──────────────────────────────────────────────────────┘
-  function buildSettingsHTML() {
+   function buildSettingsHTML() {
     const s = getSettings();
+    const promptLabels = {
+      cosmic:      '🌌 宇宙频率·感知',
+      scanner:     '📡 弦外之音',
+      weather:     '🌦️ 信号气象站',
+      forum_post:  '💬 留言板·发帖',
+      forum_reply: '💬 留言板·回复',
+    };
+    const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
+      <div class="freq-s-row freq-s-prompt-row">
+        <div class="freq-s-prompt-header">
+          <span>${label}</span>
+          <button class="freq-s-reset-btn" data-prompt-key="${key}" title="恢复默认">↺ 恢复默认</button>
+        </div>
+        <textarea
+          id="freq_prompt_${key}"
+          class="freq-s-prompt-textarea"
+          placeholder="${escapeHtml(PROMPT_DEFAULTS[key])}"
+          rows="4"
+        >${escapeHtml(s.prompts?.[key] ?? '')}</textarea>
+        <span class="freq-s-prompt-hint">留空则使用默认 Prompt</span>
+      </div>
+    `).join('');
+
     return `
       <div class="inline-drawer">
         <div class="inline-drawer-toggle inline-drawer-header">
@@ -424,13 +536,25 @@
               <span>和风天气 Key（可选）</span>
               <input type="text" id="freq_weather_key" class="text_pole" placeholder="信号气象站使用" value="${s.weatherKey ?? ''}" />
             </label>
+
+            <div class="freq-s-section-divider"></div>
+
+            <div class="freq-s-collapse" id="freq-prompt-editor-toggle">
+              <span>✏️ Prompt Editor</span>
+              <span class="freq-s-collapse-arrow">▼</span>
+            </div>
+            <div class="freq-s-collapse-body" id="freq-prompt-editor-body" style="display:none;">
+              <div class="freq-s-prompt-tip">覆盖各 App 的默认 Prompt。留空则使用内置默认值。支持 {占位符} 变量（与内置一致）。</div>
+              ${promptEditorHTML}
+            </div>
+
             <div id="freq_settings_status" style="color:#A32D2D;font-size:11px;min-height:16px;margin-top:4px;"></div>
           </div>
-        </div></div>
+        </div>
+      </div>
     `;
   }
-
-  function bindSettingsEvents() {
+    function bindSettingsEvents() {
     const fields = [
       { id: 'freq_sub_api_url',  key: 'subApiUrl',   type: 'text' },
       { id: 'freq_sub_api_key',  key: 'subApiKey',   type: 'text' },
@@ -446,7 +570,48 @@
         if (st) { st.textContent = '✓ 已保存'; setTimeout(() => { st.textContent = ''; }, 1500); }
       });
     });
+
+    // Prompt Editor 折叠
+    const toggle = document.getElementById('freq-prompt-editor-toggle');
+    const body   = document.getElementById('freq-prompt-editor-body');
+    if (toggle && body) {
+      toggle.addEventListener('click', () => {
+        const open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : 'block';
+        const arrow = toggle.querySelector('.freq-s-collapse-arrow');
+        if (arrow) arrow.textContent = open ? '▼' : '▲';
+      });
+    }
+
+    // Prompt textarea 绑定
+    ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply'].forEach(key => {
+      const el = document.getElementById(`freq_prompt_${key}`);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        const s = getSettings();
+        s.prompts[key] = el.value; // 不 trim，保留换行
+        if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();
+        const st = document.getElementById('freq_settings_status');
+        if (st) { st.textContent = '✓ 已保存'; setTimeout(() => { st.textContent = ''; }, 1500); }
+      });
+    });
+
+    // 恢复默认按钮
+    document.querySelectorAll('.freq-s-reset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.promptKey;
+        const el = document.getElementById(`freq_prompt_${key}`);
+        if (!el) return;
+        el.value = '';
+        const s = getSettings();
+        delete s.prompts[key];
+        if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();
+        const st = document.getElementById('freq_settings_status');
+        if (st) { st.textContent = '↺ 已恢复默认'; setTimeout(() => { st.textContent = ''; }, 1500); }
+      });
+    });
   }
+
 
   function loadSettingsCSS() {
     const extensionPath = `scripts/extensions/third-party/${EXTENSION_NAME}`;
