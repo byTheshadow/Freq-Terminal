@@ -236,3 +236,59 @@
   gap: 8px;
 }
 .freq-empty-icon { font-size: 32px; opacity: 0.4; }
+/* ──扩展设置面板 ── */
+.freq-extension-block {
+  border-top: 1px solid #2a2a2a;
+  padding: 12px 0;
+}
+.freq-settings {
+  padding: 8px 0;
+}
+.freq-setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.freq-setting-row span {
+  font-size: 12px;
+  color: #aaa;
+}
+.freq-setting-row input[type="text"],
+.freq-setting-row input[type="password"] {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #ddd;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.freq-setting-row input:focus {
+  border-color: #A32D2D;
+}
+.freq-setting-row--toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.freq-setting-row--toggle input[type="checkbox"] {
+  accent-color: #A32D2D;
+  width: 16px;
+  height: 16px;
+}
+.freq-btn-save {
+  background: #A32D2D;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.freq-btn-save:hover {
+  background: #c43a3a;
+}
+
