@@ -6683,7 +6683,7 @@ const calendarApp = {
     registerApp(checkinApp);
     registerApp(calendarApp);
     registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
-    registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
+    registerApp(mapApp);                                           // ✅ BLOCK_24
     registerApp(deliveryApp);// ✅ BLOCK_22 替换 placeholder
     registerApp(capsuleApp);        // ✅ BLOCK_21 替换 placeholder
     registerApp(dreamApp);
