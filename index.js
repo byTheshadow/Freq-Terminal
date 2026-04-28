@@ -169,6 +169,9 @@
       };
     }
     // 兼容旧存档没有 prompts 字段的情况
+        if (!window.extension_settings[EXTENSION_NAME].checkins) {
+      window.extension_settings[EXTENSION_NAME].checkins = { goals: [] };
+    }
     if (!window.extension_settings[EXTENSION_NAME].prompts) {
       window.extension_settings[EXTENSION_NAME].prompts = {};
     }
@@ -2398,6 +2401,597 @@ try {
       };
     },
   };
+    //┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_18App · 打卡日志                             │
+  // └──────────────────────────────────────────────────────┘
+  const checkinApp = {
+    id: 'checkin', name: '打卡日志', icon: '📅', _badge: 0, _container: null,
+    _currentGoalId: null,
+    _viewMonth: null, // {year, month} 当前日历显示的月份
+
+    init() {
+      EventBus.on('meow_fm:updated', () => {
+        this._tryAutoCheckin();
+      });
+    },
+
+    mount(container) {
+      this._container = container;
+      this._badge = 0;
+      renderAppGrid();
+      if (this._currentGoalId) {
+        this._renderGoalDetail(container, this._currentGoalId);
+      } else {
+        this._renderGoalList(container);
+      }
+    },
+
+    unmount() { this._container = null; },
+
+    //── 数据操作 ──
+    _getGoals() {
+      return getSettings().checkins?.goals ?? [];
+    },
+
+    _saveGoals(goals) {
+      const s = getSettings();
+      s.checkins.goals = goals;
+      if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();},
+
+    _findGoal(id) {
+      return this._getGoals().find(g => g.id === id) ?? null;
+    },
+
+    _todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    _calcStreak(goal) {
+      let streak = 0;
+      const today = new Date();
+      for (let i = 0; i < (goal.totalDays || 365); i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if ((goal.records?.[key] ?? 0) > 0) {
+          streak++;
+        } else if (i > 0) {
+          break; // 今天可以还没打，但昨天断了就断了
+        }
+      }
+      return streak;
+    },
+
+    _calcOverallRate(goal) {
+      const start = new Date(goal.startDate);
+      const today = new Date();
+      const daysPassed = Math.max(1, Math.floor((today - start) / 86400000) + 1);
+      const effectiveDays = Math.min(daysPassed, goal.totalDays || daysPassed);
+      let completed = 0;
+      for (let i = 0; i < effectiveDays; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if ((goal.records?.[key] ?? 0) >= goal.target) completed++;
+      }
+      return Math.round((completed / effectiveDays) * 100);
+    },
+
+    // ── 目标列表页 ──
+    _renderGoalList(container) {
+      this._currentGoalId = null;
+      const goals = this._getGoals();
+
+      const today = this._todayStr();
+      const cardsHTML = goals.length === 0
+        ? `<div class="freq-empty" style="min-height:200px;"><span class="freq-empty-icon">📅</span>
+            <span>还没有打卡目标</span>
+            <span style="font-size:10px;color:#333;">点击右上角 + 创建一个吧</span>
+          </div>`
+        : goals.map(g => {
+            const streak = this._calcStreak(g);
+            const todayDone = g.records?.[today] ?? 0;
+            const todayComplete = todayDone >= g.target;
+            const rate = this._calcOverallRate(g);
+            const isCharGoal = g.owner === 'char';
+            return `
+              <div class="freq-checkin-card" data-goal-id="${g.id}">
+                <div class="freq-checkin-card-header">
+                  <span class="freq-checkin-card-title">${escapeHtml(g.title)}</span>
+                  <span class="freq-checkin-card-owner" style="color:${isCharGoal ? '#A32D2D' : '#5b8dd9'}">
+                    ${escapeHtml(g.ownerName)}
+                  </span>
+                </div>
+                <div class="freq-checkin-card-info">
+                  <span>目标：${g.target}${escapeHtml(g.unit)}/天 · ${g.totalDays}天</span>
+                </div>
+                <div class="freq-checkin-card-stats">
+                  <span class="freq-checkin-streak">🔥 ${streak}天</span>
+                  <span class="freq-checkin-today ${todayComplete ? 'freq-checkin-today--done' : ''}">
+                    ${todayComplete ? '✅' : '⬜'} 今日${todayDone}/${g.target}
+                  </span>
+                  <span class="freq-checkin-rate">${rate}%</span>
+                </div>
+              </div>`;
+          }).join('');
+
+      container.innerHTML = `
+        <div class="freq-app-header">📅 打卡日志
+          <span style="float:right;display:flex;gap:6px;align-items:center;">
+            <button class="freq-checkin-add-btn" id="freq-checkin-add" title="新建目标">+</button>
+          </span>
+        </div>
+        <div class="freq-app-body" id="freq-checkin-body">
+          ${cardsHTML}
+        </div><div class="freq-checkin-create-overlay" id="freq-checkin-create" style="display:none;"></div>`;
+
+      // 点击卡片进入详情
+      container.querySelectorAll('.freq-checkin-card').forEach(card => {
+        card.addEventListener('click', () => {
+          this._currentGoalId = card.dataset.goalId;
+          this._viewMonth = null;
+          this._renderGoalDetail(container, card.dataset.goalId);
+        });
+      });
+
+      // 新建按钮
+      container.querySelector('#freq-checkin-add')?.addEventListener('click', () => {
+        this._showCreateForm(container);
+      });
+    },
+
+    // ── 新建目标表单 ──
+    _showCreateForm(container) {
+      const overlay = container.querySelector('#freq-checkin-create');
+      if (!overlay) return;
+
+      const charName = getCurrentCharName() || '角色';
+      const userName = getUserName();
+
+      overlay.style.display = 'flex';
+      overlay.innerHTML = `
+        <div class="freq-checkin-form">
+          <div class="freq-checkin-form-header">
+            <span>📅 新建打卡目标</span>
+            <button class="freq-forum-compose-close" id="freq-checkin-form-close">✕</button>
+          </div>
+          <div class="freq-checkin-form-body">
+            <label class="freq-s-row">
+              <span>谁的目标？</span>
+              <div class="freq-checkin-owner-toggle">
+                <button class="freq-checkin-owner-btn freq-checkin-owner-active" data-owner="user">${escapeHtml(userName)}</button>
+                <button class="freq-checkin-owner-btn" data-owner="char">${escapeHtml(charName)}</button>
+              </div>
+            </label>
+            <label class="freq-s-row">
+              <span>目标名称</span>
+              <input type="text" id="freq-checkin-title" class="freq-forum-input" placeholder="例：每天喝8杯水" maxlength="30" />
+            </label>
+            <div style="display:flex;gap:8px;">
+              <label class="freq-s-row" style="flex:1;">
+                <span>每日目标量</span>
+                <input type="number" id="freq-checkin-target" class="freq-forum-input" placeholder="8" min="1" value="1" />
+              </label>
+              <label class="freq-s-row" style="flex:1;">
+                <span>单位</span>
+                <input type="text" id="freq-checkin-unit" class="freq-forum-input" placeholder="杯" maxlength="10" />
+              </label>
+            </div>
+            <label class="freq-s-row">
+              <span>持续天数</span>
+              <input type="number" id="freq-checkin-days" class="freq-forum-input" placeholder="30" min="1" value="30" />
+            </label>
+            <div class="freq-checkin-auto-row" id="freq-checkin-auto-row" style="display:none;">
+              <label class="freq-s-row freq-s-toggle">
+                <span>角色自动打卡（副API）</span>
+                <input type="checkbox" id="freq-checkin-auto" />
+              </label>
+              <span style="font-size:9px;color:#444;">开启后角色会在新消息时自动打卡</span>
+            </div>
+            <button class="freq-studio-action-btn" id="freq-checkin-submit" style="width:100%;margin-top:8px;">创建目标</button>
+          </div>
+        </div>`;
+
+      let selectedOwner = 'user';
+
+      // owner 切换
+      overlay.querySelectorAll('.freq-checkin-owner-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          overlay.querySelectorAll('.freq-checkin-owner-btn').forEach(b => b.classList.remove('freq-checkin-owner-active'));
+          btn.classList.add('freq-checkin-owner-active');
+          selectedOwner = btn.dataset.owner;
+          const autoRow = overlay.querySelector('#freq-checkin-auto-row');
+          if (autoRow) autoRow.style.display = selectedOwner === 'char' ? 'block' : 'none';
+        });
+      });
+
+      // 关闭
+      overlay.querySelector('#freq-checkin-form-close')?.addEventListener('click', () => {
+        overlay.style.display = 'none';
+      });
+
+      // 提交
+      overlay.querySelector('#freq-checkin-submit')?.addEventListener('click', () => {
+        const title = overlay.querySelector('#freq-checkin-title')?.value.trim();
+        const target = parseInt(overlay.querySelector('#freq-checkin-target')?.value) || 1;
+        const unit = overlay.querySelector('#freq-checkin-unit')?.value.trim() || '次';
+        const totalDays = parseInt(overlay.querySelector('#freq-checkin-days')?.value) || 30;
+        const autoCheckin = overlay.querySelector('#freq-checkin-auto')?.checked ?? false;
+
+        if (!title) return;
+
+        const ownerName = selectedOwner === 'user' ? userName : charName;
+        const goal = {
+          id: `goal-${Date.now()}`,
+          owner: selectedOwner,
+          ownerName,
+          title,
+          unit,
+          target,
+          totalDays,
+          startDate: this._todayStr(),
+          records: {},
+          notes: {},// 日期→ 打卡感言
+          comments: [],
+          autoCheckin,
+          createdAt: this._todayStr(),
+        };
+
+        const goals = this._getGoals();
+        goals.push(goal);
+        this._saveGoals(goals);
+
+        overlay.style.display = 'none';
+        this._renderGoalList(container);
+        Notify.add('打卡日志', `新目标「${title}」已创建`, '📅');
+      });
+    },
+
+    // ── 目标详情页（日历 + 打卡 + 评论）──
+    _renderGoalDetail(container, goalId) {
+      const goal = this._findGoal(goalId);
+      if (!goal) { this._renderGoalList(container); return; }
+
+      const today = this._todayStr();
+      const todayDone = goal.records?.[today] ?? 0;
+      const streak = this._calcStreak(goal);
+      const rate = this._calcOverallRate(goal);
+      const isOwner = goal.owner === 'user';
+      const now = new Date();
+      if (!this._viewMonth) this._viewMonth = { year: now.getFullYear(), month: now.getMonth() };
+
+      const calendarHTML = this._buildCalendar(goal);
+
+      const commentsHTML = (goal.comments ?? []).map(c => `
+        <div class="freq-checkin-comment">
+          <span class="freq-checkin-comment-author" style="color:${c.isChar ? '#A32D2D' : '#5b8dd9'}">${escapeHtml(c.author)}</span>
+          <span class="freq-checkin-comment-text">${escapeHtml(c.text)}</span>
+          <span class="freq-checkin-comment-time">${c.date} ${c.time}</span>
+        </div>`).join('');
+
+      container.innerHTML = `
+        <div class="freq-app-header">
+          <button class="freq-checkin-back-btn" id="freq-checkin-back">←</button>
+          📅 ${escapeHtml(goal.title)}
+          <span style="float:right;font-size:10px;color:${isOwner ? '#5b8dd9' : '#A32D2D'};font-weight:normal;">
+            ${escapeHtml(goal.ownerName)}
+          </span>
+        </div>
+        <div class="freq-app-body" id="freq-checkin-detail-body">
+
+          <div class="freq-checkin-stats-bar">
+            <div class="freq-checkin-stat">
+              <span class="freq-checkin-stat-num">🔥 ${streak}</span>
+              <span class="freq-checkin-stat-label">连续天数</span>
+            </div>
+            <div class="freq-checkin-stat">
+              <span class="freq-checkin-stat-num">${rate}%</span>
+              <span class="freq-checkin-stat-label">完成率</span>
+            </div><div class="freq-checkin-stat">
+              <span class="freq-checkin-stat-num">${todayDone}/${goal.target}</span>
+              <span class="freq-checkin-stat-label">今日${escapeHtml(goal.unit)}</span>
+            </div>
+          </div>
+
+          ${isOwner ? `
+          <div class="freq-checkin-action-row">
+            <button class="freq-checkin-minus-btn" id="freq-checkin-minus">−</button>
+            <span class="freq-checkin-action-count" id="freq-checkin-count">${todayDone}</span>
+            <button class="freq-checkin-plus-btn" id="freq-checkin-plus">+</button>
+            <button class="freq-studio-action-btn freq-checkin-done-btn" id="freq-checkin-done"${todayDone >= goal.target ? 'disabled' : ''}>
+              ${todayDone >= goal.target ? '✅ 已完成' : '📅 打卡'}
+            </button>
+          </div>` : `
+          <div class="freq-checkin-action-row">
+            <span style="font-size:11px;color:#666;">角色目标 · ${goal.autoCheckin ? '自动打卡中' : '手动模式'}</span>
+            ${goal.autoCheckin ? '' : `<button class="freq-studio-action-btn freq-checkin-done-btn" id="freq-checkin-char-manual">🎲 角色打卡</button>`}
+          </div>`}
+
+          <div class="freq-checkin-calendar" id="freq-checkin-calendar">
+            ${calendarHTML}
+          </div>
+
+          <div class="freq-checkin-comments-section">
+            <div class="freq-checkin-comments-header">
+              <span>💬 角色评论</span>
+              <button class="freq-checkin-comment-btn" id="freq-checkin-get-comment">🎲 请求评论</button>
+            </div>
+            <div class="freq-checkin-comments-list" id="freq-checkin-comments">
+              ${commentsHTML || '<div style="font-size:10px;color:#333;text-align:center;padding:12px;">暂无评论</div>'}
+            </div>
+          </div>
+
+          <div style="margin-top:12px;text-align:center;">
+            <button class="freq-checkin-delete-btn" id="freq-checkin-delete">🗑️ 删除目标</button>
+          </div>
+        </div>`;
+
+      // 返回
+      container.querySelector('#freq-checkin-back')?.addEventListener('click', () => {
+        this._currentGoalId = null;
+        this._renderGoalList(container);
+      });
+
+      // 打卡操作（user目标）
+      if (isOwner) {
+        let count = todayDone;
+        const countEl = container.querySelector('#freq-checkin-count');
+        const doneBtn = container.querySelector('#freq-checkin-done');
+
+        container.querySelector('#freq-checkin-plus')?.addEventListener('click', () => {
+          count = Math.min(count + 1, goal.target * 3); // 允许超额
+          if (countEl) countEl.textContent = count;
+        });
+        container.querySelector('#freq-checkin-minus')?.addEventListener('click', () => {
+          count = Math.max(0, count - 1);
+          if (countEl) countEl.textContent = count;
+        });
+        doneBtn?.addEventListener('click', () => {
+          if (!goal.records) goal.records = {};
+          goal.records[today] = count || 1;
+          this._saveGoals(this._getGoals());
+          this._renderGoalDetail(container, goalId);
+          Notify.add('打卡日志', `「${goal.title}」打卡 ${count || 1}${goal.unit}`, '📅');
+        });
+      } else {
+        // 角色手动打卡
+        container.querySelector('#freq-checkin-char-manual')?.addEventListener('click', () => {
+          this._doCharCheckin(container, goalId);
+        });
+      }
+
+      // 日历月份切换
+      container.querySelector('#freq-cal-prev')?.addEventListener('click', () => {
+        this._viewMonth.month--;
+        if (this._viewMonth.month < 0) { this._viewMonth.month = 11; this._viewMonth.year--; }
+        const calEl = container.querySelector('#freq-checkin-calendar');
+        if (calEl) calEl.innerHTML = this._buildCalendar(goal);
+        this._bindCalNav(container, goal);
+      });
+      container.querySelector('#freq-cal-next')?.addEventListener('click', () => {
+        this._viewMonth.month++;
+        if (this._viewMonth.month > 11) { this._viewMonth.month = 0; this._viewMonth.year++; }
+        const calEl = container.querySelector('#freq-checkin-calendar');
+        if (calEl) calEl.innerHTML = this._buildCalendar(goal);
+        this._bindCalNav(container, goal);
+      });
+
+      // 请求评论
+      container.querySelector('#freq-checkin-get-comment')?.addEventListener('click', () => {
+        this._requestComment(container, goalId);
+      });
+
+      // 删除
+      container.querySelector('#freq-checkin-delete')?.addEventListener('click', () => {
+        const goals = this._getGoals().filter(g => g.id !== goalId);
+        this._saveGoals(goals);
+        this._currentGoalId = null;
+        this._renderGoalList(container);
+        Notify.add('打卡日志', `目标已删除`, '🗑️');
+      });
+    },
+
+    _bindCalNav(container, goal) {
+      container.querySelector('#freq-cal-prev')?.addEventListener('click', () => {
+        this._viewMonth.month--;
+        if (this._viewMonth.month < 0) { this._viewMonth.month = 11; this._viewMonth.year--; }
+        const calEl = container.querySelector('#freq-checkin-calendar');
+        if (calEl) calEl.innerHTML = this._buildCalendar(goal);
+        this._bindCalNav(container, goal);
+      });
+      container.querySelector('#freq-cal-next')?.addEventListener('click', () => {
+        this._viewMonth.month++;
+        if (this._viewMonth.month > 11) { this._viewMonth.month = 0; this._viewMonth.year++; }
+        const calEl = container.querySelector('#freq-checkin-calendar');
+        if (calEl) calEl.innerHTML = this._buildCalendar(goal);
+        this._bindCalNav(container, goal);
+      });
+    },
+
+    // ── 日历构建 ──
+    _buildCalendar(goal) {
+      const vm = this._viewMonth;
+      const year = vm.year;
+      const month = vm.month;
+      const today = this._todayStr();
+
+      const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const monthLabel = `${year}年${month + 1}月`;
+
+      const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+      let gridHTML = weekDays.map(d => `<div class="freq-cal-weekday">${d}</div>`).join('');
+
+      // 空白填充
+      for (let i = 0; i < firstDay; i++) {
+        gridHTML += `<div class="freq-cal-day freq-cal-day--empty"></div>`;
+      }
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const done = goal.records?.[dateStr] ?? 0;
+        const ratio = goal.target > 0 ? Math.min(1, done / goal.target) : 0;
+        const isToday = dateStr === today;
+        const note = goal.notes?.[dateStr] ?? '';
+
+        let levelClass = 'freq-cal-lv0';
+        if (ratio > 0 && ratio < 0.5) levelClass = 'freq-cal-lv1';
+        else if (ratio >= 0.5 && ratio < 1) levelClass = 'freq-cal-lv2';
+        else if (ratio >= 1) levelClass = 'freq-cal-lv3';
+
+        gridHTML += `<div class="freq-cal-day ${levelClass} ${isToday ? 'freq-cal-day--today' : ''}"
+          title="${dateStr}: ${done}/${goal.target}${goal.unit}${note ? ' · ' + note : ''}">
+          ${d}
+        </div>`;
+      }
+
+      return `
+        <div class="freq-cal-nav">
+          <button class="freq-cal-nav-btn" id="freq-cal-prev">◀</button>
+          <span class="freq-cal-month-label">${monthLabel}</span>
+          <button class="freq-cal-nav-btn" id="freq-cal-next">▶</button>
+        </div>
+        <div class="freq-cal-grid">${gridHTML}</div>
+        <div class="freq-cal-legend">
+          <span><span class="freq-cal-lv-dot freq-cal-lv0"></span>未打卡</span>
+          <span><span class="freq-cal-lv-dot freq-cal-lv1"></span>&lt;50%</span>
+          <span><span class="freq-cal-lv-dot freq-cal-lv2"></span>≥50%</span>
+          <span><span class="freq-cal-lv-dot freq-cal-lv3"></span>完成</span>
+        </div>`;
+    },
+
+    // ── 角色自动打卡 ──
+    async _tryAutoCheckin() {
+      const goals = this._getGoals().filter(g => g.owner === 'char' && g.autoCheckin);
+      if (!goals.length) return;
+
+      const today = this._todayStr();
+      for (const goal of goals) {
+        if ((goal.records?.[today] ?? 0) > 0) continue; // 今天已打过
+        try {
+          await this._doCharCheckinSilent(goal);
+        } catch (e) {
+          Notify.error('打卡日志·自动打卡', e);
+        }
+      }
+    },
+
+    async _doCharCheckinSilent(goal) {
+      const charName = goal.ownerName || getCurrentCharName() || '角色';
+      const today = this._todayStr();
+      const start = new Date(goal.startDate);
+      const todayDate = new Date();
+      const dayNum = Math.floor((todayDate - start) /86400000) + 1;
+
+      const systemPrompt = getPrompt('checkin_auto')
+        .replace(/{charName}/g, charName)
+        .replace(/{goalTitle}/g, goal.title)
+        .replace(/{target}/g, goal.target)
+        .replace(/{unit}/g, goal.unit)
+        .replace(/{totalDays}/g, goal.totalDays)
+        .replace(/{dayNum}/g, dayNum)
+        .replace(/{latestPlot}/g, getLatestPlot(getChatMessages()) || '暂无')
+        .replace(/{latestScene}/g, getLatestScene(getChatMessages()) || '未知');
+
+      const raw = await SubAPI.call(systemPrompt, '打卡。', { maxTokens: 100, temperature: 0.85 });
+      let data;
+      try {
+        const match = raw.match(/\{[\s\S]*\}/);
+        data = match ? JSON.parse(match[0]) : { done: goal.target, note: raw.trim() };
+      } catch {
+        data = { done: goal.target, note: raw.trim().slice(0, 30) };
+      }
+
+      if (!goal.records) goal.records = {};
+      if (!goal.notes) goal.notes = {};
+      goal.records[today] = Math.max(0, Math.min(goal.target * 2, Number(data.done) || 0));
+      goal.notes[today] = (data.note || '').slice(0, 50);
+      this._saveGoals(this._getGoals());
+
+      this._badge++;
+      renderAppGrid();
+      Notify.add('打卡日志', `${charName}「${goal.title}」打卡 ${goal.records[today]}${goal.unit}`, '📅');
+
+      if (this._container && this._currentGoalId === goal.id) {
+        this._renderGoalDetail(this._container, goal.id);
+      }
+    },
+
+    // 手动触发角色打卡
+    async _doCharCheckin(container, goalId) {
+      const goal = this._findGoal(goalId);
+      if (!goal) return;
+
+      const btn = container.querySelector('#freq-checkin-char-manual');
+      if (btn) { btn.disabled = true; btn.textContent = '🎲 打卡中...'; }
+
+      try {
+        await this._doCharCheckinSilent(goal);
+        this._renderGoalDetail(container, goalId);
+      } catch (e) {
+        Notify.error('打卡日志·角色打卡', e);if (btn) { btn.disabled = false; btn.textContent = '🎲 角色打卡'; }
+      }
+    },
+
+    // ── 请求角色评论 ──
+    async _requestComment(container, goalId) {
+      const goal = this._findGoal(goalId);
+      if (!goal) return;
+
+      const btn = container.querySelector('#freq-checkin-get-comment');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ 生成中...'; }
+
+      const charName = getCurrentCharName() || '角色';
+      const today = this._todayStr();
+      const todayDone = goal.records?.[today] ?? 0;
+      const streak = this._calcStreak(goal);
+      const rate = this._calcOverallRate(goal);
+
+      // 最近5天打卡情况
+      const recentDays = [];
+      for (let i = 0; i < 5; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const done = goal.records?.[key] ?? 0;
+        recentDays.push(`${key}: ${done}/${goal.target}`);
+      }
+
+      const systemPrompt = getPrompt('checkin_comment')
+        .replace(/{charName}/g, charName)
+        .replace(/{ownerName}/g, goal.ownerName)
+        .replace(/{goalTitle}/g, goal.title)
+        .replace(/{target}/g, goal.target)
+        .replace(/{unit}/g, goal.unit)
+        .replace(/{streakDays}/g, streak)
+        .replace(/{todayDone}/g, todayDone)
+        .replace(/{overallRate}/g, rate)
+        .replace(/{recentSummary}/g, recentDays.join(' | '));
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '评论打卡。', { maxTokens: 100, temperature: 0.9 });
+        const comment = {
+          author: charName,
+          isChar: true,
+          text: raw.trim(),
+          date: today,
+          time: timeNow(),
+        };
+        if (!goal.comments) goal.comments = [];
+        goal.comments.push(comment);
+        if (goal.comments.length > 30) goal.comments.shift();
+        this._saveGoals(this._getGoals());
+
+        this._renderGoalDetail(container, goalId);
+        Notify.add('打卡日志', `${charName} 评论了「${goal.title}」`, '💬');
+      } catch (e) {
+        Notify.error('打卡日志·评论', e);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🎲 请求评论'; }
+      }
+    },
+  };
 
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_90占位 App工厂                │
@@ -2473,7 +3067,7 @@ try {
     registerApp(scannerApp);
     registerApp(cosmicApp);
     registerApp(forumApp);
-    registerApp(placeholderApp('checkin','打卡日志','📅', '角色陪跑打卡'));
+    registerApp(checkinApp);
     registerApp(placeholderApp('calendar',   '双线轨道',       '🗓️', 'User + Char日程'));
     registerApp(placeholderApp('novel',      '频道文库',       '📖', '世界观短篇连载'));
     registerApp(placeholderApp('map',        '异界探索',       '🗺️', 'SVG 世界地图'));
