@@ -109,7 +109,23 @@
 - 完成量在0到{target}之间，角色性格决定完成率（自律的角色完成率高，懒散的低）
 - 写一句打卡感言（10-30字），符合角色性格
 - 严格按JSON输出：{{"done":{target},"note":"打卡感言"}}`,
+        emotion: `分析以下对话中「{charName}」的情绪状态。
 
+最近对话内容：
+{recentMessages}
+
+当前场景：{latestScene}
+
+任务：判断{charName}当前的主要情绪。
+规则：
+- 基于对话内容和场景综合判断
+- waveform_type 从以下选一个：sine（平静/温柔）、sharp（愤怒/紧张）、pulse（兴奋/心跳加速）、glitch（混乱/崩溃/故障）、flat（麻木/冷漠）
+- color_hex 选一个能代表这种情绪的颜色
+- intensity 是情绪强度，0.1到1.0
+- 不提及AI/模型
+
+严格按JSON输出，不加其他文字：
+{{"char_emotion":"2-6字情绪标签","intensity":0.8,"color_hex":"#ff6b6b","waveform_type":"sine"}}`,
   };
 
 
@@ -3013,6 +3029,250 @@ try {
       unmount() {},
     };
   }
+  // │ BLOCK_19App · 情绪电波仪│
+  // └──────────────────────────────────────────────────────┘
+  const emotionApp = {
+    id: 'emotion', name: '情绪电波仪', icon: '📊', _badge: 0, _container: null,
+    _current: null,// {char_emotion, intensity, color_hex, waveform_type, time}
+    _history: [],     // 最近10条
+    _scanning: false,
+    _waveTimer: null,
+
+    init() {
+      EventBus.on('meow_fm:updated', () => {
+        this._badge++;
+        renderAppGrid();
+      });
+    },
+
+    mount(container) {
+      this._container = container;
+      this._badge = 0;
+      renderAppGrid();
+      this._render(container);
+    },
+
+    unmount() {
+      if (this._waveTimer) { clearInterval(this._waveTimer); this._waveTimer = null; }
+      this._container = null;
+    },
+
+    _render(container) {
+      const cur = this._current;
+      const color = cur?.color_hex ?? '#333';
+      const emotion = cur?.char_emotion ?? '--';
+      const intensity = cur?.intensity ?? 0;
+      const pct = Math.round(intensity * 100);
+      const waveType = cur?.waveform_type ?? 'flat';
+      const charName = getCurrentCharName() || '???';
+
+      const historyHTML = this._history.length > 0
+        ? this._history.map(h => `<div class="freq-emo-history-item">
+              <span class="freq-emo-history-dot" style="background:${h.color_hex}"></span>
+              <span class="freq-emo-history-label">${escapeHtml(h.char_emotion)}</span>
+              <span class="freq-emo-history-type">${this._waveLabel(h.waveform_type)}</span>
+              <span class="freq-emo-history-pct">${Math.round(h.intensity * 100)}%</span>
+              <span class="freq-emo-history-time">${h.time}</span>
+            </div>`).join('')
+        : '';
+
+      container.innerHTML = `
+        <div class="freq-app-header">📊 情绪电波仪
+          <span style="float:right;font-size:10px;color:#555;font-weight:normal;">
+            ${escapeHtml(charName)}
+          </span>
+        </div>
+        <div class="freq-app-body" id="freq-emo-body">
+
+          <div class="freq-emo-ring-row">
+            <div class="freq-emo-ring" id="freq-emo-ring" style="--emo-color:${color};">
+              <div class="freq-emo-ring-inner">
+                <span class="freq-emo-ring-emoji" id="freq-emo-emoji">${cur ? this._waveEmoji(waveType) : '📊'}</span>
+                <span class="freq-emo-ring-label" id="freq-emo-label" style="color:${color}">${escapeHtml(emotion)}</span>
+              </div>
+            </div></div>
+
+          <div class="freq-emo-wave-box" id="freq-emo-wave-box">
+            <canvas id="freq-emo-canvas" width="280" height="80"></canvas>
+            ${!cur ? '<div class="freq-emo-wave-placeholder">等待情绪信号...</div>' : ''}
+          </div>
+
+          <div class="freq-emo-intensity-row">
+            <span class="freq-emo-int-label">强度</span>
+            <div class="freq-emo-int-bar-wrap">
+              <div class="freq-emo-int-bar-fill" id="freq-emo-bar" style="width:${pct}%;background:${color};"></div>
+            </div>
+            <span class="freq-emo-int-pct" id="freq-emo-pct" style="color:${color}">${cur ? pct + '%' : '--'}</span>
+          </div>
+
+          <button class="freq-studio-action-btn freq-emo-scan-btn" id="freq-emo-go">📊 扫描情绪频率
+          </button>
+
+          ${historyHTML ? `
+          <div class="freq-emo-history">
+            <div class="freq-emo-history-title">历史波形</div>
+            ${historyHTML}
+          </div>` : ''}
+        </div>`;
+
+      container.querySelector('#freq-emo-go')?.addEventListener('click', () => this._scan(container));
+
+      if (cur) this._startWave(container, waveType, color, intensity);
+    },
+
+    async _scan(container) {
+      if (this._scanning) return;
+      this._scanning = true;
+
+      const btn = container.querySelector('#freq-emo-go');
+      if (btn) { btn.disabled = true; btn.textContent = '📊 扫描中...'; }
+
+      const charName = getCurrentCharName() || '角色';
+      const msgs = getChatMessages();
+      const latestScene = getLatestScene(msgs);
+
+      // 取最近5条角色消息
+      const recentMsgs = [];
+      for (let i = msgs.length - 1; i >= 0 && recentMsgs.length < 5; i--) {
+        if (!msgs[i].is_user) {
+          const text = (msgs[i].mes ?? '').replace(/<[^>]+>/g, '').slice(0, 200);
+          if (text.trim()) recentMsgs.push(text);
+        }
+      }
+
+      const systemPrompt = getPrompt('emotion')
+        .replace(/{charName}/g, charName)
+        .replace(/{recentMessages}/g, recentMsgs.join('\n---\n') || '暂无')
+        .replace(/{latestScene}/g, latestScene || '未知');
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '分析情绪。', {
+          maxTokens: 150,
+          temperature: 0.8,
+        });
+
+        let data;
+        try {
+          const match = raw.match(/\{[\s\S]*\}/);
+          data = match ? JSON.parse(match[0]) : JSON.parse(raw);
+        } catch {
+          data = { char_emotion: '未知', intensity: 0.5, color_hex: '#888', waveform_type: 'sine' };
+        }
+
+        data.intensity = Math.min(1, Math.max(0, Number(data.intensity) || 0.5));
+        if (!data.color_hex ||!/^#[0-9a-fA-F]{3,8}$/.test(data.color_hex)) data.color_hex = '#888';
+        const validWaves = ['sine', 'sharp', 'pulse', 'glitch', 'flat'];
+        if (!validWaves.includes(data.waveform_type)) data.waveform_type = 'sine';
+        data.time = timeNow();
+
+        if (this._current) this._history.unshift(this._current);
+        if (this._history.length > 10) this._history.pop();
+        this._current = data;
+
+        this._render(container);Notify.add('情绪电波仪', `${charName} 当前情绪：${data.char_emotion}`, '📊');
+      } catch (e) {
+        const waveBox = container.querySelector('#freq-emo-wave-box');
+        if (waveBox) waveBox.innerHTML = `<div class="freq-studio-error">📊 频率丢失：${escapeHtml(e.message)}</div>`;
+        Notify.error('情绪电波仪', e);
+      } finally {
+        this._scanning = false;
+        if (btn) { btn.disabled = false; btn.textContent = '📊 扫描情绪频率'; }
+      }
+    },
+
+    //── Canvas 波形动画 ──
+    _startWave(container, type, color, intensity) {
+      if (this._waveTimer) { clearInterval(this._waveTimer); this._waveTimer = null; }
+      const canvas = container.querySelector('#freq-emo-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const w = canvas.width;
+      const h = canvas.height;
+      let t = 0;
+
+      const draw = () => {
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+
+        const amp = h * 0.35* intensity;
+        const mid = h / 2;
+
+        for (let x = 0; x < w; x++) {
+          const px = x / w;
+          let y = mid;
+
+          switch (type) {
+            case 'sine':
+              y = mid + Math.sin(px * Math.PI * 4+ t) * amp;
+              break;
+            case 'sharp':
+              y = mid + Math.sin(px * Math.PI * 6 + t) * amp * (Math.random() * 0.3 + 0.7);
+              if (Math.random() < 0.05) y += (Math.random() - 0.5) * amp * 0.8;
+              break;
+            case 'pulse': {
+              const beat = Math.sin(px * Math.PI * 3 + t);
+              const spike = Math.pow(Math.abs(beat), 0.3) * Math.sign(beat);
+              y = mid + spike * amp *1.2;
+              break;
+            }
+            case 'glitch':
+              if (Math.random() < 0.15) {
+                y = mid + (Math.random() - 0.5) * amp * 2;
+              } else {
+                y = mid + Math.sin(px * Math.PI * 8 + t) * amp * 0.5;
+              }
+              break;
+            case 'flat':
+            default:
+              y = mid + Math.sin(px * Math.PI * 2 + t) * amp * 0.15+ (Math.random() - 0.5) * 2;
+              break;
+          }
+
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // 第二条线（淡色副波）
+        ctx.globalAlpha = 0.25;
+        ctx.beginPath();
+        for (let x = 0; x < w; x++) {
+          const px = x / w;
+          let y = mid;
+          switch (type) {
+            case 'sine':   y = mid + Math.sin(px * Math.PI * 3 + t * 0.7+ 1) * amp * 0.6; break;
+            case 'sharp':  y = mid + Math.cos(px * Math.PI * 5 + t * 1.3) * amp * 0.4; break;
+            case 'pulse':  y = mid + Math.sin(px * Math.PI * 2 + t * 0.5+ 2) * amp * 0.5; break;
+            case 'glitch': y = mid + Math.sin(px * Math.PI * 12 + t * 2) * amp * 0.3; break;
+            case 'flat':   y = mid + (Math.random() - 0.5) * 3; break;
+          }
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();ctx.globalAlpha = 1;
+
+        t += type === 'glitch' ? 0.15 : type === 'sharp' ? 0.08 : 0.04;
+      };
+
+      draw();
+      this._waveTimer = setInterval(draw, 50);
+    },
+
+    _waveLabel(type) {
+      const map = { sine: '正弦波', sharp: '锯齿波', pulse: '脉冲波', glitch: '故障波', flat: '平波' };
+      return map[type] ?? type;
+    },
+
+    _waveEmoji(type) {
+      const map = { sine: '🌊', sharp: '⚡', pulse: '💓', glitch: '📡', flat: '➖' };
+      return map[type] ?? '📊';
+    },
+  };
+
 
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_99  初始化入口                                 │
@@ -3074,7 +3334,7 @@ try {
     registerApp(placeholderApp('delivery',   '跨次元配送',     '🍜', '角色替你点外卖'));
     registerApp(placeholderApp('capsule',    '时光胶囊',       '💊', '延迟消息回信'));
     registerApp(placeholderApp('dream',      '梦境记录仪',     '🌙', '角色视角解梦'));
-    registerApp(placeholderApp('emotion',    '情绪电波仪',     '📊', '情绪波形可视化'));
+    registerApp(emotionApp);
     registerApp(placeholderApp('blackbox',   '黑匣子',         '🔒', '禁区档案'));
     registerApp(placeholderApp('translator', '信号翻译器',     '🔄', 'BGM 文风翻译'));
 
