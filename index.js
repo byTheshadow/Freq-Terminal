@@ -276,6 +276,83 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
 - 可以夸赞、分析、共鸣、吐槽、提问，取决于角色性格
 - 带有{authorName}的个人语气特征
 - 不要加引号或前缀，直接输出评论正文`,
+        blackbox_conversation: [
+      '你是一个沉浸式角色扮演世界的幕后编剧。',
+      '根据以下角色和剧情信息，编写一段两个角色/NPC之间的秘密对话。',
+      '这段对话发生在用户({{user}})不在场的情况下，内容涉及他们不想让用户知道的事情。',
+      '对话应该自然、有角色个性，并暗示一些隐藏的剧情线索。',
+      '',
+      '当前角色：{{char}}',
+      '当前剧情：{{plot}}',
+      '当前场景：{{scene}}',
+      '',
+      '对话内容格式：每行一句，格式为「角色名：对话内容」，至少6轮对话。',
+      '',
+      '请严格返回以下JSON格式（不要包含markdown代码块标记）：',
+      '{',
+      '  "title": "档案标题（简短概括对话主题）",',
+      '  "content": "角色A：xxx\\n角色B：xxx\\n...",',
+      '  "participants": ["角色A", "角色B"],',
+      '  "classification": "CONFIDENTIAL 或 SECRET 或 TOP_SECRET"',
+      '}'].join('\\n'),
+
+    blackbox_plan: [
+      '你是一个虚拟电台「失真电台」的幕后策划人员。',
+      '根据以下角色和剧情信息，编写一份电台内部策划文件/草稿。',
+      '这份文件是电台内部机密，不应该被听众看到。',
+      '内容可以是节目策划、收听率分析、对主播的内部评价、或者一些不可告人的计划。',
+      '',
+      '当前主播：{{char}}',
+      '当前剧情：{{plot}}',
+      '当前场景：{{scene}}',
+      '',
+      '请严格返回以下JSON格式（不要包含markdown代码块标记）：',
+      '{',
+      '  "title": "文件标题",',
+      '  "content": "文件正文内容（可以包含标题、条目、备注等格式）",',
+      '  "participants": ["撰写者名称"],',
+      '  "classification": "CONFIDENTIAL 或 SECRET 或 TOP_SECRET"',
+      '}'
+    ].join('\\n'),
+
+    blackbox_comm: [
+      '你是一个沉浸式角色扮演世界的幕后编剧。',
+      '根据以下角色和剧情信息，编写一段NPC/角色之间的内部通讯记录或备忘录。',
+      '这是一份不应该被用户({{user}})看到的内部通讯，可能涉及对用户的讨论、秘密计划、或世界观背后的真相。',
+      '格式可以是邮件、备忘录、加密通讯等。',
+      '',
+      '当前角色：{{char}}',
+      '当前剧情：{{plot}}',
+      '当前场景：{{scene}}',
+      '',
+      '请严格返回以下JSON格式（不要包含markdown代码块标记）：',
+      '{',
+      '  "title": "通讯标题/主题",',
+      '  "content": "通讯正文内容",',
+      '  "participants": ["发送者", "接收者"],',
+      '  "classification": "CONFIDENTIAL 或 SECRET 或 TOP_SECRET"',
+      '}'
+    ].join('\\n'),
+
+    blackbox_diary: [
+      '你是一个沉浸式角色扮演世界的幕后编剧。',
+      '根据以下角色和剧情信息，以{{char}}的身份编写一篇秘密日记/内心独白。',
+      '这是角色绝对不想让用户({{user}})看到的私密内容。',
+      '内容应该揭示角色隐藏的情感、秘密、恐惧或不为人知的一面。',
+      '语气应该是私密的、真实的、脆弱的，与角色平时的表现形成反差。',
+      '',
+      '当前角色：{{char}}',
+      '当前剧情：{{plot}}',
+      '当前场景：{{scene}}',
+      '',
+      '请严格返回以下JSON格式（不要包含markdown代码块标记）：',
+      '{',
+      '  "title": "日记标题",',
+      '  "content": "日记正文（第一人称）",',
+      '  "participants": ["{{char}}"],',
+      '  "classification": "CONFIDENTIAL 或 SECRET 或 TOP_SECRET"',
+      '}'
+    ].join('\\n'),
 
 
   };
@@ -704,6 +781,10 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
       map_event:     '🗺️ 异界探索·探索感想',
             novel_generate: '📖 频道文库·AI写作',
       novel_comment:  '📖 频道文库·NPC评论',
+          blackbox_conversation: '黑匣子·秘密对话',
+    blackbox_plan:'黑匣子·节目策划',
+    blackbox_comm:         '黑匣子·内部通讯',
+    blackbox_diary:        '黑匣子·秘密日记',
 
     };
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
@@ -801,7 +882,7 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
 
     // Prompt textarea绑定 —✅ BLOCK_21: 新增 capsule_seal
     ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream', 'capsule_seal', 'delivery_menu','delivery_comment', 'calendar_event',
-  'calendar_resonance','map_generate', 'map_detail', 'map_event','novel_generate', 'novel_comment',].forEach(key => {
+  'calendar_resonance','map_generate', 'map_detail', 'map_event','novel_generate', 'novel_comment', 'blackbox_conversation', 'blackbox_plan', 'blackbox_comm', 'blackbox_diary',].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
@@ -7693,6 +7774,727 @@ const calendarApp = {
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_25  App · 频道文库结束                          │
   // └──────────────────────────────────────────────────────┘
+  //┌─ BLOCK_26 ─┐
+//═══════════════════════════════════════
+// 🔒 黑匣子·禁区档案
+// ═══════════════════════════════════════
+
+const blackboxApp = {
+  id: 'blackbox',
+  name: '黑匣子',
+  icon: '🔒',
+  _badge: 0,
+  _container: null,
+  _currentView: 'list',   // 'list' | 'detail'
+  _selectedFile: null,
+  _generating: false,
+  _decrypting: false,
+
+  // ── 档案类型定义 ──
+  _types: {
+    conversation: { icon: '🔒', label: '秘密对话', promptKey: 'blackbox_conversation' },
+    plan:         { icon: '📋', label: '节目策划', promptKey: 'blackbox_plan' },
+    comm:         { icon: '📡', label: '内部通讯', promptKey: 'blackbox_comm' },
+    diary:        { icon: '📓', label: '秘密日记', promptKey: 'blackbox_diary' }
+  },
+
+  // ── 机密等级颜色 ──
+  _classColors: {
+    CONFIDENTIAL: '#c9a227',
+    SECRET:       '#d45500',
+    TOP_SECRET:   '#cc0033'
+  },
+
+  // ── 乱码字符池 ──
+  _glitchChars: '█▓░▒◼◻▪▫■□▶◀●○◆◇♦♢⬛⬜'.split(''),
+
+  // ═══════════════════════════════════
+  //  init — EventBus 监听
+  // ═══════════════════════════════════
+  init() {
+    EventBus.on('meow_fm:updated', (allMeowFM) => {
+      // 20% 概率自动截获新档案
+      if (Math.random() < 0.2 && allMeowFM && allMeowFM.length > 0) {
+        this._autoIntercept(allMeowFM);
+      }
+    });
+  },
+
+  // ═══════════════════════════════════
+  //  mount / unmount
+  // ═══════════════════════════════════
+  mount(container) {
+    this._container = container;
+    this._badge =0;
+    renderAppGrid();
+    this._currentView = 'list';
+    this._selectedFile = null;
+    this._render();
+  },
+
+  unmount() {
+    this._container = null;
+  },
+
+  // ═══════════════════════════════════
+  //  数据访问
+  // ═══════════════════════════════════
+  _getData() {
+    const s = getSettings();
+    if (!s.blackbox) s.blackbox = { files: [], unlockedIds: [] };
+    if (!Array.isArray(s.blackbox.files)) s.blackbox.files = [];
+    if (!Array.isArray(s.blackbox.unlockedIds)) s.blackbox.unlockedIds = [];
+    return s.blackbox;
+  },
+
+  _save() {
+    saveSettings({});
+  },
+
+  _isUnlocked(id) {
+    return this._getData().unlockedIds.includes(id);
+  },
+
+  // ═══════════════════════════════════
+  //  乱码标题生成
+  // ═══════════════════════════════════
+  _generateEncryptedTitle(realTitle) {
+    const chars = this._glitchChars;
+    let result = '';
+    for (let i = 0; i < realTitle.length; i++) {
+      result += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return result;
+  },
+
+  // ═══════════════════════════════════
+  //  唯一ID生成
+  // ═══════════════════════════════════
+  _genId() {
+    return 'bb_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+  },
+
+  // ═══════════════════════════════════
+  //  获取角色列表（复用forumApp 模式）
+  // ═══════════════════════════════════
+  _getChars() {
+    const chars = [getCurrentCharName()];
+    try {
+      const ctx = getContext();
+      if (ctx.characters) {
+        const names = ctx.characters
+          .filter(c => c.name && c.name !== getCurrentCharName())
+          .map(c => c.name);
+        chars.push(...names);
+      }
+    } catch (e) { /* ignore */ }
+    return chars.length > 0 ? chars : ['未知角色'];
+  },
+
+  // ═══════════════════════════════════
+  //渲染入口
+  // ═══════════════════════════════════
+  _render() {
+    if (!this._container) return;
+    if (this._currentView === 'detail' && this._selectedFile) {
+      this._renderDetail();
+    } else {
+      this._renderList();
+    }
+  },
+
+  // ═══════════════════════════════════
+  //  主视图 — 档案列表
+  // ═══════════════════════════════════
+  _renderList() {
+    const c = this._container;
+    const data = this._getData();
+    const files = data.files;
+    const unlockedCount = data.unlockedIds.length;
+    const lockedCount = files.length - unlockedCount;
+
+    let filesHTML = '';
+    if (files.length === 0) {
+      filesHTML = `
+        <div class="freq-empty">
+          <div class="freq-empty-icon">🔒</div>
+          <div>禁区空空如也…<br>尝试截获一份档案</div>
+        </div>`;
+    } else {
+      filesHTML = files.slice().reverse().map(f => {
+        const unlocked = this._isUnlocked(f.id);
+        const typeDef = this._types[f.type] || this._types.conversation;
+        const classColor = this._classColors[f.classification] || '#999';
+        const displayTitle = unlocked ? f.title : f.encryptedTitle;
+        const titleClass = unlocked ? 'freq-bb-title-unlocked' : 'freq-bb-title-locked';
+
+        return `
+          <div class="freq-bb-file-item ${unlocked ? 'freq-bb-unlocked' : 'freq-bb-locked'}"
+               data-file-id="${f.id}">
+            <div class="freq-bb-file-icon">${typeDef.icon}</div>
+            <div class="freq-bb-file-info">
+              <div class="freq-bb-file-title ${titleClass}">${displayTitle}</div>
+              <div class="freq-bb-file-meta">
+                <span class="freq-bb-class-tag" style="background:${classColor}">${f.classification || 'UNKNOWN'}</span>
+                <span class="freq-bb-type-label">${typeDef.label}</span>
+                ${unlocked ? '' : '<span class="freq-bb-lock-icon">🔐</span>'}
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    c.innerHTML = `
+      <div class="freq-app-header" style="border-bottom-color: #8b1a1a;">
+        🔒 黑匣子·禁区档案
+      </div>
+      <div class="freq-app-body">
+        <div class="freq-bb-warning-banner">
+          <div class="freq-bb-warning-icon">⚠️</div>
+          <div class="freq-bb-warning-text">
+            <div class="freq-bb-warning-title">⛔禁 区 警 告</div>
+            <div class="freq-bb-warning-sub">未经授权访问将被记录 | 已截获 ${files.length} 份档案 | 已破解 ${unlockedCount} 份| 加密中 ${lockedCount} 份</div>
+          </div>
+        </div>
+
+        <div class="freq-bb-file-list">
+          ${filesHTML}
+        </div>
+
+        <div class="freq-bb-actions">
+          <button class="freq-bb-action-btn freq-bb-decrypt-btn" ${lockedCount === 0 ? 'disabled' : ''}>
+            🔓 破解档案
+          </button>
+          <button class="freq-bb-action-btn freq-bb-intercept-btn">📡 截获新档案
+          </button><button class="freq-checkin-delete-btn freq-bb-clear-btn" ${files.length === 0 ? 'disabled' : ''}>
+            🗑️ 清空所有
+          </button>
+        </div>
+
+        <div class="freq-bb-type-selector" style="display:none;">
+          <div class="freq-bb-type-title">选择截获类型：</div>
+          <div class="freq-bb-type-options">
+            <button class="freq-bb-type-btn" data-type="random">🎲 随机</button>
+            <button class="freq-bb-type-btn" data-type="conversation">🔒秘密对话</button>
+            <button class="freq-bb-type-btn" data-type="plan">📋 节目策划</button>
+            <button class="freq-bb-type-btn" data-type="comm">📡 内部通讯</button>
+            <button class="freq-bb-type-btn" data-type="diary">📓 秘密日记</button>
+          </div>
+        </div>
+      </div>`;
+
+    // ── 绑定事件 ──
+
+    // 档案点击
+    c.querySelectorAll('.freq-bb-file-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const fileId = item.dataset.fileId;
+        if (this._isUnlocked(fileId)) {
+          const file = this._getData().files.find(f => f.id === fileId);
+          if (file) {
+            this._selectedFile = file;
+            this._currentView = 'detail';
+            this._render();
+          }
+        } else {
+          Notify.info('🔐 档案已加密，需要先破解才能阅读');
+        }
+      });
+    });
+
+    // 破解按钮
+    const decryptBtn = c.querySelector('.freq-bb-decrypt-btn');
+    if (decryptBtn) {
+      decryptBtn.addEventListener('click', () => {
+        this._decryptRandomFile();
+      });
+    }
+
+    // 截获按钮 → 显示类型选择器
+    const interceptBtn = c.querySelector('.freq-bb-intercept-btn');
+    const typeSelector = c.querySelector('.freq-bb-type-selector');
+    if (interceptBtn && typeSelector) {
+      interceptBtn.addEventListener('click', () => {
+        if (this._generating) return;
+        const isVisible = typeSelector.style.display !== 'none';
+        typeSelector.style.display = isVisible ? 'none' : 'block';
+      });
+    }
+
+    // 类型选择按钮
+    c.querySelectorAll('.freq-bb-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+        if (typeSelector) typeSelector.style.display = 'none';
+        this._interceptFile(type === 'random' ? null : type);
+      });
+    });
+
+    // 清空按钮
+    const clearBtn = c.querySelector('.freq-bb-clear-btn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        this._confirmClear(clearBtn);
+      });
+    }
+  },
+
+  // ═══════════════════════════════════
+  //  阅读视图 — 档案详情
+  // ═══════════════════════════════════
+  _renderDetail() {
+    const c = this._container;
+    const f = this._selectedFile;
+    if (!f) { this._currentView = 'list'; this._render(); return; }
+
+    const typeDef = this._types[f.type] || this._types.conversation;
+    const classColor = this._classColors[f.classification] || '#999';
+
+    // 根据类型渲染正文
+    let contentHTML = '';
+    switch (f.type) {
+      case 'conversation':
+        contentHTML = this._renderConversationContent(f.content, f.participants);
+        break;
+      case 'diary':
+        contentHTML = this._renderDiaryContent(f.content);
+        break;
+      case 'plan':
+        contentHTML = this._renderPlanContent(f.content);
+        break;
+      case 'comm':
+        contentHTML = this._renderCommContent(f.content);
+        break;
+      default:
+        contentHTML = `<div class="freq-bb-content-text">${this._escapeHTML(f.content)}</div>`;
+    }
+
+    c.innerHTML = `
+      <div class="freq-app-header" style="border-bottom-color: #8b1a1a;">
+        🔒 档案阅读
+      </div>
+      <div class="freq-app-body">
+        <button class="freq-checkin-back-btn freq-bb-back-btn">← 返回档案列表</button>
+
+        <div class="freq-bb-detail-header">
+          <div class="freq-bb-detail-title">${typeDef.icon} ${this._escapeHTML(f.title)}</div>
+          <div class="freq-bb-detail-meta">
+            <span class="freq-bb-class-tag" style="background:${classColor}">${f.classification}</span>
+            <span class="freq-bb-type-label">${typeDef.label}</span>
+          </div>
+          <div class="freq-bb-detail-info">
+            <span>📅 ${f.date || '未知日期'} ${f.time || ''}</span>
+            <span>👥 ${(f.participants || []).join(', ')}</span>
+          </div>
+          ${f.serial ? `<div class="freq-bb-detail-serial">关联频率：${this._escapeHTML(f.serial)}</div>` : ''}
+        </div>
+
+        <div class="freq-bb-detail-content">
+          ${contentHTML}
+        </div>
+
+        <div class="freq-bb-detail-footer">
+          <button class="freq-checkin-delete-btn freq-bb-delete-btn">🗑️ 删除此档案</button>
+        </div>
+      </div>`;
+
+    // ── 绑定事件 ──
+    c.querySelector('.freq-bb-back-btn').addEventListener('click', () => {
+      this._currentView = 'list';
+      this._selectedFile = null;
+      this._render();
+    });
+
+    const deleteBtn = c.querySelector('.freq-bb-delete-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => {
+        this._confirmDeleteFile(deleteBtn, f.id);
+      });
+    }
+  },
+
+  // ═══════════════════════════════════
+  //  正文渲染 — 对话气泡
+  // ═══════════════════════════════════
+  _renderConversationContent(content, participants) {
+    if (!content) return '<div class="freq-bb-content-text">（空内容）</div>';
+    const lines = content.split('\n').filter(l => l.trim());
+    const p0 = (participants && participants[0]) || '';
+
+    return '<div class="freq-bb-chat-container">' + lines.map(line => {
+      // 解析 "角色名：对话内容" 或 "角色名: 对话内容"
+      const match = line.match(/^(.+?)[：:](.+)$/);
+      if (!match) {
+        return `<div class="freq-bb-chat-system">${this._escapeHTML(line)}</div>`;
+      }
+      const speaker = match[1].trim();
+      const text = match[2].trim();
+      const isLeft = (speaker === p0);
+      const side = isLeft ? 'left' : 'right';
+
+      return `
+        <div class="freq-bb-chat-row freq-bb-chat-${side}">
+          <div class="freq-bb-chat-name">${this._escapeHTML(speaker)}</div>
+          <div class="freq-bb-chat-bubble freq-bb-bubble-${side}">
+            ${this._escapeHTML(text)}
+          </div>
+        </div>`;
+    }).join('') + '</div>';
+  },
+
+  // ═══════════════════════════════════
+  //  正文渲染 — 日记（手写体风格）
+  // ═══════════════════════════════════
+  _renderDiaryContent(content) {
+    if (!content) return '<div class="freq-bb-content-text">（空内容）</div>';
+    const paragraphs = content.split('\n').filter(l => l.trim());
+    return `
+      <div class="freq-bb-diary-container">
+        ${paragraphs.map(p => `<p class="freq-bb-diary-para">${this._escapeHTML(p)}</p>`).join('')}
+      </div>`;
+  },
+
+  // ═══════════════════════════════════
+  //  正文渲染 — 策划文件
+  // ═══════════════════════════════════
+  _renderPlanContent(content) {
+    if (!content) return '<div class="freq-bb-content-text">（空内容）</div>';
+    const lines = content.split('\n');
+    return `
+      <div class="freq-bb-plan-container">
+        <div class="freq-bb-plan-stamp">CLASSIFIED</div>
+        ${lines.map(l => {
+          const trimmed = l.trim();
+          if (!trimmed) return '<div class="freq-bb-plan-spacer"></div>';
+          // 检测标题行（全大写或以【】包裹）
+          if(/^[【\[]/.test(trimmed) || /^#{1,3}\s/.test(trimmed)) {
+            return `<div class="freq-bb-plan-heading">${this._escapeHTML(trimmed)}</div>`;
+          }
+          return `<div class="freq-bb-plan-line">${this._escapeHTML(trimmed)}</div>`;
+        }).join('')}
+      </div>`;
+  },
+
+  // ═══════════════════════════════════
+  //  正文渲染 — 内部通讯
+  // ═══════════════════════════════════
+  _renderCommContent(content) {
+    if (!content) return '<div class="freq-bb-content-text">（空内容）</div>';
+    const lines = content.split('\n');
+    return `
+      <div class="freq-bb-comm-container">
+        <div class="freq-bb-comm-header-bar">
+          <span class="freq-bb-comm-signal">◉ SIGNAL INTERCEPTED</span>
+        </div>
+        ${lines.map(l => {
+          const trimmed = l.trim();
+          if (!trimmed) return '';
+          // 检测 "发件人/收件人/主题" 等字段
+          const fieldMatch = trimmed.match(/^(发件人|收件人|发送者|接收者|主题|日期|FROM|TO|SUBJECT|DATE)[：:]\s*(.+)$/i);
+          if (fieldMatch) {
+            return `<div class="freq-bb-comm-field"><span class="freq-bb-comm-label">${this._escapeHTML(fieldMatch[1])}:</span> ${this._escapeHTML(fieldMatch[2])}</div>`;
+          }
+          return `<div class="freq-bb-comm-line">${this._escapeHTML(trimmed)}</div>`;
+        }).join('')}
+      </div>`;
+  },
+
+  // ═══════════════════════════════════
+  //  截获新档案（副API）
+  // ═══════════════════════════════════
+  async _interceptFile(type) {
+    if (this._generating) return;
+
+    // 随机选类型
+    if (!type) {
+      const types = Object.keys(this._types);
+      type = types[Math.floor(Math.random() * types.length)];
+    }
+
+    const typeDef = this._types[type];
+    if (!typeDef) return;
+
+    this._generating = true;
+    if (this._container) {
+      const interceptBtn = this._container.querySelector('.freq-bb-intercept-btn');
+      if (interceptBtn) {
+        interceptBtn.disabled = true;
+        interceptBtn.textContent = '📡 截获中…';
+      }
+    }
+
+    try {
+      const messages = getChatMessages();
+      const plot = getLatestPlot(messages) || '暂无剧情';
+      const scene = getLatestScene(messages) || '未知场景';
+      const charName = getCurrentCharName();
+      const userName = getUserName();
+      const serial = getLatestMeowTime(messages) || '';
+      const chars = this._getChars();
+
+      // 构建 prompt
+      let systemPrompt = getPrompt(typeDef.promptKey);
+      systemPrompt = systemPrompt
+        .replace(/\{\{char\}\}/g, charName)
+        .replace(/\{\{user\}\}/g, userName)
+        .replace(/\{\{plot\}\}/g, plot)
+        .replace(/\{\{scene\}\}/g, scene);
+
+      let userPrompt = '';
+      if (type === 'conversation') {
+        // 随机选两个角色
+        const shuffled = [...chars].sort(() => Math.random() - 0.5);
+        const p1 = shuffled[0] || charName;
+        const p2 = shuffled[1] || userName;
+        userPrompt = `请编写 ${p1} 和 ${p2} 之间的一段秘密对话。当前剧情背景：${plot}`;
+      } else if (type === 'diary') {
+        const diaryChar = chars[Math.floor(Math.random() * chars.length)] || charName;
+        userPrompt = `请以 ${diaryChar} 的身份写一篇秘密日记。当前剧情背景：${plot}`;
+      } else if (type === 'plan') {
+        userPrompt = `请编写一份失真电台的内部策划文件。当前节目状况：${plot}`;
+      } else {
+        const shuffled = [...chars].sort(() => Math.random() - 0.5);
+        const sender = shuffled[0] || charName;
+        const receiver = shuffled[1] || '控制中心';
+        userPrompt = `请编写 ${sender} 发给 ${receiver} 的一份内部通讯。当前情况：${plot}`;
+      }
+
+      const raw = await SubAPI.call(systemPrompt, userPrompt, {
+        maxTokens: 1000,
+        temperature: 0.9
+      });
+
+      // 解析 JSON
+      const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      let parsed;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch (e) {
+        //尝试提取 JSON 部分
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('无法解析AI返回的JSON');
+        }
+      }
+
+      // 构建档案
+      const now = new Date();
+      const file = {
+        id: this._genId(),
+        type: type,
+        title: parsed.title || '未命名档案',
+        encryptedTitle: this._generateEncryptedTitle(parsed.title || '未命名档案'),
+        content: parsed.content || '',
+        participants: Array.isArray(parsed.participants) ? parsed.participants : [charName],
+        classification: ['CONFIDENTIAL', 'SECRET', 'TOP_SECRET'].includes(parsed.classification)
+          ? parsed.classification : 'SECRET',
+        serial: serial,
+        date: `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`,
+        time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+        createdAt: now.toISOString()
+      };
+
+      this._getData().files.push(file);
+      this._save();
+
+      Notify.success(`📡 截获新档案：${typeDef.label}（已加密）`);
+      EventBus.emit('notification:new', {
+        app: 'blackbox',
+        icon: '🔒',
+        title: '截获新档案',
+        body: `一份[${typeDef.label}] 已被截获，等待破解…`
+      });
+
+      this._badge++;
+      renderAppGrid();} catch (e) {
+      console.error('[blackbox] intercept error:', e);
+      Notify.error('截获失败：' + (e.message || '未知错误'));
+    } finally {
+      this._generating = false;
+      if (this._container && this._currentView === 'list') {
+        this._render();
+      }
+    }
+  },
+
+  // ═══════════════════════════════════
+  //  自动截获（EventBus 触发）
+  // ═══════════════════════════════════
+  async _autoIntercept(allMeowFM) {
+    if (this._generating) return;
+    try {
+      await this._interceptFile(null);
+    } catch (e) {
+      console.error('[blackbox] auto intercept error:', e);
+    }
+  },
+
+  // ═══════════════════════════════════
+  //  破解档案（解密动画）
+  // ═══════════════════════════════════
+  _decryptRandomFile() {
+    const data = this._getData();
+    const lockedFiles = data.files.filter(f => !data.unlockedIds.includes(f.id));
+    if (lockedFiles.length === 0) {
+      Notify.info('没有需要破解的档案');
+      return;
+    }
+
+    // 随机选一条
+    const target = lockedFiles[Math.floor(Math.random() * lockedFiles.length)];
+
+    // 找到对应的 DOM 元素，执行解密动画
+    if (this._container) {
+      const item = this._container.querySelector(`[data-file-id="${target.id}"]`);
+      if (item) {
+        const titleEl = item.querySelector('.freq-bb-file-title');
+        if (titleEl) {
+          this._playDecryptAnimation(titleEl, target.title, () => {
+            // 动画完成后解锁
+            data.unlockedIds.push(target.id);
+            this._save();
+            Notify.success(`🔓 档案已破解：${target.title}`);
+            //刷新列表
+            setTimeout(() => this._render(), 500);
+          });
+          return;
+        }
+      }
+    }
+
+    // 如果找不到 DOM（不在列表视图），直接解锁
+    data.unlockedIds.push(target.id);
+    this._save();
+    Notify.success(`🔓 档案已破解：${target.title}`);
+    this._render();
+  },
+
+  // ═══════════════════════════════════
+  //  解密动画 — 乱码逐字变为真实文字
+  // ═══════════════════════════════════
+  _playDecryptAnimation(el, realTitle, onComplete) {
+    if (this._decrypting) return;
+    this._decrypting = true;
+
+    const chars = this._glitchChars;
+    const len = realTitle.length;
+    const revealed = new Array(len).fill(false);
+    let revealedCount = 0;
+    const totalSteps = len;
+    const stepInterval = Math.max(50, Math.min(150, 2000 / len));
+
+    el.classList.add('freq-bb-decrypting');
+
+    const timer = setInterval(() => {
+      // 每步揭示1-2个字符
+      const revealCount = Math.random() > 0.5 ? 2 : 1;
+      for (let r = 0; r < revealCount && revealedCount < totalSteps; r++) {
+        // 找一个未揭示的位置
+        let pos;
+        do {
+          pos = Math.floor(Math.random() * len);
+        } while (revealed[pos]);
+        revealed[pos] = true;
+        revealedCount++;
+      }
+
+      // 构建当前显示文本
+      let display = '';
+      for (let i = 0; i < len; i++) {
+        if (revealed[i]) {
+          display += realTitle[i];
+        } else {
+          display += chars[Math.floor(Math.random() * chars.length)];
+        }
+      }
+      el.textContent = display;
+
+      if (revealedCount >= totalSteps) {
+        clearInterval(timer);
+        el.textContent = realTitle;
+        el.classList.remove('freq-bb-decrypting');
+        el.classList.add('freq-bb-decrypted');
+        this._decrypting = false;
+        if (onComplete) setTimeout(onComplete, 300);
+      }
+    }, stepInterval);
+  },
+
+  // ═══════════════════════════════════
+  //  删除单条档案（二次确认）
+  // ═══════════════════════════════════
+  _confirmDeleteFile(btn, fileId) {
+    if (btn.dataset.confirming === '1') {
+      // 第二次点击 → 执行删除
+      const data = this._getData();
+      data.files = data.files.filter(f => f.id !== fileId);
+      data.unlockedIds = data.unlockedIds.filter(id => id !== fileId);
+      this._save();
+      Notify.info('档案已删除');
+      this._currentView = 'list';
+      this._selectedFile = null;
+      this._render();
+      return;
+    }
+
+    // 第一次点击 → 进入确认状态
+    btn.dataset.confirming = '1';
+    const origText = btn.textContent;
+    btn.textContent = '⚠️ 确认删除？再次点击';
+    btn.style.borderColor = '#cc0033';
+    btn.style.color = '#cc0033';
+
+    setTimeout(() => {
+      if (btn.dataset.confirming === '1') {
+        btn.dataset.confirming = '0';
+        btn.textContent = origText;
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }
+    }, 3000);
+  },
+
+  // ═══════════════════════════════════
+  //  清空所有（二次确认）
+  // ═══════════════════════════════════
+  _confirmClear(btn) {
+    if (btn.dataset.confirming === '1') {
+      const data = this._getData();
+      data.files = [];
+      data.unlockedIds = [];
+      this._save();
+      Notify.info('所有档案已清空');
+      this._render();
+      return;
+    }
+
+    btn.dataset.confirming = '1';
+    const origText = btn.textContent;
+    btn.textContent = '⚠️ 确认清空？再次点击';
+    btn.style.borderColor = '#cc0033';
+    btn.style.color = '#cc0033';
+
+    setTimeout(() => {
+      if (btn.dataset.confirming === '1') {
+        btn.dataset.confirming = '0';
+        btn.textContent = origText;
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }
+    }, 3000);
+  },
+
+  // ═══════════════════════════════════
+  //  HTML 转义
+  // ═══════════════════════════════════
+  _escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+};
+//└─ BLOCK_26─┘
 
 
 
@@ -7758,7 +8560,7 @@ const calendarApp = {
     registerApp(capsuleApp);        // ✅ BLOCK_21 替换 placeholder
     registerApp(dreamApp);
     registerApp(emotionApp);
-    registerApp(placeholderApp('blackbox',   '黑匣子',         '🔒', '禁区档案'));
+    registerApp(blackboxApp);// ✅ BLOCK_26
     registerApp(placeholderApp('translator', '信号翻译器',     '🔄', 'BGM 文风翻译'));
 
     // 5. 初始化所有 App
