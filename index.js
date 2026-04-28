@@ -512,14 +512,14 @@
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_07  Settings Panel —扩展设置面板              │
   // └──────────────────────────────────────────────────────┘
-   function buildSettingsHTML() {
-    const s = getSettings();
-    const promptLabels = {
-      cosmic:      '🌌 宇宙频率·感知',
-      scanner:     '📡 弦外之音',
-      weather:     '🌦️ 信号气象站',
-      forum_post:  '💬 留言板·发帖',
-      forum_reply: '💬 留言板·回复',
+       const promptLabels = {
+      cosmic:'🌌 宇宙频率·感知',
+      scanner:         '📡 弦外之音',
+      weather:         '🌦️ 信号气象站',
+      forum_post:      '💬 留言板·发帖',
+      forum_reply:     '💬 留言板·回复',
+      checkin_comment: '📅 打卡·角色评论',
+      checkin_auto:    '📅 打卡·角色自动打卡',
     };
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
       <div class="freq-s-row freq-s-prompt-row">
@@ -609,7 +609,7 @@
     }
 
     // Prompt textarea 绑定
-    ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply'].forEach(key => {
+      ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto'].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
