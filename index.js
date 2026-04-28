@@ -88,6 +88,28 @@
 - 符合角色性格，带论坛感
 - 如果已有其他角色评论，可以@他们互撕
 - 只输出评论正文，不加任何前缀`,
+        checkin_comment: `你是{charName}，正在浏览{ownerName}的打卡记录「{goalTitle}」。
+目标：每天{target}{unit}，已坚持{streakDays}天。
+今日完成：{todayDone}/{target}{unit}
+总体完成率：{overallRate}%
+最近打卡情况：{recentSummary}
+
+以{charName}的性格写一条简短评论（20-50字）。
+规则：
+- 可以鼓励、吐槽、阴阳怪气、关心、撒娇，取决于角色性格
+- 如果完成率高就夸，低就催/损
+- 保持角色语气
+- 只输出评论正文`,checkin_auto: `你是{charName}，你有一个打卡目标「{goalTitle}」：每天{target}{unit}，持续{totalDays}天。
+今天是第{dayNum}天。
+当前剧情：{latestPlot}
+当前场景：{latestScene}
+
+根据角色性格和当前剧情，决定今天的打卡情况。
+规则：
+- 完成量在0到{target}之间，角色性格决定完成率（自律的角色完成率高，懒散的低）
+- 写一句打卡感言（10-30字），符合角色性格
+- 严格按JSON输出：{{"done":{target},"note":"打卡感言"}}`,
+
   };
 
 
