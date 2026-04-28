@@ -6244,13 +6244,7 @@ const calendarApp = {
           if (!content.trim() && !charComment) {
             return;
           }
-          const exp = {
-            id: 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-            locationId: loc.id,
-            locationName: loc.name,
-            content: content.trim(),
-            charComment: charComment,
-                      const exp = {
+            const exp = {
             id: 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
             locationId: loc.id,
             locationName: loc.name,
