@@ -809,5 +809,87 @@
   transition: all 0.15s;
 }
 .freq-checkin-delete-btn:hover { border-color: #A32D2D; color: #e88; }
+/* ══════════════════════════════════════════════════════════BLOCK_19 情绪电波仪
+   ══════════════════════════════════════════════════════════ */
+
+/* 情绪圆环 */
+.freq-emo-ring-row {
+  display: flex; justify-content: center; padding: 14px 0 10px;
+}
+.freq-emo-ring {
+  width: 90px; height: 90px; border-radius: 50%;
+  border: 3px solid var(--emo-color, #333);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--emo-color, #333) 30%, transparent),
+              inset 0 0 15px color-mix(in srgb, var(--emo-color, #333) 10%, transparent);
+  transition: border-color 0.6s, box-shadow 0.6s;
+  animation: freq-emo-ring-pulse 3s ease-in-out infinite;
+}
+@keyframes freq-emo-ring-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+.freq-emo-ring-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.freq-emo-ring-emoji { font-size: 22px; line-height: 1; }
+.freq-emo-ring-label {
+  font-size: 10px; font-weight: bold; letter-spacing: 1px;
+  transition: color 0.6s;
+}
+
+/* 波形区*/
+.freq-emo-wave-box {
+  background: #0d0d0d; border: 1px solid #1e1e1e; border-radius: 10px;
+  padding: 8px; margin-bottom: 10px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 80px;
+}
+.freq-emo-wave-box canvas { display: block; width: 100%; height: 80px; }
+.freq-emo-wave-placeholder {
+  position: absolute; font-size: 11px; color: #2a2a2a; letter-spacing: 2px;
+}
+
+/* 强度条 */
+.freq-emo-intensity-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.freq-emo-int-label { font-size: 10px; color: #555; white-space: nowrap; }
+.freq-emo-int-bar-wrap {
+  flex: 1; height: 4px; background: #1e1e1e; border-radius: 2px; overflow: hidden;
+}
+.freq-emo-int-bar-fill {
+  height: 100%; border-radius: 2px; transition: width 0.8s ease, background 0.6s;
+}
+.freq-emo-int-pct {
+  font-size: 10px; font-weight: bold; white-space: nowrap;
+  min-width: 28px; text-align: right; transition: color 0.6s;
+}
+
+/* 扫描按钮 */
+.freq-emo-scan-btn { width: 100%; margin-bottom: 12px; }
+
+/* 历史 */
+.freq-emo-history {
+  margin-top: 4px; border-top: 1px solid #1a1a1a; padding-top: 10px;
+}
+.freq-emo-history-title {
+  font-size: 10px; color: #333; font-weight: bold; margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+.freq-emo-history-item {
+  display: flex; align-items: center; gap: 6px;padding: 5px 8px; margin-bottom: 4px;
+  background: #0d0d0d; border-radius: 6px; border: 1px solid #161616;
+}
+.freq-emo-history-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.freq-emo-history-label {
+  font-size: 10px; color: #888; flex: 1; min-width: 0;overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.freq-emo-history-type { font-size: 9px; color: #444; white-space: nowrap; }
+.freq-emo-history-pct { font-size: 9px; color: #555; white-space: nowrap; min-width: 24px; text-align: right; }
+.freq-emo-history-time { font-size: 9px; color: #2a2a2a; white-space: nowrap; }
+
 
 
