@@ -536,6 +536,7 @@
       forum_reply:     '💬 留言板·回复',
       checkin_comment: '📅 打卡·角色评论',
       checkin_auto:    '📅 打卡·角色自动打卡',
+      emotion:'📊 情绪电波仪',
     };
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
       <div class="freq-s-row freq-s-prompt-row">
@@ -625,7 +626,7 @@
     }
 
     // Prompt textarea 绑定
-      ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto'].forEach(key => {
+      ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion'].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
