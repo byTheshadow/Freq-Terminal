@@ -1445,6 +1445,149 @@ ${weatherText
       }, 600);
     },
   };
+    // ┌──────────────────────────────────────────────────────┐
+  // │ BLOCK_16  App · 信号测试·弦外之音                    │
+  // └──────────────────────────────────────────────────────┘
+  const scannerApp = {
+    id: 'scanner', name: '弦外之音', icon: '📡', _badge: 0, _container: null,
+    _scanning: false,
+    _history: [],   // [{ npc, text, time }]
+
+    init() {},
+
+    mount(container) {
+      this._container = container;
+      this._render(container);
+    },
+
+    unmount() { this._container = null; },
+
+    _render(container) {
+      container.innerHTML = `
+        <div class="freq-app-header">📡 信号测试·弦外之音
+          <span style="float:right;font-size:9px;color:#555;font-weight:normal;letter-spacing:1px;">FREQ SCAN</span>
+        </div>
+        <div class="freq-app-body">
+
+          <div class="freq-scanner-desc">
+            随机接入当前世界里某个NPC的内心独白片段。<br>
+            像收音机扫台时偶尔捕获的杂音。
+          </div>
+
+          <button class="freq-studio-action-btn freq-scanner-btn" id="freq-scanner-go">
+            📡 扫频
+          </button>
+
+          <div id="freq-scanner-result"></div>
+
+          <div class="freq-scanner-history" id="freq-scanner-history" style="display:${this._history.length ? 'block' : 'none'};">
+            <div class="freq-scanner-history-title">// 历史截获记录</div>
+            <div id="freq-scanner-history-list">
+              ${this._renderHistoryItems()}
+            </div>
+          </div>
+
+        </div>`;
+
+      container.querySelector('#freq-scanner-go')
+        ?.addEventListener('click', () => this._scan(container));
+    },
+
+    async _scan(container) {
+      if (this._scanning) return;
+      this._scanning = true;
+
+      const btn = container.querySelector('#freq-scanner-go');
+      const resultEl = container.querySelector('#freq-scanner-result');
+
+      if (btn) { btn.disabled = true; btn.textContent = '📡 扫描中...'; }
+      if (resultEl) resultEl.innerHTML = `
+        <div class="freq-scanner-scanning">
+          <span class="freq-scanner-wave">▓▒░</span> 正在扫频
+          <span class="freq-scanner-wave">░▒▓</span>
+        </div>`;
+
+      const msgs = getChatMessages();
+      const latestSeeds = (() => {
+        const all = extractAllMeowFM(msgs);
+        return all.length ? all[all.length - 1].seeds : '';
+      })();
+      const latestScene = getLatestScene(msgs);
+      const latestPlot = getLatestPlot(msgs);
+      const charName = getCurrentCharName() || '角色';
+
+      const systemPrompt = `你是失真，午夜电台主持人，刚刚意外截获了一段频率。
+
+当前世界信息：
+- 场景：${latestScene || '未知'}
+- 最近剧情：${latestPlot || '暂无'}
+- Seeds（世界观碎片）：${latestSeeds || '暂无'}
+- 主角色：${charName}
+
+任务：从这个世界里随机选一个NPC（不要选${charName}），截获TA的一段内心独白碎片。
+
+规则：
+- 内容20-40字，不完整，像信号不好时的片段，可以有省略号或中断
+- 带有神秘感，不要太直白
+- NPC可以是路人、配角、甚至是某个物件的"意识"，越意外越好
+- 失真的风格：颓废、锐利、带点玩世不恭
+
+严格按以下格式输出，不加任何其他文字：
+[截获频率 · {NPC名}] {内心独白碎片}`;
+
+      try {
+        const raw = await SubAPI.call(systemPrompt, '开始扫频。', {
+          maxTokens: 150,
+          temperature: 0.95,
+        });
+
+        const text = raw.trim();
+
+        // 解析 NPC 名（用于显示）
+        const npcMatch = text.match(/\[截获频率\s*·\s*([^\]]+)\]/);
+        const npcName = npcMatch ? npcMatch[1].trim() : '未知频率';
+
+        // 存入历史
+        const record = { npc: npcName, text, time: timeNow() };
+        this._history.unshift(record);
+        if (this._history.length > 20) this._history.pop();
+
+        // 渲染结果
+        if (resultEl) resultEl.innerHTML = `
+          <div class="freq-scanner-card freq-scanner-card--new">
+            <div class="freq-scanner-card-tag">📡 截获成功</div>
+            <div class="freq-scanner-card-text">${escapeHtml(text)}</div>
+            <div class="freq-scanner-card-time">${record.time}</div>
+          </div>`;
+
+        // 更新历史区
+        const historyWrap = container.querySelector('#freq-scanner-history');
+        const historyList = container.querySelector('#freq-scanner-history-list');
+        if (historyWrap) historyWrap.style.display = 'block';
+        if (historyList) historyList.innerHTML = this._renderHistoryItems();
+
+        Notify.add('弦外之音', `截获 ${npcName} 的频率`, '📡');
+      } catch (e) {
+        if (resultEl) resultEl.innerHTML =
+          `<div class="freq-studio-error">📡 频率丢失：${escapeHtml(e.message)}</div>`;
+        Notify.error('弦外之音', e);
+      } finally {
+        this._scanning = false;
+        if (btn) { btn.disabled = false; btn.textContent = '📡 扫频'; }
+      }
+    },
+
+    _renderHistoryItems() {
+      if (!this._history.length) return '';
+      return this._history.map((h, i) => `
+        <div class="freq-scanner-history-item${i === 0 ? ' freq-scanner-history-item--latest' : ''}">
+          <span class="freq-scanner-history-npc">${escapeHtml(h.npc)}</span>
+          <span class="freq-scanner-history-text">${escapeHtml(h.text.replace(/\[截获频率\s*·[^\]]+\]\s*/, ''))}</span>
+          <span class="freq-scanner-history-time">${h.time}</span>
+        </div>`).join('');
+    },
+  };
+
 
 
   // │ BLOCK_90  占位 App工厂                              │
@@ -1964,7 +2107,7 @@ ${weatherText
     registerApp(weatherApp);        // 🌦️ 信号气象站
     registerApp(notifCenterApp);    // 🔔 通知中心
 
-    registerApp(placeholderApp('scanner','弦外之音','📡', '随机截获NPC 内心独白'));
+    registerApp(scannerApp);
     registerApp(cosmicApp);
     registerApp(placeholderApp('checkin',    '打卡日志',       '📅', '角色陪跑打卡'));
     registerApp(placeholderApp('calendar',   '双线轨道',       '🗓️', 'User + Char 日程'));
