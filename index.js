@@ -549,7 +549,95 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
         this._queue.push({ systemPrompt, userPrompt, options, resolve, reject });
         this._processQueue();
       });
+    },                          // ← call() 在这里完整结束
+
+    _processQueue() {
+      while (this._running < this._maxConcurrent && this._queue.length > 0) {
+        this._running++;
+        const task = this._queue.shift();
+        this._doCall(task.systemPrompt, task.userPrompt, task.options)
+          .then(task.resolve)
+          .catch(task.reject)
+          .finally(() => { this._running--; this._processQueue(); });
+      }
     },
+
+    async _doCall(systemPrompt, userPrompt, options = {}) {
+      const s = getSettings();
+      const maxRetries = options.retries ?? 3;
+      let lastError;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const url = s.subApiUrl.replace(/\/+$/, '') + '/chat/completions';
+          const body = {
+            model: s.subApiModel || 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            max_tokens: options.maxTokens ?? 800,
+            temperature: options.temperature ?? 0.8,
+          };
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), options.timeout ?? 30000);
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${s.subApiKey}`,
+            },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          if (!resp.ok) {
+            const errText = await resp.text().catch(() => '');
+            throw new Error(`API ${resp.status}: ${errText.slice(0, 200)}`);
+          }
+          const data = await resp.json();
+          const content = data.choices?.[0]?.message?.content ?? '';
+          if (!content) throw new Error('API返回空内容');
+          return content;
+        } catch (e) {
+          lastError = e;
+          if (attempt < maxRetries - 1) {
+            await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          }
+        }
+      }
+      throw lastError;
+    },
+
+    // ── 获取可用模型列表（不消耗token，仅测试连接）──
+    async fetchModels() {
+      const s = getSettings();
+      const url = (s.subApiUrl || '').trim();
+      const key = (s.subApiKey || '').trim();
+      if (!url || !key) throw new Error('请先填写副API地址和Key');
+
+      const base = url.replace(/\/+$/, '').replace(/\/v1$/, '');
+      const endpoint = base + '/v1/models';
+
+      const resp = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + key,
+          'Content-Type': 'application/json'
+        },
+        signal: AbortSignal.timeout(10000)
+      });
+
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} — ${resp.statusText}`);
+
+      const json = await resp.json();
+      const list = Array.isArray(json) ? json : (json.data || []);
+      return list
+        .map(m => (typeof m === 'string' ? m : m.id))
+        .filter(Boolean)
+        .sort();
+    },
+
+  };  // ← SubAPI 对象在这里结束
 
     _processQueue() {
       while (this._running < this._maxConcurrent && this._queue.length > 0) {
@@ -756,37 +844,34 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
     if (el) el.textContent = timeNow();
   }
 
-    // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_07  Settings Panel —扩展设置面板              │
-  // └──────────────────────────────────────────────────────┘
-  function buildSettingsHTML() {
+function buildSettingsHTML() {
     const s = getSettings();
     const promptLabels = {
-      cosmic:'🌌 宇宙频率·感知',
-      scanner:         '📡 弦外之音',
-      weather:         '🌦️ 信号气象站',
-      forum_post:      '💬 留言板·发帖',
-      forum_reply:     '💬 留言板·回复',
-      checkin_comment: '📅 打卡·角色评论',
-      checkin_auto:    '📅 打卡·角色自动打卡',
-      emotion:         '📊 情绪电波仪',
-      dream:           '🌙 梦境记录仪',
-      capsule_seal:    '💊 时光胶囊·封存感言',  // ✅ BLOCK_21 新增
-      delivery_menu:'🍜跨次元配送·菜单',
-      delivery_comment: '🍜 跨次元配送·送餐台词',
-      calendar_event:'🗓️ 双线轨道·事件提取',
-  calendar_resonance: '🗓️ 双线轨道·共鸣感想',
-            map_generate:  '🗺️ 异界探索·世界生成',
-      map_detail:    '🗺️ 异界探索·地点详情',
-      map_event:     '🗺️ 异界探索·探索感想',
-            novel_generate: '📖 频道文库·AI写作',
-      novel_comment:  '📖 频道文库·NPC评论',
-          blackbox_conversation: '黑匣子·秘密对话',
-    blackbox_plan:'黑匣子·节目策划',
-    blackbox_comm:         '黑匣子·内部通讯',
-    blackbox_diary:        '黑匣子·秘密日记',
-
+      cosmic:               '🌌 宇宙频率·感知',
+      scanner:              '📡 弦外之音',
+      weather:              '🌦️ 信号气象站',
+      forum_post:           '💬 留言板·发帖',
+      forum_reply:          '💬 留言板·回复',
+      checkin_comment:      '📅 打卡·角色评论',
+      checkin_auto:         '📅 打卡·角色自动打卡',
+      emotion:              '📊 情绪电波仪',
+      dream:                '🌙 梦境记录仪',
+      capsule_seal:         '💊 时光胶囊·封存感言',
+      delivery_menu:        '🍜 跨次元配送·菜单',
+      delivery_comment:     '🍜 跨次元配送·送餐台词',
+      calendar_event:       '🗓️ 双线轨道·事件提取',
+      calendar_resonance:   '🗓️ 双线轨道·共鸣感想',
+      map_generate:         '🗺️ 异界探索·世界生成',
+      map_detail:           '🗺️ 异界探索·地点详情',
+      map_event:            '🗺️ 异界探索·探索感想',
+      novel_generate:       '📖 频道文库·AI写作',
+      novel_comment:        '📖 频道文库·NPC评论',
+      blackbox_conversation:'🔒 黑匣子·秘密对话',
+      blackbox_plan:        '🔒 黑匣子·节目策划',
+      blackbox_comm:        '🔒 黑匣子·内部通讯',
+      blackbox_diary:       '🔒 黑匣子·秘密日记',
     };
+
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
       <div class="freq-s-row freq-s-prompt-row">
         <div class="freq-s-prompt-header">
@@ -796,12 +881,16 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
         <textarea
           id="freq_prompt_${key}"
           class="freq-s-prompt-textarea"
-          placeholder="${escapeHtml(PROMPT_DEFAULTS[key])}"
+          placeholder="${escapeHtml(PROMPT_DEFAULTS[key] || '')}"
           rows="4"
         >${escapeHtml(s.prompts?.[key] ?? '')}</textarea>
         <span class="freq-s-prompt-hint">留空则使用默认 Prompt</span>
       </div>
     `).join('');
+
+    const pluginEnabled = s.pluginEnabled !== false;
+    const bbAutoOn      = !!s.blackboxAutoIntercept;
+    const bbRate        = s.blackboxInterceptRate ?? 20;
 
     return `
       <div class="inline-drawer">
@@ -811,29 +900,118 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
         </div>
         <div class="inline-drawer-content" style="font-size:small;">
           <div class="freq-settings-inner">
+
+            <!-- ══ 插件总开关 ══ -->
+            <div class="freq-s-power-row">
+              <div class="freq-s-power-info">
+                <div class="freq-s-power-title">📻 失真电台终端</div>
+                <div class="freq-s-power-sub">freq-terminal · 插件状态</div>
+              </div>
+              <button class="freq-s-power-btn ${pluginEnabled ? 'freq-power-on' : 'freq-power-off'}"
+                      id="freq_plugin_toggle">
+                ${pluginEnabled ? '✅ 插件已启用' : '⛔ 插件已禁用'}
+              </button>
+            </div>
+
+            <div class="freq-s-section-divider"></div>
+
+            <!-- ══ 副API 触发说明 ══ -->
+            <div class="freq-s-notice-box">
+              <div class="freq-s-notice-title">📋 副API 触发说明</div>
+              <div class="freq-s-notice-row">
+                <span class="freq-s-tag freq-s-tag-auto">自动触发</span>
+                <span>黑匣子·自动截获（可在下方开关控制）</span>
+              </div>
+              <div class="freq-s-notice-row">
+                <span class="freq-s-tag freq-s-tag-manual">手动触发</span>
+                <span>宇宙频率、弦外之音、信号气象站、留言板、打卡评论、情绪电波、梦境记录、时光胶囊、跨次元配送、双线轨道、异界探索、频道文库、黑匣子·手动截获</span>
+              </div>
+            </div>
+
+            <!-- ══ 副API 配置 ══ -->
+            <div class="freq-s-section-label">⚡ 副API 配置</div>
+
             <label class="freq-s-row">
-              <span>副API地址</span>
-              <input type="text" id="freq_sub_api_url" class="text_pole" placeholder="https://api.openai.com/v1" value="${s.subApiUrl ?? ''}" />
+              <span>API 地址</span>
+              <input type="text" id="freq_sub_api_url" class="text_pole"
+                placeholder="https://api.openai.com"
+                value="${s.subApiUrl ?? ''}" />
             </label>
+            <div class="freq-s-field-hint">填写服务商根地址（无需加 /v1/chat/completions）</div>
+
             <label class="freq-s-row">
-              <span>副 API Key</span>
-              <input type="password" id="freq_sub_api_key" class="text_pole" placeholder="sk-..." value="${s.subApiKey ?? ''}" />
+              <span>API Key</span>
+              <input type="password" id="freq_sub_api_key" class="text_pole"
+                placeholder="sk-..."
+                value="${s.subApiKey ?? ''}" />
             </label>
-            <label class="freq-s-row">
-              <span>副 API 模型</span>
-              <input type="text" id="freq_sub_api_model" class="text_pole" placeholder="gpt-4o-mini" value="${s.subApiModel ?? ''}" />
-            </label>
+
+            <!-- 模型选择 + 测试连接 -->
+            <div class="freq-s-row">
+              <span>模型</span>
+              <div class="freq-s-model-group">
+                <input type="text" id="freq_sub_api_model" class="text_pole freq-s-model-input"
+                  placeholder="gpt-4o-mini"
+                  value="${s.subApiModel ?? ''}" />
+                <button class="freq-s-test-btn" id="freq_test_connection">🔌 测试连接</button>
+              </div>
+            </div>
+            <div id="freq_model_status" class="freq-s-model-status"></div>
+            <select id="freq_model_select" class="text_pole freq-s-model-select" style="display:none;">
+              <option value="">— 从列表选择模型 —</option>
+            </select>
+            <div class="freq-s-field-hint">点击「测试连接」自动获取可用模型；也可直接手动填写模型名</div>
+
             <label class="freq-s-row">
               <span>和风天气 Key（可选）</span>
-              <input type="text" id="freq_weather_key" class="text_pole" placeholder="信号气象站使用" value="${s.weatherKey ?? ''}" />
+              <input type="text" id="freq_weather_key" class="text_pole"
+                placeholder="信号气象站使用"
+                value="${s.weatherKey ?? ''}" />
             </label>
-                        <label class="freq-s-row">
+
+            <label class="freq-s-row">
               <span>异界探索·地点数量（首次生成）</span>
-              <input type="number" id="freq_map_location_count" class="text_pole" min="4" max="20" placeholder="10" value="${s.mapLocationCount ?? 10}" />
+              <input type="number" id="freq_map_location_count" class="text_pole"
+                min="4" max="20" placeholder="10"
+                value="${s.mapLocationCount ?? 10}" />
             </label>
 
             <div class="freq-s-section-divider"></div>
 
+            <!-- ══ 自动触发设置 ══ -->
+            <div class="freq-s-section-label">🤖 自动触发设置</div>
+
+            <div class="freq-s-toggle-row">
+              <div class="freq-s-toggle-info">
+                <div class="freq-s-toggle-title">🔒 黑匣子·自动截获</div>
+                <div class="freq-s-toggle-sub">每次收到新消息时，有一定概率自动截获一份加密档案</div>
+              </div>
+              <label class="freq-s-switch">
+                <input type="checkbox" id="freq_blackbox_auto" ${bbAutoOn ? 'checked' : ''} />
+                <span class="freq-s-switch-slider"></span>
+              </label>
+            </div>
+
+            <div id="freq_blackbox_rate_row" class="freq-s-rate-row"
+                 style="${bbAutoOn ? '' : 'display:none;'}">
+              <span>触发概率</span>
+              <div class="freq-s-rate-options">
+                ${[
+                  [10, '低频 10%'],
+                  [20, '普通 20%'],
+                  [30, '频繁 30%'],
+                ].map(([val, label]) => `
+                  <label class="freq-s-rate-opt">
+                    <input type="radio" name="freq_bb_rate" value="${val}"
+                      ${bbRate === val ? 'checked' : ''} />
+                    <span>${label}</span>
+                  </label>`).join('')}
+              </div>
+            </div>
+
+            <div class="freq-s-section-divider"></div>
+
+            <!-- ══ Prompt 编辑器 ══ -->
             <div class="freq-s-collapse" id="freq-prompt-editor-toggle">
               <span>✏️ Prompt Editor</span>
               <span class="freq-s-collapse-arrow">▼</span>
@@ -843,68 +1021,167 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
               ${promptEditorHTML}
             </div>
 
-            <div id="freq_settings_status" style="color:#A32D2D;font-size:11px;min-height:16px;margin-top:4px;"></div>
+            <div id="freq_settings_status"
+                 style="color:#4caf50;font-size:11px;min-height:16px;margin-top:4px;"></div>
           </div>
         </div>
       </div>
     `;
   }
+function bindSettingsEvents() {
+    const _status = (msg, color = '#4caf50') => {
+      const el = document.getElementById('freq_settings_status');
+      if (!el) return;
+      el.style.color = color;
+      el.textContent = msg;
+      setTimeout(() => { el.textContent = ''; }, 1800);
+    };
 
-  function bindSettingsEvents() {
-    const fields = [
-      { id: 'freq_sub_api_url',  key: 'subApiUrl',   type: 'text' },
-      { id: 'freq_sub_api_key',  key: 'subApiKey',   type: 'text' },
-      { id: 'freq_sub_api_model',key: 'subApiModel', type: 'text' },
-      { id: 'freq_weather_key',  key: 'weatherKey',  type: 'text' },
-      { id: 'freq_map_location_count', key: 'mapLocationCount', type: 'text' },
-    ];
-    fields.forEach(f => {
-      const el = document.getElementById(f.id);
+    // ── 插件总开关 ──
+    const powerBtn = document.getElementById('freq_plugin_toggle');
+    if (powerBtn) {
+      powerBtn.addEventListener('click', () => {
+        const cur = getSettings().pluginEnabled !== false;
+        saveSettings({ pluginEnabled: !cur });
+        powerBtn.textContent = !cur ? '✅ 插件已启用' : '⛔ 插件已禁用';
+        powerBtn.className   = 'freq-s-power-btn ' + (!cur ? 'freq-power-on' : 'freq-power-off');
+        _status(!cur ? '插件已启用，刷新页面后完全生效' : '插件已禁用，刷新页面后完全生效');
+      });
+    }
+
+    // ── 基础输入字段 ──
+    [
+      { id: 'freq_sub_api_url',        key: 'subApiUrl' },
+      { id: 'freq_sub_api_key',        key: 'subApiKey' },
+      { id: 'freq_sub_api_model',      key: 'subApiModel' },
+      { id: 'freq_weather_key',        key: 'weatherKey' },
+      { id: 'freq_map_location_count', key: 'mapLocationCount' },
+    ].forEach(({ id, key }) => {
+      const el = document.getElementById(id);
       if (!el) return;
       el.addEventListener('input', () => {
-        saveSettings({ [f.key]: el.value.trim() });
-        const st = document.getElementById('freq_settings_status');
-        if (st) { st.textContent = '✓ 已保存'; setTimeout(() => { st.textContent = ''; }, 1500); }
+        saveSettings({ [key]: el.value.trim() });
+        _status('✓ 已保存');
       });
     });
 
-    // Prompt Editor 折叠
+    // ── 测试连接 + 获取模型列表 ──
+    const testBtn     = document.getElementById('freq_test_connection');
+    const statusEl    = document.getElementById('freq_model_status');
+    const modelSelect = document.getElementById('freq_model_select');
+    const modelInput  = document.getElementById('freq_sub_api_model');
+
+    if (testBtn) {
+      testBtn.addEventListener('click', async () => {
+        testBtn.disabled    = true;
+        testBtn.textContent = '🔄 连接中…';
+        if (statusEl) { statusEl.className = 'freq-s-model-status'; statusEl.textContent = ''; }
+        if (modelSelect) modelSelect.style.display = 'none';
+
+        try {
+          const models = await SubAPI.fetchModels();
+
+          if (statusEl) {
+            statusEl.className   = 'freq-s-model-status freq-s-status-ok';
+            statusEl.textContent = `✅ 连接成功，获取到 ${models.length} 个可用模型`;
+          }
+
+          if (modelSelect) {
+            const cur = getSettings().subApiModel || '';
+            modelSelect.innerHTML =
+              '<option value="">— 从列表选择模型 —</option>' +
+              models.map(m =>
+                `<option value="${m}"${m === cur ? ' selected' : ''}>${m}</option>`
+              ).join('');
+            modelSelect.style.display = 'block';
+          }
+        } catch (e) {
+          if (statusEl) {
+            statusEl.className   = 'freq-s-model-status freq-s-status-err';
+            statusEl.textContent = `❌ 连接失败：${e.message}`;
+          }
+          if (modelSelect) modelSelect.style.display = 'none';
+        } finally {
+          testBtn.disabled    = false;
+          testBtn.textContent = '🔌 测试连接';
+        }
+      });
+    }
+
+    // 从下拉列表选模型 → 同步到输入框
+    if (modelSelect && modelInput) {
+      modelSelect.addEventListener('change', function () {
+        if (!this.value) return;
+        modelInput.value = this.value;
+        saveSettings({ subApiModel: this.value });
+        _status('✓ 已保存');
+      });
+    }
+
+    // ── 黑匣子自动截获开关 ──
+    const autoToggle = document.getElementById('freq_blackbox_auto');
+    const rateRow    = document.getElementById('freq_blackbox_rate_row');
+    if (autoToggle && rateRow) {
+      autoToggle.addEventListener('change', function () {
+        saveSettings({ blackboxAutoIntercept: this.checked });
+        rateRow.style.display = this.checked ? '' : 'none';
+        _status('✓ 已保存');
+      });
+    }
+
+    // ── 触发概率单选 ──
+    document.querySelectorAll('input[name="freq_bb_rate"]').forEach(radio => {
+      radio.addEventListener('change', function () {
+        saveSettings({ blackboxInterceptRate: parseInt(this.value, 10) });
+        _status('✓ 已保存');
+      });
+    });
+
+    // ── Prompt Editor 折叠 ──
     const toggle = document.getElementById('freq-prompt-editor-toggle');
     const body   = document.getElementById('freq-prompt-editor-body');
     if (toggle && body) {
       toggle.addEventListener('click', () => {
-        const open = body.style.display !== 'none';
+        const open  = body.style.display !== 'none';
         body.style.display = open ? 'none' : 'block';
         const arrow = toggle.querySelector('.freq-s-collapse-arrow');
         if (arrow) arrow.textContent = open ? '▼' : '▲';
       });
     }
 
-    // Prompt textarea绑定 —✅ BLOCK_21: 新增 capsule_seal
-    ['cosmic', 'scanner', 'weather', 'forum_post', 'forum_reply', 'checkin_comment', 'checkin_auto', 'emotion', 'dream', 'capsule_seal', 'delivery_menu','delivery_comment', 'calendar_event',
-  'calendar_resonance','map_generate', 'map_detail', 'map_event','novel_generate', 'novel_comment', 'blackbox_conversation', 'blackbox_plan', 'blackbox_comm', 'blackbox_diary',].forEach(key => {
+    // ── Prompt textarea 绑定 ──
+    [
+      'cosmic', 'scanner', 'weather',
+      'forum_post', 'forum_reply',
+      'checkin_comment', 'checkin_auto',
+      'emotion', 'dream', 'capsule_seal',
+      'delivery_menu', 'delivery_comment',
+      'calendar_event', 'calendar_resonance',
+      'map_generate', 'map_detail', 'map_event',
+      'novel_generate', 'novel_comment',
+      'blackbox_conversation', 'blackbox_plan', 'blackbox_comm', 'blackbox_diary',
+    ].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
       el.addEventListener('input', () => {
         const s = getSettings();
         s.prompts[key] = el.value;
-        if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();const st = document.getElementById('freq_settings_status');
-        if (st) { st.textContent = '✓ 已保存'; setTimeout(() => { st.textContent = ''; }, 1500); }
+        if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();
+        _status('✓ 已保存');
       });
     });
 
-    // 恢复默认按钮
+    // ── 恢复默认按钮 ──
     document.querySelectorAll('.freq-s-reset-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const key = btn.dataset.promptKey;
-        const el = document.getElementById(`freq_prompt_${key}`);
+        const el  = document.getElementById(`freq_prompt_${key}`);
         if (!el) return;
         el.value = '';
         const s = getSettings();
         delete s.prompts[key];
         if (typeof window.saveSettingsDebounced === 'function') window.saveSettingsDebounced();
-        const st = document.getElementById('freq_settings_status');
-        if (st) { st.textContent = '↺ 已恢复默认'; setTimeout(() => { st.textContent = ''; }, 1500); }
+        _status('↺ 已恢复默认');
       });
     });
   }
@@ -7813,8 +8090,11 @@ const blackboxApp = {
   // ═══════════════════════════════════
   init() {
     EventBus.on('meow_fm:updated', (allMeowFM) => {
-      // 20% 概率自动截获新档案
-      if (Math.random() < 0.2 && allMeowFM && allMeowFM.length > 0) {
+      const s = getSettings();
+      if (s.pluginEnabled === false) return;
+      if (!s.blackboxAutoIntercept) return;
+      const rate = (s.blackboxInterceptRate ?? 20) / 100;
+      if (Math.random() < rate && allMeowFM && allMeowFM.length > 0) {
         this._autoIntercept(allMeowFM);
       }
     });
@@ -8503,6 +8783,13 @@ const blackboxApp = {
   // │ BLOCK_99初始化入口                                 │
   // └──────────────────────────────────────────────────────┘
   function init() {
+    // ── 补充新字段默认值 ──
+    const _s = getSettings();
+    if (_s.pluginEnabled           === undefined) _s.pluginEnabled           = true;
+    if (_s.blackboxAutoIntercept   === undefined) _s.blackboxAutoIntercept   = false;
+    if (_s.blackboxInterceptRate   === undefined) _s.blackboxInterceptRate   = 20;
+    if (!_s.blackbox)                             _s.blackbox                = { files: [], unlockedIds: [] };
+    saveSettings({});
     LOG('Initializing v0.3.1...');
 
     // 1. 加载样式
