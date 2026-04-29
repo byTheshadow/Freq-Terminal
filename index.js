@@ -2084,20 +2084,20 @@ function bindSettingsEvents() {
     },
 
     async _generate(container) {
-      if (this._generating) return;
-      this._generating = true;
+  if (this._generating) return;
+  this._generating = true;
 
-      const loadingEl = container.querySelector('#freq-moments-loading');
-      if (loadingEl) loadingEl.style.display = 'block';
+  const loadingEl = container.querySelector('#freq-moments-loading');
+  if (loadingEl) loadingEl.style.display = 'block';
 
-      const charName = getCurrentCharName() || '角色';
-      const userName = getUserName();
-      const latestPlot = getLatestPlot(getChatMessages());
-      const latestScene = getLatestScene(getChatMessages());
-      const meowTime = getLatestMeowTime(getChatMessages());
-      const radioShow = extractRadioShow(getChatMessages());
+  const charName = getCurrentCharName() || '角色';
+  const userName = getUserName();
+  const latestPlot = getLatestPlot(getChatMessages());
+  const latestScene = getLatestScene(getChatMessages());
+  const meowTime = getLatestMeowTime(getChatMessages());
+  const radioShow = extractRadioShow(getChatMessages());
 
-      const systemPrompt = `你是一个社交媒体动态生成器。根据以下信息，生成 3-5 条朋友圈动态。
+  const systemPrompt = `你是一个社交媒体动态生成器。根据以下信息，生成 3-5 条朋友圈动态。
 
 角色信息：
 - 主角色：${charName}
@@ -2129,26 +2129,34 @@ function bindSettingsEvents() {
 - 不提及 AI/模型/扮演
 - 只输出 JSON 数组，不加任何其他文字`;
 
-      const userPrompt = '生成朋友圈动态。';
+  const userPrompt = '生成朋友圈动态。';
 
-      try {
-  posts = safeParseAIJson(result, 'array');
-} catch (parseErr) {
-  throw new Error('动态格式解析失败：' + parseErr.message);
-}
+  try {
+    const result = await SubAPI.call(systemPrompt, userPrompt, {
+      maxTokens: 1200,
+      temperature: 0.88,
+    });
 
-        this._posts = posts;
-        this._renderFeed(container);
-        Notify.add('朋友圈·电波', `收到 ${posts.length} 条新动态`, '📱');
-      } catch (e) {
-        const feed = container.querySelector('#freq-moments-feed');
-        if (feed) feed.innerHTML = `<div class="freq-studio-error">📱 电波中断：${escapeHtml(e.message)}</div>`;
-        Notify.error('朋友圈·电波', e);
-      } finally {
-        this._generating = false;
-        if (loadingEl) loadingEl.style.display = 'none';
-      }
-    },
+    let posts;
+    try {
+      posts = safeParseAIJson(result, 'array');
+      if (!Array.isArray(posts)) throw new Error('返回内容不是数组');
+    } catch (parseErr) {
+      throw new Error('动态格式解析失败：' + parseErr.message);
+    }
+
+    this._posts = posts;
+    this._renderFeed(container);
+    Notify.add('朋友圈·电波', `收到 ${posts.length} 条新动态`, '📱');
+  } catch (e) {
+    const feed = container.querySelector('#freq-moments-feed');
+    if (feed) feed.innerHTML = `<div class="freq-studio-error">📱 电波中断：${escapeHtml(e.message)}</div>`;
+    Notify.error('朋友圈·电波', e);
+  } finally {
+    this._generating = false;
+    if (loadingEl) loadingEl.style.display = 'none';
+  }
+},
   };
 
   // ┌──────────────────────────────────────────────────────┐
