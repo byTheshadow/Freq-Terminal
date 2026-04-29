@@ -294,7 +294,7 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
       '  "content": "角色A：xxx\\n角色B：xxx\\n...",',
       '  "participants": ["角色A", "角色B"],',
       '  "classification": "CONFIDENTIAL 或 SECRET 或 TOP_SECRET"',
-      '}'].join('\\n'),
+      '}'].join('\n'),
 
     blackbox_plan: [
       '你是一个虚拟电台「失真电台」的幕后策划人员。',
@@ -313,7 +313,7 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
       '  "participants": ["撰写者名称"],',
       '  "classification": "CONFIDENTIAL 或 SECRET 或 TOP_SECRET"',
       '}'
-    ].join('\\n'),
+    ].join('\n'),
 
     blackbox_comm: [
       '你是一个沉浸式角色扮演世界的幕后编剧。',
@@ -332,7 +332,7 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
       '  "participants": ["发送者", "接收者"],',
       '  "classification": "CONFIDENTIAL 或 SECRET 或 TOP_SECRET"',
       '}'
-    ].join('\\n'),
+    ].join('\n'),
 
     blackbox_diary: [
       '你是一个沉浸式角色扮演世界的幕后编剧。',
@@ -352,7 +352,7 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
       '  "participants": ["{{char}}"],',
       '  "classification": "CONFIDENTIAL 或 SECRET 或 TOP_SECRET"',
       '}'
-    ].join('\\n'),
+    ].join('\n'),
         inbox_message: [
       '你正在扮演 {{char}}。',
       '{{char}} 想主动联系用户 {{user}}，发送一条私信。',
@@ -1347,7 +1347,7 @@ function bindSettingsEvents() {
 }
 
 /* ── App 视图 ── */
-#freq-app-view { width: 100%; height: 100%; flex-direction: column; overflow: hidden; color: #ddd; }
+#freq-app-view { display: flex; width: 100%; height: 100%; flex-direction: column; overflow: hidden; color: #ddd; }
 
 /* ── 底部栏 ── */
 .freq-phone-bar {
@@ -2333,7 +2333,7 @@ function bindSettingsEvents() {
     _lastPerception: null,
     _generating: false,
     _pulseTimer: null,
-
+    _history: [],
     init() {
       EventBus.on('radio_show:updated', () => {
         const isOn = getCosmicFreqStatus();
@@ -8634,7 +8634,7 @@ try {
       this._getData().files.push(file);
       this._save();
 
-      Notify.success(`📡 截获新档案：${typeDef.label}（已加密）`);
+      Notify.add('黑匣子', `📡 截获新档案：${typeDef.label}（已加密）`, '🔒');
       EventBus.emit('notification:new', {
         app: 'blackbox',
         icon: '🔒',
@@ -8690,7 +8690,7 @@ try {
             // 动画完成后解锁
             data.unlockedIds.push(target.id);
             this._save();
-            Notify.success(`🔓 档案已破解：${target.title}`);
+            Notify.add('黑匣子', `🔓 档案已破解：${target.title}`, '🔓');
             //刷新列表
             setTimeout(() => this._render(), 500);
           });
@@ -8702,7 +8702,7 @@ try {
     // 如果找不到 DOM（不在列表视图），直接解锁
     data.unlockedIds.push(target.id);
     this._save();
-    Notify.success(`🔓 档案已破解：${target.title}`);
+    Notify.add('黑匣子', `🔓 档案已破解：${target.title}`, '🔓');
     this._render();
   },
 
