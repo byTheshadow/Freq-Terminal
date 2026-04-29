@@ -4743,13 +4743,12 @@ try {
 
         // 解析JSON
         let menuData;
-        try {
-          const jsonMatch = raw.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) throw new Error('未找到JSON');
-          menuData = JSON.parse(jsonMatch[0]);
-        } catch (parseErr) {
-          throw new Error('菜单解析失败：' + parseErr.message);
-        }
+try {
+  menuData = safeParseAIJson(raw, 'object');
+  if (!menuData) throw new Error('返回内容为空');
+} catch (parseErr) {
+  throw new Error('菜单解析失败：' + parseErr.message);
+}
 
         if (!menuData.restaurant || !Array.isArray(menuData.items) || menuData.items.length === 0) {
           throw new Error('菜单数据不完整');
@@ -8607,19 +8606,13 @@ const blackboxApp = {
       });
 
       // 解析 JSON
-      const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       let parsed;
-      try {
-        parsed = JSON.parse(cleaned);
-      } catch (e) {
-        //尝试提取 JSON 部分
-        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsed = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error('无法解析AI返回的JSON');
-        }
-      }
+try {
+  parsed = safeParseAIJson(raw, 'object');
+  if (!parsed) throw new Error('返回内容为空');
+} catch (e) {
+  throw new Error('无法解析AI返回的JSON：' + e.message);
+}
 
       // 构建档案
       const now = new Date();
