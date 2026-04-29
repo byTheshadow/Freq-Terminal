@@ -411,6 +411,23 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
     return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
     // 获取 Prompt：优先用用户自定义，否则用默认
+  /**
+ * 从AI返回文本中安全提取JSON（统一处理markdown代码块、换行符等问题）
+ * @param {string} raw - AI原始返回
+ * @param {'object'|'array'} expect - 期望类型 'object' 或 'array'
+ */
+function safeParseAIJson(raw, expect = 'object') {
+  if (!raw) return null;
+  let cleaned = raw.trim()
+    .replace(/^```(?:json)?\s*/im, '')
+    .replace(/\s*```\s*$/m, '')
+    .replace(/```/g, '')
+    .trim();
+  const pattern = expect === 'array' ? /\[[\s\S]*\]/ : /\{[\s\S]*\}/;
+  const match = cleaned.match(pattern);
+  const jsonStr = match ? match[0] : cleaned;
+  return JSON.parse(jsonStr);
+}
   function getPrompt(key) {
     const custom = getSettings().prompts?.[key];
     return (custom && custom.trim()) ? custom.trim() : PROMPT_DEFAULTS[key];
@@ -2115,14 +2132,10 @@ function bindSettingsEvents() {
       const userPrompt = '生成朋友圈动态。';
 
       try {
-        const result = await SubAPI.call(systemPrompt, userPrompt, { maxTokens: 1200, temperature: 0.9 });
-        let posts;
-        try {
-          const jsonMatch = result.match(/\[[\s\S]*\]/);
-          posts = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(result);
-        } catch (parseErr) {
-          throw new Error('动态格式解析失败：' + parseErr.message);
-        }
+  posts = safeParseAIJson(result, 'array');
+} catch (parseErr) {
+  throw new Error('动态格式解析失败：' + parseErr.message);
+}
 
         this._posts = posts;
         this._renderFeed(container);
@@ -6860,11 +6873,11 @@ const calendarApp = {
 
         let cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
         let parsed;
-        try {
-          parsed = JSON.parse(cleaned);
-        } catch (e) {
-          throw new Error('JSON解析失败：' + e.message);
-        }
+try {
+  parsed = safeParseAIJson(raw, 'array');
+} catch (e) {
+  throw new Error('JSON解析失败：' + e.message);
+}
 
         if (!Array.isArray(parsed) || parsed.length === 0) {
           throw new Error('返回数据格式异常');
@@ -6932,11 +6945,11 @@ const calendarApp = {
 
         let cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
         let parsed;
-        try {
-          parsed = JSON.parse(cleaned);
-        } catch (e) {
-          throw new Error('JSON解析失败');
-        }
+try {
+  parsed = safeParseAIJson(raw, 'array');
+} catch (e) {
+  throw new Error('JSON解析失败');
+}
 
         const item = Array.isArray(parsed) ? parsed[0] : parsed;
         if (!item || !item.name) throw new Error('返回数据不完整');
