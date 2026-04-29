@@ -2918,6 +2918,294 @@
   flex: 0 0 auto;
   min-width: auto;
 }
+/* ══ 插件总开关 ══ */
+.freq-settings-power-section {
+  border-color: #333 !important;
+}
+
+.freq-settings-power-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.freq-settings-power-info {
+  flex: 1;
+}
+
+.freq-settings-power-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ddd;
+  margin-bottom: 2px;
+}
+
+.freq-settings-power-sub {
+  font-size: 11px;
+  color: #666;
+}
+
+.freq-settings-power-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.freq-power-on {
+  background: #1a3a1a;
+  color: #55cc55;
+  border: 1px solid #2a5a2a;
+}
+
+.freq-power-on:hover {
+  background: #0f2a0f;
+}
+
+.freq-power-off {
+  background: #2a1a1a;
+  color: #cc5555;
+  border: 1px solid #4a2a2a;
+}
+
+.freq-power-off:hover {
+  background: #1a0f0f;
+}
+
+/* ══ 副API 触发说明 ══ */
+.freq-settings-notice {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: #0d0d0d;
+  border: 1px solid #222;
+  border-radius: 6px;
+}
+
+.freq-settings-notice-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #888;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.freq-settings-notice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.freq-settings-notice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: #777;
+  line-height: 1.5;
+}
+
+.freq-settings-notice-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: bold;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.freq-tag-auto {
+  background: #2a1a00;
+  color: #cc8833;
+  border: 1px solid #442a00;
+}
+
+.freq-tag-manual {
+  background: #0d1a2a;
+  color: #4488cc;
+  border: 1px solid #1a2a44;
+}
+
+/* ══ 测试连接 + 模型选择 ══ */
+.freq-settings-model-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.freq-settings-model-input {
+  flex: 1;
+}
+
+.freq-settings-test-btn {
+  padding: 7px 12px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #161616;
+  color: #aaa;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.freq-settings-test-btn:hover:not(:disabled) {
+  background: #1e1e1e;
+  border-color: #555;
+  color: #ddd;
+}
+
+.freq-settings-test-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.freq-settings-model-status {
+  margin-top: 6px;
+  font-size: 11px;
+  min-height: 16px;
+  line-height: 1.4;
+}
+
+.freq-status-ok {
+  color: #55cc55;
+}
+
+.freq-status-err {
+  color: #cc5555;
+}
+
+.freq-settings-model-select {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 10px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #ccc;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.freq-settings-model-select:focus {
+  outline: none;
+  border-color: #555;
+}
+
+/* ══ 自动触发设置 ══ */
+.freq-settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.freq-settings-toggle-info {
+  flex: 1;
+}
+
+.freq-settings-toggle-title {
+  font-size: 13px;
+  color: #ccc;
+  margin-bottom: 3px;
+}
+
+.freq-settings-toggle-sub {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* Toggle Switch */
+.freq-settings-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.freq-settings-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.freq-settings-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #333;
+  border-radius: 22px;
+  transition: background 0.2s;
+}
+
+.freq-settings-switch-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  top: 3px;
+  background: #888;
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.freq-settings-switch input:checked + .freq-settings-switch-slider {
+  background: #1a3a1a;
+}
+
+.freq-settings-switch input:checked + .freq-settings-switch-slider::before {
+  transform: translateX(18px);
+  background: #55cc55;
+}
+
+/* 触发概率选项 */
+.freq-settings-rate-row {
+  padding: 10px 0 4px 0;
+}
+
+.freq-settings-rate-options {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.freq-settings-rate-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #aaa;
+  cursor: pointer;
+  padding: 5px 12px;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.freq-settings-rate-opt:has(input:checked) {
+  border-color: #55cc55;
+  color: #55cc55;
+}
+
+.freq-settings-rate-opt input {
+  accent-color: #55cc55;
+}
+
 
 
 
