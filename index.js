@@ -353,6 +353,41 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
       '  "classification": "CONFIDENTIAL 或 SECRET 或 TOP_SECRET"',
       '}'
     ].join('\\n'),
+        inbox_message: [
+      '你正在扮演 {{char}}。',
+      '{{char}} 想主动联系用户 {{user}}，发送一条私信。',
+      '',
+      '最近的聊天记录（供参考，了解上次聊到哪里）：',
+      '{{recentChat}}',
+      '',
+      '当前剧情背景：{{plot}}',
+      '当前场景：{{scene}}',
+      '',
+      '请以 {{char}} 的身份，写一条主动发给 {{user}} 的私信。',
+      '语气应符合角色个性，内容可以是：问候、分享心情、提起上次聊天的某个细节、',
+      '或者角色最近发生的某件小事。不要太正式，像真实的私信一样自然。',
+      '长度控制在50-150字之间。',
+      '',
+      '只输出私信正文，不要加任何前缀或说明。'
+    ].join('\n'),
+
+    inbox_reply: [
+      '你正在扮演 {{char}}。',
+      '你和用户 {{user}} 正在通过私信交流。',
+      '',
+      '最近的主线聊天记录（供参考）：',
+      '{{recentChat}}',
+      '',
+      '当前私信对话历史：',
+      '{{inboxThread}}',
+      '',
+      '用户刚刚回复了：{{userReply}}',
+      '',
+      '请以 {{char}} 的身份，自然地回应用户的这条私信。',
+      '语气应符合角色个性，回复长度50-120字之间。',
+      '',
+      '只输出回复正文，不要加任何前缀或说明。'
+    ].join('\n'),
 
 
   };
@@ -806,6 +841,8 @@ function buildSettingsHTML() {
       blackbox_plan:        '🔒 黑匣子·节目策划',
       blackbox_comm:        '🔒 黑匣子·内部通讯',
       blackbox_diary:       '🔒 黑匣子·秘密日记',
+          inbox_message: '私信收件箱·角色主动私信',
+    inbox_reply:   '私信收件箱·角色回复',
     };
 
     const promptEditorHTML = Object.entries(promptLabels).map(([key, label]) => `
@@ -917,6 +954,7 @@ function buildSettingsHTML() {
             <!-- ══ 自动触发设置 ══ -->
             <div class="freq-s-section-label">🤖 自动触发设置</div>
 
+            <!-- 黑匣子·自动截获 -->
             <div class="freq-s-toggle-row">
               <div class="freq-s-toggle-info">
                 <div class="freq-s-toggle-title">🔒 黑匣子·自动截获</div>
@@ -945,8 +983,49 @@ function buildSettingsHTML() {
               </div>
             </div>
 
-            <div class="freq-s-section-divider"></div>
+            <!-- 私信收件箱·自动触发 -->
+            <div class="freq-s-toggle-row">
+              <div class="freq-s-toggle-info">
+                <div class="freq-s-toggle-title">📬 私信收件箱·自动触发</div>
+                <div class="freq-s-toggle-sub">用户沉默超过设定时间后，角色主动发来一条私信</div>
+              </div>
+              <label class="freq-s-switch">
+                <input type="checkbox" id="freq_inbox_enabled"
+                  ${s.inboxEnabled !== false ? 'checked' : ''} />
+                <span class="freq-s-switch-slider"></span>
+              </label>
+            </div>
 
+            <div id="freq_inbox_config" class="freq-s-rate-row"
+                 style="${s.inboxEnabled !== false ? '' : 'display:none;'}">
+              <span>沉默阈值</span>
+              <div class="freq-s-rate-options" style="margin-bottom:8px;">
+                ${[
+                  [30,   '30 分钟'],
+                  [60,   '1 小时'],
+                  [240,  '4 小时'],
+                  [1440, '1 天'],
+                ].map(([val, label]) => `
+                  <label class="freq-s-rate-opt">
+                    <input type="radio" name="freq_inbox_threshold" value="${val}"
+                      ${(s.inboxThreshold ?? 30) === val ? 'checked' : ''} />
+                    <span>${label}</span>
+                  </label>`).join('')}
+              </div>
+              <div style="margin-top:6px;">
+                <span style="font-size:11px;color:#888;">自定义阈值（分钟，填写后优先生效）</span>
+                <input type="number" id="freq_inbox_custom" class="text_pole"
+                  min="1" placeholder="例如：45"
+                  value="${s.inboxCustomMinutes || ''}"
+                  style="margin-top:4px;" />
+              </div>
+              <div class="freq-s-field-hint">
+                冷却时间：角色发送私信后，随机等待 60~120 分钟才会再次触发
+              </div>
+            </div>
+
+            <div class="freq-s-section-divider"></div>
+            
             <!-- ══ Prompt 编辑器 ══ -->
             <div class="freq-s-collapse" id="freq-prompt-editor-toggle">
               <span>✏️ Prompt Editor</span>
@@ -1073,6 +1152,38 @@ function bindSettingsEvents() {
       });
     });
 
+    // ── 私信收件箱开关 ──
+    const inboxToggle = document.getElementById('freq_inbox_enabled');
+    const inboxConfig = document.getElementById('freq_inbox_config');
+    if (inboxToggle && inboxConfig) {
+      inboxToggle.addEventListener('change', function () {
+        saveSettings({ inboxEnabled: this.checked });
+        inboxConfig.style.display = this.checked ? '' : 'none';
+        EventBus.emit('inbox:settings_changed');
+        _status('✓ 已保存');
+      });
+    }
+
+    // ── 私信沉默阈值单选 ──
+    document.querySelectorAll('input[name="freq_inbox_threshold"]').forEach(radio => {
+      radio.addEventListener('change', function () {
+        saveSettings({ inboxThreshold: parseInt(this.value, 10) });
+        EventBus.emit('inbox:settings_changed');
+        _status('✓ 已保存');
+      });
+    });
+
+    // ── 私信自定义阈值输入 ──
+    const inboxCustom = document.getElementById('freq_inbox_custom');
+    if (inboxCustom) {
+      inboxCustom.addEventListener('input', function () {
+        const val = parseInt(this.value, 10);
+        saveSettings({ inboxCustomMinutes: isNaN(val) ? '' : val });
+        EventBus.emit('inbox:settings_changed');
+        _status('✓ 已保存');
+      });
+    }
+
     // ── Prompt Editor 折叠 ──
     const toggle = document.getElementById('freq-prompt-editor-toggle');
     const body   = document.getElementById('freq-prompt-editor-body');
@@ -1096,6 +1207,7 @@ function bindSettingsEvents() {
       'map_generate', 'map_detail', 'map_event',
       'novel_generate', 'novel_comment',
       'blackbox_conversation', 'blackbox_plan', 'blackbox_comm', 'blackbox_diary',
+      'inbox_message', 'inbox_reply',
     ].forEach(key => {
       const el = document.getElementById(`freq_prompt_${key}`);
       if (!el) return;
@@ -1129,6 +1241,7 @@ function bindSettingsEvents() {
     link.href = `${extensionPath}/settings.css`;
     document.head.appendChild(link);
   }
+
 
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_08  主界面 CSS动态注入                         │
@@ -8784,6 +8897,7 @@ const blackboxApp = {
     registerApp(dreamApp);
     registerApp(emotionApp);
     registerApp(blackboxApp);// ✅ BLOCK_26
+    registerApp(inboxApp);                                           // ✅ BLOCK_27
     registerApp(placeholderApp('translator', '信号翻译器',     '🔄', 'BGM 文风翻译'));
 
     // 5. 初始化所有 App
