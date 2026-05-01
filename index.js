@@ -418,16 +418,57 @@ type可选值：plan(计划)、event(已发生的事)、milestone(里程碑)
  */
 function safeParseAIJson(raw, expect = 'object') {
   if (!raw) return null;
+
+  // 第一步：去掉 markdown 代码块
   let cleaned = raw.trim()
     .replace(/^```(?:json)?\s*/im, '')
     .replace(/\s*```\s*$/m, '')
     .replace(/```/g, '')
     .trim();
+
+  // 第二步：尝试直接 parse（最理想情况）
+  try {
+    const direct = JSON.parse(cleaned);
+    if (expect === 'array' ? Array.isArray(direct) : (direct && typeof direct === 'object')) {
+      return direct;
+    }
+  } catch (_) {}
+
+  // 第三步：用正则提取 JSON 块（贪婪，取最外层）
   const pattern = expect === 'array' ? /\[[\s\S]*\]/ : /\{[\s\S]*\}/;
   const match = cleaned.match(pattern);
-  const jsonStr = match ? match[0] : cleaned;
-  return JSON.parse(jsonStr);
+  if (!match) throw new Error('未找到有效 JSON 结构');
+
+  let jsonStr = match[0];
+
+  // 第四步：修复常见 AI 输出问题
+  jsonStr = jsonStr
+    // 修复中文引号
+    .replace(/[\u201c\u201d\u300c\u300d]/g, '"')
+    .replace(/[\u2018\u2019\u300e\u300f]/g, "'")
+    // 修复尾随逗号（对象/数组末尾多余的逗号）
+    .replace(/,\s*([}\]])/g, '$1')
+    // 修复 JSON 值里的裸换行（字符串内的换行需要转义）
+    .replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, (m) =>
+      m.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t')
+    );
+
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    // 第五步：最后手段 —— 截断到最后一个完整字段
+    const lastBrace = expect === 'array'
+      ? jsonStr.lastIndexOf(']')
+      : jsonStr.lastIndexOf('}');
+    if (lastBrace > 0) {
+      try {
+        return JSON.parse(jsonStr.slice(0, lastBrace + 1));
+      } catch (_) {}
+    }
+    throw new Error('JSON 解析失败：' + e.message);
+  }
 }
+
   function getPrompt(key) {
     const custom = getSettings().prompts?.[key];
     return (custom && custom.trim()) ? custom.trim() : PROMPT_DEFAULTS[key];
@@ -1794,6 +1835,8 @@ function bindSettingsEvents() {
           p.style.display = isOpen ? 'block' : 'none';
           f.style.display = isOpen ? 'none' : 'block';
           card.classList.toggle('freq-thinking-card--open', !isOpen);
+          if (!isOpen) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
         });
       });
     },
@@ -1930,6 +1973,8 @@ function bindSettingsEvents() {
           const isOpen = f.style.display !== 'none';
           p.style.display = isOpen ? 'block' : 'none';
           f.style.display = isOpen ? 'none' : 'block';
+          if (!isOpen) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
         });
       });
     },
@@ -2117,7 +2162,7 @@ function bindSettingsEvents() {
     "time": "发帖时间（用剧情内时间）",
     "content": "动态正文，50-120字",
     "hashtag": "#话题标签#（可选）",
-    "likes": 随机数字0-99,
+    "likes": 42,
     "commentBy": "评论者名字（可选，可以是其他角色）",
     "comment": "评论内容（可选，一句话）"
   }
@@ -2479,11 +2524,12 @@ function bindSettingsEvents() {
 
         let data;
         try {
-          const match = raw.match(/\{[\s\S]*\}/);
-          data = match ? JSON.parse(match[0]) : JSON.parse(raw);
+          data = safeParseAIJson(raw, 'object');
+          if (!data) throw new Error('empty');
         } catch {
           data = { perception: raw.trim(), signal_strength: 0.7, mood: '感知中' };
         }
+
 
         data.signal_strength = Math.min(1, Math.max(0, Number(data.signal_strength) || 0.7));
         data.time = realTime;
@@ -2622,13 +2668,13 @@ function bindSettingsEvents() {
 
       try {
         const raw = await SubAPI.call(systemPrompt, '开始扫频。', {
-          maxTokens: 150,
+          maxTokens: 250,
           temperature: 0.95,
         });
 
         const text = raw.trim();
 
-        const npcMatch = text.match(/\[截获频率\s*·\s*([^\]]+)\]/);
+        const npcMatch = text.match(/[[\[【]截获频率\s*[·•·]\s*([^\]】\]]+)[\]】\]]/u);
         const npcName = npcMatch ? npcMatch[1].trim() : '未知频率';
 
         const record = { npc: npcName, text, time: timeNow() };
@@ -2663,7 +2709,7 @@ function bindSettingsEvents() {
       return this._history.map((h, i) => `
         <div class="freq-scanner-history-item${i === 0 ? ' freq-scanner-history-item--latest' : ''}">
           <span class="freq-scanner-history-npc">${escapeHtml(h.npc)}</span>
-          <span class="freq-scanner-history-text">${escapeHtml(h.text.replace(/\[截获频率\s*·[^\]]+\]\s*/, ''))}</span>
+          <span class="freq-scanner-history-text">${escapeHtml(h.text.replace(/[[\[【]截获频率\s*[·•·][^\]】\]]+[\]】\]]\s*/u, ''))}</span>
           <span class="freq-scanner-history-time">${h.time}</span>
         </div>`).join('');
     },
@@ -2871,9 +2917,15 @@ function bindSettingsEvents() {
 
 
       try {
-        const raw = await SubAPI.call(systemPrompt, '发帖。', { maxTokens: 300, temperature: 0.92 });
-        const match = raw.match(/\{[\s\S]*\}/);
-        const data = match ? JSON.parse(match[0]) : { title: raw.slice(0, 30), body: raw };
+         const raw = await SubAPI.call(systemPrompt, '发帖。', { maxTokens: 300, temperature: 0.92 });
+        let data;
+        try {
+          data = safeParseAIJson(raw, 'object');
+          if (!data) throw new Error('empty');
+        } catch (_) {
+          data = { title: raw.slice(0, 30), body: raw };
+        }
+
 
         const post = this._makePost({
           board: this._currentBoard,
@@ -3865,7 +3917,7 @@ try {
           temperature: 0.95,
         });
 
-        let data;
+      let data;
         try {
           const match = raw.match(/\{[\s\S]*\}/);
           data = match ? JSON.parse(match[0]) : JSON.parse(raw);
@@ -4467,11 +4519,12 @@ try {
 
         let data;
         try {
-          const match = raw.match(/\{[\s\S]*\}/);
-          data = match ? JSON.parse(match[0]) : JSON.parse(raw);
+          data = safeParseAIJson(raw, 'object');
+          if (!data) throw new Error('empty');
         } catch {
           data = { char_emotion: '未知', intensity: 0.5, color_hex: '#888', waveform_type: 'sine' };
         }
+
 
         data.intensity = Math.min(1, Math.max(0, Number(data.intensity) || 0.5));
         if (!data.color_hex ||!/^#[0-9a-fA-F]{3,8}$/.test(data.color_hex)) data.color_hex = '#888';
@@ -6132,13 +6185,10 @@ const calendarApp = {
         { maxTokens: 400, temperature: 0.7 }
       );
 
-      // 清理可能的 markdown 代码块
-      let cleaned = raw.trim();
-      cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
-
       let parsed;
       try {
-        parsed = JSON.parse(cleaned);
+        parsed = safeParseAIJson(raw, 'object');
+        if (!parsed) throw new Error('empty');
       } catch (parseErr) {
         resultDiv.innerHTML = '<div class="freq-studio-error">AI返回格式异常，无法解析</div>'
           + '<div class="freq-cal23-ai-raw">' + this._escHtml(raw) + '</div>';
@@ -7885,19 +7935,17 @@ try {
       try {
         const raw = await SubAPI.call(systemPrompt, '开始创作。', { maxTokens: 1500, temperature: 0.9 });
 
-        // 清理 markdown 代码块标记后再解析
-        const cleaned = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-        const match   = cleaned.match(/\{[\s\S]*\}/);
-        let title = '无题', content = cleaned;
-        if (match) {
-          try {
-            const parsed = JSON.parse(match[0]);
+         let title = '无题', content = raw.trim();
+        try {
+          const parsed = safeParseAIJson(raw, 'object');
+          if (parsed) {
             title   = parsed.title   || '无题';
-            content = parsed.content || cleaned;
-          } catch (_) {
-            // JSON解析失败，直接用原文作为正文
+            content = parsed.content || raw.trim();
           }
+        } catch (_) {
+          // JSON解析失败，直接用原文作为正文
         }
+
 
         const chapCount = seriesId ? d.chapters.filter(c => c.seriesId === seriesId).length : 0;
         const chapter = {
@@ -8653,7 +8701,7 @@ try {
       this._badge++;
       renderAppGrid();} catch (e) {
       console.error('[blackbox] intercept error:', e);
-      Notify.error('截获失败：' + (e.message || '未知错误'));
+      Notify.error('黑匣子·截获', e);
     } finally {
       this._generating = false;
       if (this._container && this._currentView === 'list') {
