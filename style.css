@@ -1107,6 +1107,326 @@
 .freq-archive-empty-btn:active {
   transform: translateY(0);
 }
+/* ========================================
+   App 02 - 后台录音室 🎙️ 
+   ======================================== */
+
+.freq-studio-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d1b1b 100%);
+}
+
+.freq-studio-header {
+  background: linear-gradient(135deg, #000000 0%, #1a0000 100%);
+  padding: 0;
+  border-bottom: 2px solid #ff0000;
+  box-shadow: 0 4px 12px rgba(255, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.freq-studio-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.freq-studio-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-right: 1px solid rgba(255, 0, 0, 0.2);
+  color: #999;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.freq-studio-tab:last-child {
+  border-right: none;
+}
+
+.freq-studio-tab:hover {
+  background: rgba(255, 0, 0, 0.1);
+  color: #ff6666;
+}
+
+.freq-studio-tab.active {
+  background: linear-gradient(135deg, #cc0000 0%, #ff0000 100%);
+  color: white;
+  box-shadow: inset 0 -3px 0 rgba(255, 255, 255, 0.3);
+}
+
+.freq-studio-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  animation: freq-studio-glow 2s ease-in-out infinite;
+}
+
+@keyframes freq-studio-glow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+.freq-studio-tab-icon {
+  font-size: 16px;
+}
+
+.freq-studio-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background: #1a1a1a;
+}
+
+/* 生成按钮区 */
+.freq-studio-generate-section {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.freq-studio-generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #cc0000 0%, #ff0000 100%);
+  border: 2px solid #ff3333;
+  border-radius: 8px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.3s;
+  box-shadow: 0 4px 16px rgba(255, 0, 0, 0.4),
+              inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.freq-studio-generate-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 0, 0, 0.6),
+              inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  border-color: #ff6666;
+}
+
+.freq-studio-generate-btn:active {
+  transform: translateY(0);
+}
+
+.freq-studio-generate-icon {
+  font-size: 18px;
+}
+
+/* 内容区 */
+.freq-studio-content {
+  min-height: 200px;
+}
+
+.freq-studio-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 0, 0, 0.1);
+  border-left: 3px solid #ff0000;
+  color: #ff6666;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.freq-studio-section-icon {
+  font-size: 16px;
+}
+
+/* 最新内容卡片 */
+.freq-studio-card-latest {
+  background: linear-gradient(135deg, #2d1b1b 0%, #1a0000 100%);
+  border: 2px solid #ff0000;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(255, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: visible;
+}
+
+.freq-studio-card-latest::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #ff0000, #cc0000, #ff0000);
+  border-radius: 12px;
+  z-index: -1;
+  opacity: 0.5;
+  filter: blur(8px);
+}
+
+/* 历史记录卡片 */
+.freq-studio-card-history {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.3s;
+}
+
+.freq-studio-card-history:hover {
+  background: rgba(255, 0, 0, 0.1);
+  border-color: #ff0000;
+  transform: translateX(4px);
+}
+
+.freq-studio-card-history:last-child {
+  margin-bottom: 0;
+}
+
+/* 卡片头部 */
+.freq-studio-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.freq-studio-card-icon {
+  font-size: 20px;
+}
+
+.freq-studio-card-mood,
+.freq-studio-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ff6666;
+}
+
+.freq-studio-card-time {
+  margin-left: auto;
+  font-size: 12px;
+  color: #999;
+  font-family: 'SF Mono', 'Monaco', monospace;
+}
+
+.freq-studio-card-emotion {
+  padding: 3px 10px;
+  background: rgba(255, 0, 0, 0.2);
+  border: 1px solid rgba(255, 0, 0, 0.4);
+  border-radius: 12px;
+  font-size: 11px;
+  color: #ff9999;
+}
+
+/* 卡片内容 */
+.freq-studio-card-content {
+  color: #ddd;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.freq-studio-card-summary {
+  color: #999;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+/* Q&A 样式 */
+.freq-studio-qa-item {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 3px solid #ff0000;
+  border-radius: 6px;
+}
+
+.freq-studio-qa-item:last-child {
+  margin-bottom: 0;
+}
+
+.freq-studio-question {
+  color: #ff6666;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.freq-studio-answer {
+  color: #ccc;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.freq-studio-qa-label {
+  display: inline-block;
+  width: 24px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Monaco', monospace;
+}
+
+/* 空状态 */
+.freq-studio-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  min-height: 300px;
+}
+
+.freq-studio-empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+.freq-studio-empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ff6666;
+  margin-bottom: 8px;
+}
+
+.freq-studio-empty-desc {
+  font-size: 14px;
+  color: #999;
+}
+
+/* 历史记录区 */
+.freq-studio-history {
+  margin-top: 24px;
+}
+
 
 
 
