@@ -1,30 +1,56 @@
 <!-- FREQ · TERMINAL 配置面板 -->
-<link rel="stylesheet" href="/scripts/extensions/third-party/FREQ-TERMINAL/settings.css" />
-
 <div class="freq-settings-wrap">
 
   <!--═══ 标题 ═══ -->
   <div class="freq-settings-header">
     <span class="freq-settings-logo">📻</span>
-    <span class="freq-settings-title">FREQ · TERMINAL</span><span class="freq-settings-ver">v2.0</span>
+    <span class="freq-settings-title">FREQ · TERMINAL</span>
+    <span class="freq-settings-ver">v2.0</span>
+  </div>
+
+  <!-- ═══ 区域0：插件总开关 ═══ -->
+  <div class="freq-settings-section">
+    <div class="freq-settings-section-title" data-freq-toggle="freq-sec-master">
+      <span>⚡ 插件控制</span>
+      <span class="freq-settings-arrow">▼</span>
+    </div>
+    <div class="freq-settings-section-body" id="freq-sec-master"><div class="freq-settings-row">
+        <label class="freq-settings-label">启用插件</label>
+        <label class="freq-settings-switch">
+          <input type="checkbox" id="freq-master-enabled" checked />
+          <span class="freq-settings-switch-slider"></span>
+        </label>
+      </div>
+
+      <div class="freq-settings-row">
+        <label class="freq-settings-label">显示悬浮窗</label>
+        <label class="freq-settings-switch">
+          <input type="checkbox" id="freq-fab-enabled" checked />
+          <span class="freq-settings-switch-slider"></span>
+        </label>
+      </div>
+
+      <div class="freq-settings-row">
+        <button class="freq-settings-btn freq-settings-btn-primary" id="freq-open-phone-btn">📱 打开手机</button>
+      </div>
+
+    </div>
   </div>
 
   <!-- ═══ 区域1：副API 配置 ═══ -->
   <div class="freq-settings-section">
     <div class="freq-settings-section-title" data-freq-toggle="freq-sec-api">
-      <span>🔑 副 API 配置</span>
+      <span>🔑 副API 配置</span>
       <span class="freq-settings-arrow">▼</span>
     </div>
     <div class="freq-settings-section-body" id="freq-sec-api">
 
-      <!-- API 地址 -->
       <div class="freq-settings-row">
         <label class="freq-settings-label">API Base URL</label>
         <input type="text" class="freq-settings-input" id="freq-api-url"
                placeholder="https://api.openai.com/v1" />
       </div>
 
-      <!-- API Key -->
       <div class="freq-settings-row">
         <label class="freq-settings-label">API Key</label>
         <div class="freq-settings-input-group">
@@ -35,10 +61,9 @@
         </div>
       </div>
 
-      <!-- 连接测试 + 模型选择 -->
       <div class="freq-settings-row">
-        <button class="freq-settings-btn freq-settings-btn-primary" id="freq-api-fetch-models">🔍 获取可用模型
-        </button><span class="freq-settings-hint" id="freq-api-status"></span>
+        <button class="freq-settings-btn freq-settings-btn-primary" id="freq-api-fetch-models">🔍 获取可用模型</button>
+        <span class="freq-settings-hint" id="freq-api-status"></span>
       </div><div class="freq-settings-row">
         <label class="freq-settings-label">选择模型</label>
         <select class="freq-settings-select" id="freq-api-model" disabled>
@@ -46,7 +71,6 @@
         </select>
       </div>
 
-      <!-- 温度 -->
       <div class="freq-settings-row">
         <label class="freq-settings-label">Temperature</label>
         <input type="range" class="freq-settings-range" id="freq-api-temp"
@@ -54,7 +78,6 @@
         <span class="freq-settings-range-val" id="freq-api-temp-val">0.8</span>
       </div>
 
-      <!-- Max Tokens -->
       <div class="freq-settings-row">
         <label class="freq-settings-label">Max Tokens</label>
         <input type="number" class="freq-settings-input freq-settings-input-sm"
@@ -72,7 +95,6 @@
     </div>
     <div class="freq-settings-section-body" id="freq-sec-trigger">
 
-      <!-- 开关 -->
       <div class="freq-settings-row">
         <label class="freq-settings-label">启用后台触发</label>
         <label class="freq-settings-switch">
@@ -81,7 +103,6 @@
         </label>
       </div>
 
-      <!-- 触发频率 -->
       <div class="freq-settings-row">
         <label class="freq-settings-label">触发间隔</label>
         <select class="freq-settings-select" id="freq-trigger-interval">
@@ -91,30 +112,22 @@
         </select>
       </div>
 
-      <!-- 自定义间隔 -->
       <div class="freq-settings-row freq-settings-row-hidden" id="freq-trigger-custom-row">
         <label class="freq-settings-label">自定义（分钟）</label>
         <input type="number" class="freq-settings-input freq-settings-input-sm"
                id="freq-trigger-custom" value="45" min="10" max="480" />
       </div>
 
-      <!-- 静默期 -->
       <div class="freq-settings-row">
         <label class="freq-settings-label">静默期（小时）</label>
         <input type="number" class="freq-settings-input freq-settings-input-sm"
                id="freq-trigger-cooldown" value="3" min="1" max="12" />
       </div>
 
-      <!-- 参与后台触发的 App -->
       <div class="freq-settings-row freq-settings-row-col">
-        <label class="freq-settings-label">参与后台触发的 App</label>
-        <div class="freq-settings-checkbox-grid" id="freq-trigger-apps">
-          <!-- JS 动态生成 -->
-        </div>
-      </div>
-
-      <!-- 状态显示 -->
-      <div class="freq-settings-row">
+        <label class="freq-settings-label">参与后台触发的App</label>
+        <div class="freq-settings-checkbox-grid" id="freq-trigger-apps"></div>
+      </div><div class="freq-settings-row">
         <label class="freq-settings-label">当前状态</label>
         <span class="freq-settings-hint" id="freq-trigger-status">未启用</span>
       </div>
@@ -130,7 +143,6 @@
     </div>
     <div class="freq-settings-section-body" id="freq-sec-prompts">
 
-      <!-- App 选择 -->
       <div class="freq-settings-row">
         <label class="freq-settings-label">选择 App</label>
         <select class="freq-settings-select" id="freq-prompt-app-select">
@@ -138,7 +150,6 @@
         </select>
       </div>
 
-      <!-- System Prompt -->
       <div class="freq-settings-row freq-settings-row-col" id="freq-prompt-editor-wrap" style="display:none;">
         <label class="freq-settings-label">System Prompt</label>
         <textarea class="freq-settings-textarea" id="freq-prompt-system"
@@ -165,7 +176,6 @@
     </div>
     <div class="freq-settings-section-body" id="freq-sec-logs">
 
-      <!-- 过滤 -->
       <div class="freq-settings-row">
         <select class="freq-settings-select freq-settings-select-sm" id="freq-log-filter">
           <option value="all">全部</option>
@@ -177,8 +187,8 @@
         <button class="freq-settings-btn freq-settings-btn-sm" id="freq-log-export">📋 导出</button>
       </div>
 
-      <!-- 日志列表 -->
-      <div class="freq-log-list" id="freq-log-list"><div class="freq-log-empty">暂无日志</div></div>
+      <div class="freq-log-list" id="freq-log-list"><div class="freq-log-empty">暂无日志</div>
+      </div>
 
     </div>
   </div>
@@ -199,3 +209,4 @@
   </div>
 
 </div>
+
