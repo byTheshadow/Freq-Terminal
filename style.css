@@ -1108,7 +1108,7 @@
   transform: translateY(0);
 }
 /* ========================================
-   App 02 - 后台录音室 🎙️ (摇滚黑红风格)
+   App 02 - 后台录音室 🎙️
    ======================================== */
 
 .freq-studio-wrapper {
@@ -1119,11 +1119,11 @@
   background: #1a1a1a;
 }
 
-/* ── Header / Tabs ── */
+/* Tabs */
 .freq-studio-header {
   background: #000;
   border-bottom: 2px solid #cc0000;
-  box-shadow: 0 2px 12px rgba(204, 0, 0, 0.4);
+  box-shadow: 0 2px 12px rgba(204,0,0,0.4);
   flex-shrink: 0;
 }
 
@@ -1136,36 +1136,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 13px 8px;
+  gap: 5px;
+  padding: 12px 6px;
   background: transparent;
   border: none;
-  border-right: 1px solid rgba(204, 0, 0, 0.25);
-  color: #666;
+  border-right: 1px solid rgba(204,0,0,0.2);
+  color: #555;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   pointer-events: auto;
-  transition: all 0.25s;
+  transition: all 0.2s;
 }
 
-.freq-studio-tab:last-child {
-  border-right: none;
-}
+.freq-studio-tab:last-child { border-right: none; }
 
 .freq-studio-tab:hover {
-  background: rgba(204, 0, 0, 0.12);
+  background: rgba(204,0,0,0.1);
   color: #ff6666;
 }
 
 .freq-studio-tab.active {
-  background: linear-gradient(180deg, #cc0000 0%, #990000 100%);
+  background: linear-gradient(180deg, #cc0000, #990000);
   color: #fff;
   font-weight: 700;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
 }
 
-/* ── Body ── */
+/* Body */
 .freq-studio-body {
   flex: 1;
   overflow-y: auto;
@@ -1173,16 +1170,10 @@
   background: #1a1a1a;
 }
 
-/* ── Controls（生成按钮 + 提问框） ── */
-.freq-studio-controls {
-  margin-bottom: 16px;
-}
+/* 提问框 */
+.freq-studio-qbox { margin-bottom: 10px; }
 
-.freq-studio-question-box {
-  margin-bottom: 12px;
-}
-
-.freq-studio-question-label {
+.freq-studio-qlabel {
   display: block;
   font-size: 12px;
   color: #ff9999;
@@ -1190,31 +1181,30 @@
   font-weight: 500;
 }
 
-.freq-studio-question-input {
+.freq-studio-qinput {
   width: 100%;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(204, 0, 0, 0.4);
+  box-sizing: border-box;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(204,0,0,0.35);
   border-radius: 8px;
   color: #ddd;
   font-size: 13px;
   padding: 10px 12px;
   resize: vertical;
   line-height: 1.6;
-  box-sizing: border-box;
-  transition: border-color 0.2s;
   font-family: inherit;
+  transition: border-color 0.2s;
 }
 
-.freq-studio-question-input:focus {
+.freq-studio-qinput:focus {
   outline: none;
   border-color: #cc0000;
-  box-shadow: 0 0 0 2px rgba(204, 0, 0, 0.2);
+  box-shadow: 0 0 0 2px rgba(204,0,0,0.2);
 }
 
-.freq-studio-question-input::placeholder {
-  color: #555;
-}
+.freq-studio-qinput::placeholder { color: #444; }
 
+/* 生成按钮 */
 .freq-studio-generate-btn {
   display: flex;
   align-items: center;
@@ -1222,7 +1212,7 @@
   gap: 8px;
   width: 100%;
   padding: 13px;
-  background: linear-gradient(135deg, #cc0000 0%, #ff1a1a 100%);
+  background: linear-gradient(135deg, #cc0000, #ff1a1a);
   border: none;
   border-radius: 8px;
   color: #fff;
@@ -1230,118 +1220,100 @@
   font-weight: 700;
   cursor: pointer;
   pointer-events: auto;
-  transition: all 0.25s;
-  box-shadow: 0 4px 16px rgba(204, 0, 0, 0.45);
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(204,0,0,0.4);
   letter-spacing: 1px;
+  margin-bottom: 16px;
 }
 
 .freq-studio-generate-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(204, 0, 0, 0.65);
+  box-shadow: 0 6px 20px rgba(204,0,0,0.6);
 }
 
-.freq-studio-generate-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(204, 0, 0, 0.4);
-}
+.freq-studio-generate-btn:active { transform: translateY(0); }
 
-/* ── Section Title ── */
-.freq-studio-section-title {
+/* Section 标签 */
+.freq-studio-section-label {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  padding: 5px 10px;
   margin-bottom: 10px;
-  background: rgba(204, 0, 0, 0.12);
+  background: rgba(204,0,0,0.1);
   border-left: 3px solid #cc0000;
   color: #ff6666;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 1px;
 }
 
-.freq-studio-section-history {
-  margin-top: 20px;
-}
+.freq-studio-section-gap { margin-top: 20px; }
 
-/* ── 最新内容卡片（全展开，无折叠） ── */
-.freq-studio-card-latest {
-  background: linear-gradient(135deg, #2a0a0a 0%, #1a0000 100%);
+/* 最新内容卡片：全展开，无折叠 */
+.freq-studio-latest-card {
+  background: linear-gradient(135deg, #2a0a0a, #1a0000);
   border: 1px solid #cc0000;
   border-radius: 10px;
   padding: 16px;
   margin-bottom: 4px;
-  box-shadow: 0 0 20px rgba(204, 0, 0, 0.25);
+  box-shadow: 0 0 20px rgba(204,0,0,0.2);
 }
 
-/* ── 历史卡片（可折叠） ── */
-.freq-studio-card-history {
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(204, 0, 0, 0.25);
+/* 历史卡片：折叠 */
+.freq-studio-hist-card {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(204,0,0,0.2);
   border-radius: 10px;
   padding: 14px;
   margin-bottom: 10px;
   cursor: pointer;
   pointer-events: auto;
-  transition: all 0.25s;
+  transition: all 0.2s;
   overflow: hidden;
 }
 
-.freq-studio-card-history:hover {
-  border-color: rgba(204, 0, 0, 0.6);
-  background: rgba(204, 0, 0, 0.08);
+.freq-studio-hist-card:hover {
+  border-color: rgba(204,0,0,0.5);
+  background: rgba(204,0,0,0.07);
 }
 
-.freq-studio-card-history:last-child {
-  margin-bottom: 0;
-}
-
-/* 折叠时隐藏内容，只显示 header */
-.freq-studio-card-expandable .freq-studio-qa-list,
-.freq-studio-card-expandable .freq-studio-card-content {
+/* 折叠时隐藏内容 */
+.freq-studio-hist-card .freq-studio-card-body,
+.freq-studio-hist-card .freq-studio-qa-list {
   display: none;
   margin-top: 12px;
 }
 
 /* 展开后显示 */
-.freq-studio-card-expandable.freq-studio-expanded .freq-studio-qa-list,
-.freq-studio-card-expandable.freq-studio-expanded .freq-studio-card-content {
+.freq-studio-hist-card.freq-studio-expanded .freq-studio-card-body,
+.freq-studio-hist-card.freq-studio-expanded .freq-studio-qa-list {
   display: block;
 }
 
-/* 展开提示 */
 .freq-studio-expand-hint {
   font-size: 11px;
-  color: #555;
+  color: #444;
   text-align: center;
   margin-top: 8px;
   transition: color 0.2s;
 }
 
-.freq-studio-card-history:hover .freq-studio-expand-hint {
-  color: #ff6666;
-}
+.freq-studio-hist-card:hover .freq-studio-expand-hint { color: #ff6666; }
 
-.freq-studio-card-expandable.freq-studio-expanded .freq-studio-expand-hint {
-  display: none;
-}
+.freq-studio-hist-card.freq-studio-expanded .freq-studio-expand-hint { display: none; }
 
-/* ── 卡片 Header ── */
-.freq-studio-card-header {
+/* 卡片 Header */
+.freq-studio-card-head {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.freq-studio-card-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-}
+.freq-studio-card-ico { font-size: 18px; flex-shrink: 0; }
 
-.freq-studio-card-mood,
-.freq-studio-card-title {
+.freq-studio-card-mood {
   font-size: 14px;
   font-weight: 700;
   color: #ff6666;
@@ -1352,82 +1324,85 @@
 .freq-studio-card-time {
   font-size: 11px;
   color: #555;
-  font-family: 'SF Mono', 'Monaco', monospace;
+  font-family: 'SF Mono', monospace;
   flex-shrink: 0;
 }
 
 .freq-studio-card-emotion {
   padding: 2px 8px;
-  background: rgba(204, 0, 0, 0.2);
-  border: 1px solid rgba(204, 0, 0, 0.4);
+  background: rgba(204,0,0,0.2);
+  border: 1px solid rgba(204,0,0,0.4);
   border-radius: 10px;
   font-size: 11px;
   color: #ff9999;
 }
 
-/* ── 卡片内容 ── */
-.freq-studio-card-content {
+/* 卡片正文 */
+.freq-studio-card-body {
   color: #ccc;
   font-size: 13px;
   line-height: 1.75;
   white-space: pre-wrap;
   word-wrap: break-word;
+  margin-top: 12px;
 }
 
-/* ── Q&A ── */
+/* Q&A */
 .freq-studio-qa-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .freq-studio-qa-item {
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0,0,0,0.3);
   border-left: 3px solid #cc0000;
   border-radius: 6px;
 }
 
-.freq-studio-question {
+.freq-studio-q {
+  display: flex;
+  gap: 8px;
   color: #ff6666;
   font-size: 13px;
   font-weight: 600;
   margin-bottom: 6px;
   line-height: 1.6;
-  display: flex;
-  gap: 8px;
 }
 
-.freq-studio-answer {
+.freq-studio-a {
+  display: flex;
+  gap: 8px;
   color: #ccc;
   font-size: 13px;
   line-height: 1.6;
-  display: flex;
-  gap: 8px;
 }
 
-.freq-studio-qa-label {
+.freq-studio-qa-tag {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 20px;
   height: 20px;
+  min-width: 20px;
   background: #cc0000;
   color: #fff;
   font-size: 11px;
   font-weight: 700;
   border-radius: 4px;
   flex-shrink: 0;
-  margin-top: 1px;
-  font-family: 'SF Mono', 'Monaco', monospace;
+  margin-top: 2px;
+  font-family: 'SF Mono', monospace;
 }
 
-.freq-studio-answer .freq-studio-qa-label {
-  background: rgba(204, 0, 0, 0.3);
+.freq-studio-qa-tag-a {
+  background: rgba(204,0,0,0.3);
   color: #ff9999;
 }
 
-/* ── 空状态 ── */
+/* 空状态 */
 .freq-studio-empty {
   display: flex;
   flex-direction: column;
@@ -1438,10 +1413,10 @@
   min-height: 260px;
 }
 
-.freq-studio-empty-icon {
+.freq-studio-empty-ico {
   font-size: 56px;
   margin-bottom: 14px;
-  opacity: 0.25;
+  opacity: 0.2;
   filter: grayscale(1);
 }
 
