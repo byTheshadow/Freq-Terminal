@@ -1344,14 +1344,14 @@ FREQ.DEFAULT_PROMPTS['studio'] = {
 可以吐槽台本、思考节目设计、抱怨生活、或者突然的灵感。
 保持你的颓废跳脱风格。
 
-只输出一个合法JSON对象，不要加任何markdown代码块，不要加任何解释：
-{"mood":"当前心情","content":"碎碎念内容（200字内，带颜文字）","timestamp":"时间戳（如：深夜02:34）"}`,
+严格只输出如下格式的JSON，不要有任何其他文字：
+{"mood":"当前心情","content":"碎碎念内容（200字内，带颜文字）","timestamp":"时间戳如深夜02:34"}`,
     user: `当前角色：{{char}}
 用户：{{user}}
 最近对话：
 {{context}}
 
-生成失真此刻的私下碎碎念。只输出JSON，不要加\`\`\`。`
+生成失真此刻的私下碎碎念。严格只输出JSON对象本身。`
   },
 
   interview: {
@@ -1361,7 +1361,7 @@ FREQ.DEFAULT_PROMPTS['studio'] = {
 {{userQuestions}}
 提出3-5个深度问题，让角色展现真实的一面。
 
-只输出一个合法JSON对象，不要加任何markdown代码块，不要加任何解释：
+严格只输出如下格式的JSON，不要有任何其他文字：
 {"title":"采访主题","qa":[{"question":"失真的提问","answer":"角色的回答"}]}`,
     user: `角色信息：
 名字：{{char}}
@@ -1370,15 +1370,15 @@ FREQ.DEFAULT_PROMPTS['studio'] = {
 最近对话：
 {{context}}
 
-生成一次深度采访（3-5个Q&A）。只输出JSON，不要加\`\`\`。`
+生成一次深度采访（3-5个Q&A）。严格只输出JSON对象本身。`
   },
 
   private: {
     system: `角色 {{char}} 独自在录音室，录制一段不会公开的私人磁带。
 这是TA最真实的独白，未经修饰，可以脆弱、矛盾、混乱。
 
-只输出一个合法JSON对象，不要加任何markdown代码块，不要加任何解释：
-{"title":"私录主题","content":"角色的私人独白（300字内）","emotion":"情绪标签"}`,
+严格只输出如下格式的JSON，不要有任何其他文字：
+{"title":"私录主题","content":"角色的私人独白300字内","emotion":"情绪标签"}`,
     systemWithThinking: `角色 {{char}} 独自在录音室，录制一段不会公开的私人磁带。
 
 以下是TA最近的真实思绪片段：
@@ -1387,8 +1387,8 @@ FREQ.DEFAULT_PROMPTS['studio'] = {
 请以此为素材，生成TA的私录内容。
 保留那种未经整理的真实感，可以脆弱、矛盾、混乱。
 
-只输出一个合法JSON对象，不要加任何markdown代码块，不要加任何解释：
-{"title":"私录主题","content":"角色的私人独白（300字内）","emotion":"情绪标签"}`,
+严格只输出如下格式的JSON，不要有任何其他文字：
+{"title":"私录主题","content":"角色的私人独白300字内","emotion":"情绪标签"}`,
     user: `角色信息：
 名字：{{char}}
 描述：{{charDesc}}
@@ -1396,7 +1396,7 @@ FREQ.DEFAULT_PROMPTS['studio'] = {
 最近对话：
 {{context}}
 
-生成角色的私人录音。只输出JSON，不要加\`\`\`。`
+生成角色的私人录音。严格只输出JSON对象本身。`
   }
 };
 
@@ -1411,11 +1411,11 @@ FREQ.apps['studio'] = {
   // ── 初始化 ──
   async init() {
     try {
-      const data = await FreqStorage.loadAppData(this.id);
-      if (data) {
-        this._data.monologue = data.monologue || [];
-        this._data.interview = data.interview || [];
-        this._data.private   = data.private   || [];
+      const saved = await FreqStorage.loadAppData(this.id);
+      if (saved) {
+        this._data.monologue = saved.monologue || [];
+        this._data.interview = saved.interview || [];
+        this._data.private   = saved.private   || [];
         FreqLog.info(this.name, '加载数据成功');
       }
     } catch (e) {
@@ -1427,7 +1427,6 @@ FREQ.apps['studio'] = {
   mount(container) {
     container.innerHTML = `
       <div class="freq-studio-wrapper">
-
         <div class="freq-studio-header">
           <div class="freq-studio-tabs">
             <button class="freq-studio-tab ${this._currentMode === 'monologue' ? 'active' : ''}"
@@ -1444,22 +1443,15 @@ FREQ.apps['studio'] = {
             </button>
           </div>
         </div>
-
         <div class="freq-studio-body">
-          <div class="freq-studio-controls" id="freq-studio-controls">
-            ${this._renderControls()}
-          </div>
-          <div class="freq-studio-content" id="freq-studio-content">
-            ${this._renderContent()}
-          </div>
+          <div id="freq-studio-controls">${this._renderControls()}</div>
+          <div id="freq-studio-content">${this._renderContent()}</div>
         </div>
-
       </div>
     `;
     this._bindEvents(container);
   },
 
-  // ── 卸载 ──
   unmount() {},
 
   // ── 事件绑定 ──
@@ -1474,7 +1466,7 @@ FREQ.apps['studio'] = {
       } else if (action === 'generate') {
         this._handleGenerate(container);
       } else if (action === 'toggle-card') {
-        const card = btn.closest('.freq-studio-card-expandable');
+        const card = btn.closest('.freq-studio-hist-card');
         if (card) card.classList.toggle('freq-studio-expanded');
       }
     });
@@ -1484,70 +1476,91 @@ FREQ.apps['studio'] = {
   _handleSwitchMode(container, mode) {
     if (this._currentMode === mode) return;
     this._currentMode = mode;
-
-    container.querySelectorAll('.freq-studio-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.mode === mode);
+    container.querySelectorAll('.freq-studio-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.mode === mode);
     });
-
     container.querySelector('#freq-studio-controls').innerHTML = this._renderControls();
     container.querySelector('#freq-studio-content').innerHTML  = this._renderContent();
   },
 
-  // ── 渲染控制区（生成按钮 + 演播厅提问框） ──
+  // ── 控制区 ──
   _renderControls() {
-    const interviewExtra = this._currentMode === 'interview' ? `
-      <div class="freq-studio-question-box">
-        <label class="freq-studio-question-label">💬 向失真提交问题（选填，留空则自由发挥）</label>
-        <textarea
-          id="freq-studio-user-questions"
-          class="freq-studio-question-input"
-          placeholder="每行一个问题，失真会以此为基础提问..."
-          rows="3"
-        ></textarea>
-      </div>
-    ` : '';
-
+    const questionBox = this._currentMode === 'interview' ? `
+      <div class="freq-studio-qbox">
+        <label class="freq-studio-qlabel">💬 向失真提交问题（选填，留空则自由发挥）</label>
+        <textarea id="freq-studio-user-q" class="freq-studio-qinput"
+          placeholder="每行一个问题，失真会以此为基础提问..." rows="3"></textarea>
+      </div>` : '';
     return `
-      ${interviewExtra}
+      ${questionBox}
       <button class="freq-studio-generate-btn" data-action="generate">
         <span>🎬</span><span>生成新内容</span>
       </button>
     `;
   },
 
+  // ── 核心：强力 JSON 解析 ──
+  _forceParseJSON(raw) {
+    if (!raw) return null;
+
+    // 第一步：剥离所有 markdown 代码块包裹（多行也能处理）
+    let cleaned = raw.trim();
+    cleaned = cleaned.replace(/^```[\w]*\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+
+    // 第二步：找到第一个 { 和最后一个 }，截取中间内容
+    const start = cleaned.indexOf('{');
+    const end   = cleaned.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) return null;
+
+    const jsonStr = cleaned.slice(start, end + 1);
+
+    try {
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      FreqLog.warn(this.name, 'JSON强力解析失败', { error: e.message, snippet: jsonStr.substring(0, 100) });
+      return null;
+    }
+  },
+
   // ── 生成 ──
   async _handleGenerate(container) {
-    const contentEl  = container.querySelector('#freq-studio-content');
-    const controlsEl = container.querySelector('#freq-studio-controls');
+    const contentEl = container.querySelector('#freq-studio-content');
 
-    // 读取用户提问（演播厅专用）
     let userQuestions = '';
     if (this._currentMode === 'interview') {
-      const textarea = container.querySelector('#freq-studio-user-questions');
-      userQuestions = textarea ? textarea.value.trim() : '';
+      const ta = container.querySelector('#freq-studio-user-q');
+      userQuestions = ta ? ta.value.trim() : '';
     }
 
     contentEl.innerHTML = `
       <div class="freq-loading">
         <div class="freq-loading-spinner"></div>
         <span>正在录制中...</span>
-      </div>
-    `;
+      </div>`;
 
     try {
       const { systemPrompt, userPrompt } = this._getPrompts(userQuestions);
-      const raw  = await FreqSubAPI.call(systemPrompt, userPrompt);
-      let   data = safeParseAIJson(raw, 'object');
+      const raw = await FreqSubAPI.call(systemPrompt, userPrompt);
 
+      FreqLog.info(this.name, 'AI原始返回', { raw: raw.substring(0, 300) });
+
+      // 先用强力解析，再用 safeParseAIJson 兜底
+      let data = this._forceParseJSON(raw);
+      if (!data) {
+        data = safeParseAIJson(raw, 'object');
+      }
+
+      // 验证数据完整性，按模式检查关键字段
+      if (data && !data._fallback) {
+        if (this._currentMode === 'monologue' && !data.content) data = null;
+        if (this._currentMode === 'interview' && !Array.isArray(data.qa)) data = null;
+        if (this._currentMode === 'private'   && !data.content) data = null;
+      }
+
+      // 最终降级
       if (!data || data._fallback) {
-        // 降级：把原始文本包成统一结构
-        data = {
-          content:   data?.text || raw,
-          title:     '生成内容',
-          mood:      '未知',
-          timestamp: freqTimeNow(),
-          _fallback: true,
-        };
+        FreqLog.warn(this.name, '解析失败，使用降级数据', { raw: raw.substring(0, 200) });
+        data = this._makeFallback(raw);
       }
 
       data.id        = freqUID();
@@ -1556,7 +1569,6 @@ FREQ.apps['studio'] = {
 
       this._data[this._currentMode].unshift(data);
       this._data[this._currentMode] = this._data[this._currentMode].slice(0, this._maxRecords);
-
       await FreqStorage.saveAppData(this.id, this._data);
 
       contentEl.innerHTML = this._renderContent();
@@ -1569,23 +1581,35 @@ FREQ.apps['studio'] = {
           <div class="freq-error-icon">⚠️</div>
           <div class="freq-error-msg">${escapeHtml(e.message)}</div>
           <button class="freq-retry-btn" data-action="generate">🔄 重试</button>
-        </div>
-      `;
+        </div>`;
     }
+  },
+
+  // ── 降级数据构造 ──
+  _makeFallback(raw) {
+    if (this._currentMode === 'monologue') {
+      return { mood: '信号故障', content: raw.trim(), timestamp: freqTimeNow(), _fallback: true };
+    }
+    if (this._currentMode === 'interview') {
+      return { title: '采访记录', qa: [{ question: '（解析失败）', answer: raw.trim() }], _fallback: true };
+    }
+    if (this._currentMode === 'private') {
+      return { title: '私人录音', content: raw.trim(), emotion: '未知', _fallback: true };
+    }
+    return { content: raw.trim(), _fallback: true };
   },
 
   // ── 组装 Prompt ──
   _getPrompts(userQuestions = '') {
-    const settings = FreqStorage.getSettings();
-    const custom   = settings.customPrompts?.[this.id];
-    const defaults = FREQ.DEFAULT_PROMPTS[this.id][this._currentMode];
+    const settings  = FreqStorage.getSettings();
+    const custom    = settings.customPrompts?.[this.id];
+    const defaults  = FREQ.DEFAULT_PROMPTS[this.id][this._currentMode];
 
     let systemPrompt, userPrompt;
 
     if (this._currentMode === 'private') {
       const thinkingData = FreqParser.extractFromChat('thinking', 20);
       const hasThinking  = thinkingData && thinkingData.length > 0;
-
       if (hasThinking) {
         const thinkingText = thinkingData.map(t => t.content).join('\n---\n');
         systemPrompt = (custom?.systemWithThinking || defaults.systemWithThinking)
@@ -1597,129 +1621,99 @@ FREQ.apps['studio'] = {
       systemPrompt = custom?.system || defaults.system;
     }
 
-    // 演播厅：注入用户提问
     if (this._currentMode === 'interview') {
-      const questionHint = userQuestions
+      const hint = userQuestions
         ? `用户希望你重点问以下问题（可以用你的风格改写）：\n${userQuestions}\n`
         : '用户没有指定问题，请自由发挥。';
-      systemPrompt = systemPrompt.replace(/\{\{userQuestions\}\}/g, questionHint);
+      systemPrompt = systemPrompt.replace(/\{\{userQuestions\}\}/g, hint);
     }
 
     userPrompt = custom?.user || defaults.user;
 
-    // 替换通用变量
-    const char      = FreqSTBridge.getCharName();
-    const user      = FreqSTBridge.getUserName();
-    const charDesc  = FreqSTBridge.getCharDescription();
+    const char       = FreqSTBridge.getCharName();
+    const user       = FreqSTBridge.getUserName();
+    const charDesc   = FreqSTBridge.getCharDescription();
     const recentChat = FreqSTBridge.getRecentChat(10);
-    const context   = recentChat.map(m => `${m.name}: ${m.content}`).join('\n');
+    const context    = recentChat.map(m => `${m.name}: ${m.content}`).join('\n');
 
-    const replaceVars = (str) => str
+    const rv = (s) => s
       .replace(/\{\{char\}\}/g,     char)
       .replace(/\{\{user\}\}/g,     user)
       .replace(/\{\{charDesc\}\}/g, charDesc)
       .replace(/\{\{context\}\}/g,  context);
 
-    return {
-      systemPrompt: replaceVars(systemPrompt),
-      userPrompt:   replaceVars(userPrompt),
-    };
+    return { systemPrompt: rv(systemPrompt), userPrompt: rv(userPrompt) };
   },
 
-  // ── 渲染内容列表 ──
+  // ── 渲染内容区 ──
   _renderContent() {
     const records = this._data[this._currentMode];
     if (records.length === 0) return this._renderEmpty();
 
     const [latest, ...history] = records;
-
     return `
-      <div class="freq-studio-section-title">
-        <span>✨</span><span>最新内容</span>
-      </div>
-      ${this._renderCard(latest, false)}
-
+      <div class="freq-studio-section-label"><span>✨</span><span>最新内容</span></div>
+      <div class="freq-studio-latest-card">${this._renderCardInner(latest)}</div>
       ${history.length > 0 ? `
-        <div class="freq-studio-section-title freq-studio-section-history">
-          <span>📚</span><span>历史记录</span>
-        </div>
-        ${history.map(r => this._renderCard(r, true)).join('')}
+        <div class="freq-studio-section-label freq-studio-section-gap"><span>📚</span><span>历史记录</span></div>
+        ${history.map(r => `
+          <div class="freq-studio-hist-card" data-action="toggle-card">
+            <div class="freq-studio-hist-preview">${this._renderCardInner(r)}</div>
+            <div class="freq-studio-expand-hint">▼ 点击展开</div>
+          </div>
+        `).join('')}
       ` : ''}
     `;
   },
 
-  // ── 渲染单张卡片 ──
-  // isHistory=false → 最新内容，直接展开全部内容
-  // isHistory=true  → 历史，可折叠
-  _renderCard(record, isHistory) {
+  // ── 卡片内容渲染 ──
+  _renderCardInner(record) {
     const mode = record.mode || this._currentMode;
 
-    // 最新内容：直接全展开，不需要折叠逻辑
-    if (!isHistory) {
-      return `<div class="freq-studio-card-latest">${this._renderCardInner(record, mode)}</div>`;
-    }
-
-    // 历史：可折叠卡片
-    return `
-      <div class="freq-studio-card-expandable freq-studio-card-history" data-action="toggle-card">
-        ${this._renderCardInner(record, mode)}
-        <div class="freq-studio-expand-hint">▼ 点击展开</div>
-      </div>
-    `;
-  },
-
-  // ── 卡片内容（最新和历史共用） ──
-  _renderCardInner(record, mode) {
     if (mode === 'monologue') {
       return `
-        <div class="freq-studio-card-header">
-          <span class="freq-studio-card-icon">🎙</span>
+        <div class="freq-studio-card-head">
+          <span class="freq-studio-card-ico">🎙</span>
           <span class="freq-studio-card-mood">心情：${escapeHtml(record.mood || '未知')}</span>
           <span class="freq-studio-card-time">${escapeHtml(record.timestamp || freqTimeNow())}</span>
         </div>
-        <div class="freq-studio-card-content">${escapeHtml(record.content || record.text || '无内容')}</div>
+        <div class="freq-studio-card-body">${escapeHtml(record.content || '无内容')}</div>
       `;
     }
 
     if (mode === 'interview') {
       const qa = Array.isArray(record.qa) ? record.qa : [];
       return `
-        <div class="freq-studio-card-header">
-          <span class="freq-studio-card-icon">🎤</span>
-          <span class="freq-studio-card-title">${escapeHtml(record.title || '采访')}</span>
+        <div class="freq-studio-card-head">
+          <span class="freq-studio-card-ico">🎤</span>
+          <span class="freq-studio-card-mood">${escapeHtml(record.title || '采访')}</span>
           <span class="freq-studio-card-time">${qa.length} 个问答</span>
         </div>
         <div class="freq-studio-qa-list">
-          ${qa.map(item => `
-            <div class="freq-studio-qa-item">
-              <div class="freq-studio-question">
-                <span class="freq-studio-qa-label">Q</span>
-                ${escapeHtml(item.question || '')}
-              </div>
-              <div class="freq-studio-answer">
-                <span class="freq-studio-qa-label">A</span>
-                ${escapeHtml(item.answer || '')}
-              </div>
-            </div>
-          `).join('')}
-          ${qa.length === 0 ? '<div class="freq-studio-card-content">暂无问答内容</div>' : ''}
+          ${qa.length === 0
+            ? '<div class="freq-studio-card-body">暂无问答内容</div>'
+            : qa.map(item => `
+              <div class="freq-studio-qa-item">
+                <div class="freq-studio-q"><span class="freq-studio-qa-tag">Q</span>${escapeHtml(item.question || '')}</div>
+                <div class="freq-studio-a"><span class="freq-studio-qa-tag freq-studio-qa-tag-a">A</span>${escapeHtml(item.answer || '')}</div>
+              </div>`).join('')
+          }
         </div>
       `;
     }
 
     if (mode === 'private') {
       return `
-        <div class="freq-studio-card-header">
-          <span class="freq-studio-card-icon">📼</span>
-          <span class="freq-studio-card-title">${escapeHtml(record.title || '私人录音')}</span>
+        <div class="freq-studio-card-head">
+          <span class="freq-studio-card-ico">📼</span>
+          <span class="freq-studio-card-mood">${escapeHtml(record.title || '私人录音')}</span>
           ${record.emotion ? `<span class="freq-studio-card-emotion">${escapeHtml(record.emotion)}</span>` : ''}
         </div>
-        <div class="freq-studio-card-content">${escapeHtml(record.content || record.text || '无内容')}</div>
+        <div class="freq-studio-card-body">${escapeHtml(record.content || '无内容')}</div>
       `;
     }
 
-    // 降级：直接显示原始文本
-    return `<div class="freq-studio-card-content">${escapeHtml(record.content || record.text || JSON.stringify(record))}</div>`;
+    return `<div class="freq-studio-card-body">${escapeHtml(record.content || record.text || '无内容')}</div>`;
   },
 
   // ── 空状态 ──
@@ -1727,40 +1721,27 @@ FREQ.apps['studio'] = {
     const names = { monologue: '失真独白', interview: '演播厅采访', private: '角色私录' };
     return `
       <div class="freq-studio-empty">
-        <div class="freq-studio-empty-icon">🎙️</div>
+        <div class="freq-studio-empty-ico">🎙️</div>
         <div class="freq-studio-empty-title">暂无${names[this._currentMode] || '内容'}</div>
         <div class="freq-studio-empty-desc">点击上方按钮生成新内容</div>
-      </div>
-    `;
+      </div>`;
   },
 
   // ── 后台触发 ──
   async onBackgroundTrigger() {
     try {
-      const modes      = ['monologue', 'interview', 'private'];
+      const modes = ['monologue', 'interview', 'private'];
       this._currentMode = modes[Math.floor(Math.random() * modes.length)];
-
       const { systemPrompt, userPrompt } = this._getPrompts();
       const raw  = await FreqSubAPI.call(systemPrompt, userPrompt);
-      let   data = safeParseAIJson(raw, 'object');
-
-      if (!data || data._fallback) {
-        data = { content: data?.text || raw, _fallback: true };
-      }
-
-      data.id        = freqUID();
-      data.createdAt = Date.now();
-      data.mode      = this._currentMode;
-
+      let   data = this._forceParseJSON(raw) || safeParseAIJson(raw, 'object');
+      if (!data || data._fallback) data = this._makeFallback(raw);
+      data.id = freqUID(); data.createdAt = Date.now(); data.mode = this._currentMode;
       this._data[this._currentMode].unshift(data);
       this._data[this._currentMode] = this._data[this._currentMode].slice(0, this._maxRecords);
-
       await FreqStorage.saveAppData(this.id, this._data);
-
       const names = { monologue: '失真独白', interview: '演播厅采访', private: '角色私录' };
       FreqUI.addNotification(this.id, '后台录音室', `新增${names[this._currentMode]}`);
-      FreqLog.info(this.name, `后台生成成功: ${this._currentMode}`);
-
     } catch (e) {
       FreqLog.error(this.name, '后台生成失败', { error: e.message });
     }
@@ -1768,6 +1749,7 @@ FREQ.apps['studio'] = {
 };
 
 // ── BLOCK_09 END ──
+
 
 
 
