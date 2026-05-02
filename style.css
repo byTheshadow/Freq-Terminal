@@ -3,6 +3,7 @@
    模拟 iPhone 现代风格
    ═══════════════════════════════════════════════════════ */
 
+
 /* ── 变量 ── */
 :root {
   --freq-phone-w: 375px;
@@ -24,6 +25,86 @@
   --freq-warn: #ffd60a;
   --freq-font: -apple-system, 'SF Pro Display', 'PingFang SC', 'Helvetica Neue', sans-serif;
   --freq-font-mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FREQ · TERMINAL — 配置面板样式
+   ═══════════════════════════════════════════════════════ */
+
+.freq-settings-wrap {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: #c8ccd0;
+  padding: 0;
+}
+
+/* ── 总标题（可折叠） ── */
+.freq-settings-master-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.freq-settings-master-header:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.freq-settings-master-header .freq-settings-logo {
+  font-size: 22px;
+}
+
+.freq-settings-master-header .freq-settings-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #e0e0e0;
+  flex: 1;
+}
+
+.freq-settings-master-header .freq-settings-ver {
+  font-size: 11px;
+  color: #666;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.freq-settings-master-arrow {
+  font-size: 12px;
+  color: #666;
+  transition: transform 0.3s;
+}
+
+.freq-settings-master-header.freq-collapsed .freq-settings-master-arrow {
+  transform: rotate(-90deg);
+}
+
+/* ── 可折叠主体 ── */
+.freq-settings-body {
+  overflow: visible;
+  transition: max-height 0.3s ease;
+  padding: 8px 0;
+}
+
+.freq-settings-body.freq-hidden {
+  display: none;
+}
+
+/* ── 内部标题 ── */
+.freq-settings-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 8px;
 }
 
 /* ═══════════════════════════════════════════════════════
