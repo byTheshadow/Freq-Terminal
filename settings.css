@@ -2,7 +2,6 @@
    FREQ · TERMINAL — 配置面板样式
    ═══════════════════════════════════════════════════════ */
 
-/* ── 容器 ── */
 .freq-settings-wrap {
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color: #c8ccd0;
@@ -19,9 +18,7 @@
   margin-bottom: 8px;
 }
 
-.freq-settings-logo {
-  font-size: 22px;
-}
+.freq-settings-logo { font-size: 22px; }
 
 .freq-settings-title {
   font-size: 15px;
@@ -78,7 +75,6 @@
 .freq-settings-section-body {
   padding: 4px 12px 12px;
   overflow: visible;
-  /* 不设置 max-height，不截断内容 */
 }
 
 .freq-settings-section-body.freq-hidden {
@@ -129,9 +125,7 @@
   border-color: rgba(100, 180, 255, 0.4);
 }
 
-.freq-settings-input-sm {
-  max-width: 100px;
-}
+.freq-settings-input-sm { max-width: 100px; }
 
 .freq-settings-input-group {
   display: flex;
@@ -161,9 +155,7 @@
   cursor: pointer;
 }
 
-.freq-settings-select-sm {
-  max-width: 120px;
-}
+.freq-settings-select-sm { max-width: 120px; }
 
 .freq-settings-select option {
   background: #1a1a2e;
@@ -189,9 +181,7 @@
   color: #e0e0e0;
 }
 
-.freq-settings-btn:active {
-  transform: scale(0.97);
-}
+.freq-settings-btn:active { transform: scale(0.97); }
 
 .freq-settings-btn-primary {
   background: rgba(60, 120, 200, 0.25);
@@ -300,17 +290,9 @@
   color: #666;
 }
 
-.freq-settings-hint.freq-success {
-  color: #5cb85c;
-}
-
-.freq-settings-hint.freq-error {
-  color: #d9534f;
-}
-
-.freq-settings-hint.freq-loading {
-  color: #f0ad4e;
-}
+.freq-settings-hint.freq-success { color: #5cb85c; }
+.freq-settings-hint.freq-error { color: #d9534f; }
+.freq-settings-hint.freq-loading { color: #f0ad4e; }
 
 /* ── 复选框网格 ── */
 .freq-settings-checkbox-grid {
@@ -335,9 +317,7 @@
   cursor: pointer;
 }
 
-.freq-settings-checkbox-item:hover {
-  color: #c0c0c0;
-}
+.freq-settings-checkbox-item:hover { color: #c0c0c0; }
 
 /* ── 报错日志 ── */
 .freq-log-list {
@@ -365,18 +345,14 @@
   transition: background 0.15s;
 }
 
-.freq-log-item:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.freq-log-item:last-child {
-  border-bottom: none;
-}
+.freq-log-item:hover { background: rgba(255, 255, 255, 0.03); }
+.freq-log-item:last-child { border-bottom: none; }
 
 .freq-log-item-header {
   display: flex;
   align-items: center;
-  gap: 6px;margin-bottom: 2px;
+  gap: 6px;
+  margin-bottom: 2px;
 }
 
 .freq-log-badge {
@@ -384,7 +360,6 @@
   padding: 1px 5px;
   border-radius: 3px;
   font-weight: 600;
-  text-transform: uppercase;
 }
 
 .freq-log-badge-error {
@@ -428,7 +403,6 @@
   font-size: 10px;
   color: #888;
   white-space: pre-wrap;word-break: break-all;
-  /* 不截断，完整展示 */
   max-height: none;
   overflow: visible;
 }
@@ -445,21 +419,14 @@
   line-height: 1.8;
 }
 
-.freq-settings-about strong {
-  color: #b0b8c0;
-}
+.freq-settings-about strong { color: #b0b8c0; }
 
 /* ── 滚动条 ── */
-.freq-log-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.freq-log-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+.freq-log-list::-webkit-scrollbar { width: 4px; }
+.freq-log-list::-webkit-scrollbar-track { background: transparent; }
 .freq-log-list::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }
+
 
