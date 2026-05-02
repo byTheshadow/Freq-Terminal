@@ -794,3 +794,92 @@
 
 .freq-notif-panel::-webkit-scrollbar { width: 0; }
 
+/* ═══════════════════════════════════════════════════════
+   移动端适配
+   ═══════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  /* 悬浮球在移动端显示 */
+  #freq-fab {
+    display: flex !important;
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+    right: 16px;
+    bottom: 70px;
+  }
+
+  /* 手机在移动端全屏 */
+  #freq-phone {
+    width: 100vw;
+    height: 100vh;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+  }
+
+  #freq-phone.freq-visible {
+    animation: freq-phone-in-mobile 0.3s ease forwards;
+  }
+
+  @keyframes freq-phone-in-mobile {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  /* 手机边框在移动端取消 */
+  .freq-phone-frame {
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .freq-phone-screen {
+    border-radius: 0;
+  }
+
+  /* 灵动岛在移动端隐藏 */
+  .freq-dynamic-island {
+    display: none;
+  }
+
+  /* 状态栏适配刘海 */
+  .freq-statusbar {
+    padding-top: max(14px, env(safe-area-inset-top));
+  }
+
+  /* 底部适配 Home Indicator */
+  .freq-home-indicator {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}
+
+/* 触摸设备优化 */
+@media (hover: none) and (pointer: coarse) {
+  /* 增大点击区域 */
+  .freq-app-icon {
+    padding: 12px 4px;
+  }
+
+  .freq-card-clickable {
+    min-height: 44px;
+  }
+
+  /* 禁用 hover 效果 */
+  .freq-app-icon:hover,
+  .freq-card-clickable:hover,
+  .freq-notif-item:hover {
+    background: inherit;
+  }
+
+  /* 使用 active 代替 */
+  .freq-app-icon:active {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .freq-card-clickable:active {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+
