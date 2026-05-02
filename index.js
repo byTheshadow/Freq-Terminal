@@ -1105,6 +1105,231 @@ const FreqUI = {
 };
 
 // ── BLOCK_07 END ──
+// ┌──────────────────────────────────────────────────────┐
+// │ BLOCK_08 · 电台归档 📼                                │
+// └──────────────────────────────────────────────────────┘
+
+FREQ.apps['archive'] = {
+  id: 'archive',
+  name: '电台归档',
+  
+  // 内部状态
+  _archives: [],
+  _maxArchives: 50, // 最多保留50条
+  
+  // ── 初始化 ──
+  async init() {
+    try {
+      const data = await FreqStorage.loadAppData(this.id);
+      if (data && Array.isArray(data.archives)) {
+        this._archives = data.archives;
+        FreqLog.info(this.name, `加载了 ${this._archives.length} 条归档记录`);
+      }
+    } catch (e) {
+      FreqLog.error(this.name, '初始化失败', { error: e.message });
+    }
+  },
+  
+  // ── 挂载到容器 ──
+  mount(container) {
+    container.innerHTML = `
+      <div class="freq-archive-wrapper">
+        <div class="freq-archive-header">
+          <div class="freq-archive-title">
+            <span class="freq-archive-icon">📼</span>
+            <span class="freq-archive-count">电台归档 (共 ${this._archives.length} 条)</span>
+          </div>
+          <button class="freq-archive-refresh-btn" data-action="refresh">
+            <span class="freq-refresh-icon">🔄</span>
+            <span>刷新</span>
+          </button>
+        </div>
+        <div class="freq-archive-body" id="freq-archive-list">
+          ${this._renderList()}
+        </div>
+      </div>
+    `;
+    this._bindEvents(container);
+  },
+  
+  // ── 卸载 ──
+  unmount() {
+    // 无需清理
+  },
+  
+  // ── 事件绑定 ──
+  _bindEvents(container) {
+    container.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      
+      const action = btn.dataset.action;
+      if (action === 'refresh') {
+        this._handleRefresh(container);
+      } else if (action === 'toggle-card') {
+        const card = btn.closest('.freq-card-expandable');
+        if (card) {
+          card.classList.toggle('freq-expanded');
+        }
+      }
+    });
+  },
+  
+  // ── 刷新：从对话中提取 ──
+  async _handleRefresh(container) {
+    const listEl = container.querySelector('#freq-archive-list');
+    const countEl = container.querySelector('.freq-archive-count');
+    
+    // 显示 loading
+    listEl.innerHTML = `
+      <div class="freq-loading">
+        <div class="freq-loading-spinner"></div>
+        <span>正在提取归档记录...</span>
+      </div>
+    `;
+    
+    try {
+      // 从最近100条消息中提取 <meow_FM> 标签
+      const extracted = FreqParser.extractFromChat('meow_FM', 100);
+      
+      if (!extracted || extracted.length === 0) {
+        listEl.innerHTML = this._renderEmpty();
+        countEl.textContent = '电台归档 (共 0 条)';
+        FreqLog.info(this.name, '未找到归档记录');
+        return;
+      }
+      
+      // 转换为归档记录格式
+      const newArchives = extracted.map((item, index) => {
+        const archive = {
+          id: freqUID(),
+          rawContent: item.content,
+          parsed: this._parseArchive(item.content),
+          extractedAt: Date.now(),
+          messageIndex: item.messageIndex || index
+        };
+        return archive;
+      });
+      
+      // 去重（根据 messageIndex）
+      const existingIndexes = new Set(this._archives.map(a => a.messageIndex));
+      const uniqueNew = newArchives.filter(a => !existingIndexes.has(a.messageIndex));
+      
+      // 合并并限制数量
+      this._archives = [...uniqueNew, ...this._archives].slice(0, this._maxArchives);
+      
+      // 持久化
+      await FreqStorage.saveAppData(this.id, {
+        archives: this._archives,
+        lastUpdate: Date.now()
+      });
+      
+      // 重新渲染
+      listEl.innerHTML = this._renderList();
+      countEl.textContent = `电台归档 (共 ${this._archives.length} 条)`;
+      
+      FreqLog.info(this.name, `刷新完成，新增 ${uniqueNew.length} 条记录`);
+      
+    } catch (e) {
+      FreqLog.error(this.name, '刷新失败', { error: e.message });
+      listEl.innerHTML = `
+        <div class="freq-error-box">
+          <div class="freq-error-icon">⚠️</div>
+          <div class="freq-error-msg">${escapeHtml(e.message)}</div>
+          <button class="freq-retry-btn" data-action="refresh">🔄 重试</button>
+        </div>
+      `;
+    }
+  },
+  
+  // ── 解析归档内容 ──
+  _parseArchive(content) {
+    const parsed = {};
+    
+    // 提取 serial
+    const serialMatch = content.match(/serial:\s*🩻?\s*No\.?(\d+)/i);
+    if (serialMatch) parsed.serial = serialMatch[1];
+    
+    // 提取 time
+    const timeMatch = content.match(/time:\s*([^\n]+)/i);
+    if (timeMatch) parsed.time = timeMatch[1].trim();
+    
+    // 提取 scene
+    const sceneMatch = content.match(/scene:\s*([^\n]+)/i);
+    if (sceneMatch) parsed.scene = sceneMatch[1].trim();
+    
+    // 提取 plot
+    const plotMatch = content.match(/plot:\s*([\s\S]+?)(?=\n\w+:|$)/i);
+    if (plotMatch) parsed.plot = plotMatch[1].trim();
+    
+    return parsed;
+  },
+  
+  // ── 渲染列表 ──
+  _renderList() {
+    if (this._archives.length === 0) {
+      return this._renderEmpty();
+    }
+    
+    return this._archives.map(archive => this._renderCard(archive)).join('');
+  },
+  
+  // ── 渲染单个卡片 ──
+  _renderCard(archive) {
+    const { parsed, rawContent } = archive;
+    
+    // 如果解析成功，显示结构化内容
+    if (parsed.serial || parsed.time) {
+      return `
+        <div class="freq-card freq-card-expandable freq-archive-card" data-action="toggle-card">
+          <div class="freq-card-preview">
+            <div class="freq-archive-serial">
+              ${parsed.serial ? `🩻 No.${parsed.serial}` : '🩻 未知编号'}
+            </div>
+            ${parsed.time ? `<div class="freq-archive-time">📅 ${escapeHtml(parsed.time)}</div>` : ''}
+            ${parsed.scene ? `<div class="freq-archive-scene">📍 ${escapeHtml(parsed.scene)}</div>` : ''}
+          </div>
+          <div class="freq-card-full">
+            ${parsed.plot ? `<div class="freq-archive-plot"><strong>剧情：</strong>${escapeHtml(parsed.plot)}</div>` : ''}
+            <div class="freq-archive-raw">
+              <div class="freq-archive-raw-label">完整内容：</div>
+              <pre class="freq-archive-raw-content">${escapeHtml(rawContent)}</pre>
+            </div>
+          </div>
+          <div class="freq-card-expand-hint">点击展开完整内容</div>
+        </div>
+      `;
+    }
+    
+    // 解析失败，显示原始内容
+    return `
+      <div class="freq-card freq-card-expandable freq-archive-card" data-action="toggle-card">
+        <div class="freq-card-preview">
+          <div class="freq-archive-serial">📼 归档记录</div>
+          <div class="freq-archive-hint">格式不规范，点击查看原始内容</div>
+        </div>
+        <div class="freq-card-full">
+          <pre class="freq-archive-raw-content">${escapeHtml(rawContent)}</pre>
+        </div>
+        <div class="freq-card-expand-hint">点击展开</div>
+      </div>
+    `;
+  },
+  
+  // ── 渲染空状态 ──
+  _renderEmpty() {
+    return `
+      <div class="freq-archive-empty">
+        <div class="freq-archive-empty-icon">📼</div>
+        <div class="freq-archive-empty-title">暂无电台归档记录</div>
+        <div class="freq-archive-empty-desc">开始对话后会自动记录</div>
+        <button class="freq-archive-empty-btn" data-action="refresh">🔄 刷新</button>
+      </div>
+    `;
+  }
+};
+
+// ── BLOCK_08 END ──
 
 
 // ┌──────────────────────────────────────────────────────┐
