@@ -505,6 +505,7 @@ const FreqUI = {
     offsetX: 0,
     offsetY: 0,
     moved: false,
+    isTouchDrag: false, // true = 悬浮球触摸拖拽（由 fab.touchend 自己收尾）
   },
 
   /**
@@ -541,24 +542,60 @@ const FreqUI = {
     `;
     document.body.appendChild(fab);
 
-    // 点击/触摸打开手机
-    fab.addEventListener('click', (e) => {
-      if (this._drag.moved) return;
-      this.togglePhone();
-    });
-
-    // 触摸事件（移动端）
+    // ── 触摸端（移动端）──
+    // touchstart 记录起始位置，用于判断是点击还是拖拽
     fab.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
-        this._startDrag(e.touches[0], fab, 'fab');
+      if (e.touches.length !== 1) return;
+      e.preventDefault(); // 阻止 300ms 延迟 & 页面滚动
+      const t = e.touches[0];
+      const rect = fab.getBoundingClientRect();
+      this._drag.active = true;
+      this._drag.target = fab;
+      this._drag.type = 'fab';
+      this._drag.startX = t.clientX;
+      this._drag.startY = t.clientY;
+      this._drag.offsetX = t.clientX - rect.left;
+      this._drag.offsetY = t.clientY - rect.top;
+      this._drag.moved = false;
+      this._drag.isTouchDrag = true; // 标记为触摸拖拽，不走 pointer 流程
+    }, { passive: false });
+
+    // touchend：如果没有移动则视为点击，打开手机
+    fab.addEventListener('touchend', (e) => {
+      if (!this._drag.isTouchDrag) return;
+      e.preventDefault();
+      this._drag.isTouchDrag = false;
+      const wasMoved = this._drag.moved;
+      setTimeout(() => { this._drag.moved = false; }, 50);
+      this._drag.active = false;
+      this._drag.target = null;
+      if (!wasMoved) {
+        this.togglePhone();
       }
     }, { passive: false });
 
-    // 指针事件（桌面端）
+    // ── 桌面端（鼠标）──
+    // 只处理非触摸的 pointerdown，避免与 touchstart 重复
     fab.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch') { // 避免重复处理触摸
-        this._startDrag(e, fab, 'fab');
-      }
+      if (e.pointerType === 'touch') return; // 触摸已由 touchstart 处理
+      e.preventDefault();
+      const rect = fab.getBoundingClientRect();
+      this._drag.active = true;
+      this._drag.target = fab;
+      this._drag.type = 'fab';
+      this._drag.startX = e.clientX;
+      this._drag.startY = e.clientY;
+      this._drag.offsetX = e.clientX - rect.left;
+      this._drag.offsetY = e.clientY - rect.top;
+      this._drag.moved = false;
+      this._drag.isTouchDrag = false;
+      fab.setPointerCapture(e.pointerId);
+    });
+
+    // 桌面端点击（非拖拽）
+    fab.addEventListener('click', (e) => {
+      if (this._drag.moved) return;
+      this.togglePhone();
     });
   },
 
@@ -586,6 +623,10 @@ const FreqUI = {
     overlay.addEventListener('click', () => {
       this.closePhone();
     });
+    overlay.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      this.closePhone();
+    }, { passive: false });
   },
 
   // ═══════════════════════════════════════════════════
@@ -629,6 +670,7 @@ const FreqUI = {
           <div class="freq-navbar">
             <button class="freq-navbar-back" id="freq-nav-back">‹</button>
             <span class="freq-navbar-title" id="freq-nav-title">FREQ · TERMINAL</span>
+            <button class="freq-navbar-close" id="freq-nav-close" title="关闭">✕</button>
           </div>
 
           <!-- 主内容区 -->
@@ -647,13 +689,41 @@ const FreqUI = {
   },
 
   _bindPhoneEvents() {
-    //灵动岛拖拽手机
+    //灵动岛拖拽手机（指针）
     const island = document.getElementById('freq-dynamic-island');
     if (island) {
       island.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch') return;
         this._startDrag(e, document.getElementById('freq-phone'), 'phone');
       });
+      // 灵动岛拖拽手机（触摸）
+      island.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        e.preventDefault();
+        const t = e.touches[0];
+        const phone = document.getElementById('freq-phone');
+        const rect = phone.getBoundingClientRect();
+        if (!phone.classList.contains('freq-dragged')) {
+          phone.style.left = rect.left + 'px';
+          phone.style.top = rect.top + 'px';
+          phone.classList.add('freq-dragged');
+        }
+        this._drag.active = true;
+        this._drag.target = phone;
+        this._drag.type = 'phone';
+        this._drag.startX = t.clientX;
+        this._drag.startY = t.clientY;
+        this._drag.offsetX = t.clientX - rect.left;
+        this._drag.offsetY = t.clientY - rect.top;
+        this._drag.moved = false;
+        this._drag.isTouchDrag = false; // 走全局 touchmove 流程
+      }, { passive: false });
     }
+
+    // 关闭按钮（移动端主要退出方式）
+    document.getElementById('freq-nav-close')?.addEventListener('click', () => {
+      this.closePhone();
+    });
 
     // 状态栏点击 → 下拉通知
     document.getElementById('freq-statusbar')?.addEventListener('click', (e) => {
@@ -744,9 +814,9 @@ const FreqUI = {
   },
 
   _bindGlobalDrag() {
-    // 指针移动
+    // ── 桌面端指针移动 ──
     document.addEventListener('pointermove', (e) => {
-      if (!this._drag.active) return;
+      if (!this._drag.active || this._drag.isTouchDrag) return;
       const dx = e.clientX - this._drag.startX;
       const dy = e.clientY - this._drag.startY;
       if (!this._drag.moved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
@@ -767,7 +837,7 @@ const FreqUI = {
       target.style.bottom = 'auto';
     });
 
-    // 触摸移动
+    // ── 触摸移动（悬浮球 + 手机通用）──
     document.addEventListener('touchmove', (e) => {
       if (!this._drag.active || e.touches.length !== 1) return;
       e.preventDefault();
@@ -780,6 +850,7 @@ const FreqUI = {
       if (!this._drag.moved) return;
 
       const target = this._drag.target;
+      if (!target) return;
       let newX = touch.clientX - this._drag.offsetX;
       let newY = touch.clientY - this._drag.offsetY;
       const w = target.offsetWidth;
@@ -792,17 +863,17 @@ const FreqUI = {
       target.style.bottom = 'auto';
     }, { passive: false });
 
-    // 指针抬起
-    document.addEventListener('pointerup', () => {
-      if (!this._drag.active) return;
+    // ── 桌面端指针抬起 ──
+    document.addEventListener('pointerup', (e) => {
+      if (!this._drag.active || this._drag.isTouchDrag) return;
       setTimeout(() => { this._drag.moved = false; }, 50);
       this._drag.active = false;
       this._drag.target = null;
     });
 
-    // 触摸结束
-    document.addEventListener('touchend', () => {
-      if (!this._drag.active) return;
+    // ── 触摸结束（仅处理手机拖拽；悬浮球触摸结束由 fab.touchend 自己处理）──
+    document.addEventListener('touchend', (e) => {
+      if (!this._drag.active || this._drag.isTouchDrag) return; // isTouchDrag = FAB，跳过
       setTimeout(() => { this._drag.moved = false; }, 50);
       this._drag.active = false;
       this._drag.target = null;
