@@ -541,16 +541,26 @@ const FreqUI = {
     `;
     document.body.appendChild(fab);
 
-    // 点击（非拖拽）打开手机
+    // 点击/触摸打开手机
     fab.addEventListener('click', (e) => {
-      if (this._drag.moved) return; // 拖拽中不触发点击
+      if (this._drag.moved) return;
       this.togglePhone();
     });
 
-    // 拖拽
+    // 触摸事件（移动端）
+    fab.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        this._startDrag(e.touches[0], fab, 'fab');
+      }
+    }, { passive: false });
+
+    // 指针事件（桌面端）
     fab.addEventListener('pointerdown', (e) => {
-      this._startDrag(e, fab, 'fab');
-    });},
+      if (e.pointerType !== 'touch') { // 避免重复处理触摸
+        this._startDrag(e, fab, 'fab');
+      }
+    });
+  },
 
   _setFabVisible(visible) {
     const fab = document.getElementById('freq-fab');
@@ -730,40 +740,69 @@ const FreqUI = {
       this._drag.offsetY = e.clientY - rect.top;
     }
 
-    target.setPointerCapture(e.pointerId);
+    target.setPointerCapture && target.setPointerCapture(e.pointerId);
   },
 
   _bindGlobalDrag() {
+    // 指针移动
     document.addEventListener('pointermove', (e) => {
       if (!this._drag.active) return;
-
       const dx = e.clientX - this._drag.startX;
       const dy = e.clientY - this._drag.startY;
-
-      // 超过 5px 才算拖拽
       if (!this._drag.moved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
-        this._drag.moved = true;}
-
+        this._drag.moved = true;
+      }
       if (!this._drag.moved) return;
 
       const target = this._drag.target;
       let newX = e.clientX - this._drag.offsetX;
       let newY = e.clientY - this._drag.offsetY;
-
-      // 边界限制
       const w = target.offsetWidth;
       const h = target.offsetHeight;
       newX = Math.max(0, Math.min(window.innerWidth - w, newX));
       newY = Math.max(0, Math.min(window.innerHeight - h, newY));
-
       target.style.left = newX + 'px';
       target.style.top = newY + 'px';
       target.style.right = 'auto';
-      target.style.bottom = 'auto';});
+      target.style.bottom = 'auto';
+    });
 
+    // 触摸移动
+    document.addEventListener('touchmove', (e) => {
+      if (!this._drag.active || e.touches.length !== 1) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const dx = touch.clientX - this._drag.startX;
+      const dy = touch.clientY - this._drag.startY;
+      if (!this._drag.moved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+        this._drag.moved = true;
+      }
+      if (!this._drag.moved) return;
+
+      const target = this._drag.target;
+      let newX = touch.clientX - this._drag.offsetX;
+      let newY = touch.clientY - this._drag.offsetY;
+      const w = target.offsetWidth;
+      const h = target.offsetHeight;
+      newX = Math.max(0, Math.min(window.innerWidth - w, newX));
+      newY = Math.max(0, Math.min(window.innerHeight - h, newY));
+      target.style.left = newX + 'px';
+      target.style.top = newY + 'px';
+      target.style.right = 'auto';
+      target.style.bottom = 'auto';
+    }, { passive: false });
+
+    // 指针抬起
     document.addEventListener('pointerup', () => {
       if (!this._drag.active) return;
-      // 短暂延迟后重置 moved，防止 click 事件误触
+      setTimeout(() => { this._drag.moved = false; }, 50);
+      this._drag.active = false;
+      this._drag.target = null;
+    });
+
+    // 触摸结束
+    document.addEventListener('touchend', () => {
+      if (!this._drag.active) return;
       setTimeout(() => { this._drag.moved = false; }, 50);
       this._drag.active = false;
       this._drag.target = null;
@@ -1177,6 +1216,16 @@ const FreqSettingsUI = {
   },
 
   _bindSettingsEvents() {
+    // ═══ 总折叠标题 ═══
+    document.getElementById('freq-settings-master-toggle')?.addEventListener('click', () => {
+      const header = document.getElementById('freq-settings-master-toggle');
+      const body = document.getElementById('freq-settings-body');
+      if (header && body) {
+        body.classList.toggle('freq-hidden');
+        header.classList.toggle('freq-collapsed');
+      }
+    });
+
     // 区域折叠
     document.querySelectorAll('[data-freq-toggle]').forEach(el => {
       el.addEventListener('click', () => {
