@@ -1108,7 +1108,7 @@
   transform: translateY(0);
 }
 /* ========================================
-   App 02 - 后台录音室 🎙️
+   App02 - 后台录音室🎙️
    ======================================== */
 
 .freq-studio-wrapper {
@@ -1119,7 +1119,6 @@
   background: #1a1a1a;
 }
 
-/* Tabs */
 .freq-studio-header {
   background: #000;
   border-bottom: 2px solid #cc0000;
@@ -1127,9 +1126,7 @@
   flex-shrink: 0;
 }
 
-.freq-studio-tabs {
-  display: flex;
-}
+.freq-studio-tabs { display: flex; }
 
 .freq-studio-tab {
   flex: 1;
@@ -1150,11 +1147,7 @@
 }
 
 .freq-studio-tab:last-child { border-right: none; }
-
-.freq-studio-tab:hover {
-  background: rgba(204,0,0,0.1);
-  color: #ff6666;
-}
+.freq-studio-tab:hover { background: rgba(204,0,0,0.1); color: #ff6666; }
 
 .freq-studio-tab.active {
   background: linear-gradient(180deg, #cc0000, #990000);
@@ -1162,15 +1155,13 @@
   font-weight: 700;
 }
 
-/* Body */
 .freq-studio-body {
   flex: 1;
   overflow-y: auto;
   padding: 14px;
-  background: #1a1a1a;
 }
 
-/* 提问框 */
+/*提问框 */
 .freq-studio-qbox { margin-bottom: 10px; }
 
 .freq-studio-qlabel {
@@ -1193,7 +1184,6 @@
   resize: vertical;
   line-height: 1.6;
   font-family: inherit;
-  transition: border-color 0.2s;
 }
 
 .freq-studio-qinput:focus {
@@ -1220,10 +1210,10 @@
   font-weight: 700;
   cursor: pointer;
   pointer-events: auto;
-  transition: all 0.2s;
   box-shadow: 0 4px 16px rgba(204,0,0,0.4);
   letter-spacing: 1px;
   margin-bottom: 16px;
+  transition: all 0.2s;
 }
 
 .freq-studio-generate-btn:hover {
@@ -1250,7 +1240,7 @@
 
 .freq-studio-section-gap { margin-top: 20px; }
 
-/* 最新内容卡片：全展开，无折叠 */
+/* ── 最新内容卡片：永远全展开 ── */
 .freq-studio-latest-card {
   background: linear-gradient(135deg, #2a0a0a, #1a0000);
   border: 1px solid #cc0000;
@@ -1260,7 +1250,7 @@
   box-shadow: 0 0 20px rgba(204,0,0,0.2);
 }
 
-/* 历史卡片：折叠 */
+/* ── 历史卡片：折叠/展开 ── */
 .freq-studio-hist-card {
   background: rgba(0,0,0,0.5);
   border: 1px solid rgba(204,0,0,0.2);
@@ -1270,7 +1260,6 @@
   cursor: pointer;
   pointer-events: auto;
   transition: all 0.2s;
-  overflow: hidden;
 }
 
 .freq-studio-hist-card:hover {
@@ -1278,16 +1267,24 @@
   background: rgba(204,0,0,0.07);
 }
 
-/* 折叠时隐藏内容 */
-.freq-studio-hist-card .freq-studio-card-body,
-.freq-studio-hist-card .freq-studio-qa-list {
-  display: none;
-  margin-top: 12px;
+/*历史头部：始终可见 */
+.freq-studio-hist-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-/* 展开后显示 */
-.freq-studio-hist-card.freq-studio-expanded .freq-studio-card-body,
-.freq-studio-hist-card.freq-studio-expanded .freq-studio-qa-list {
+/* 历史正文：默认隐藏 */
+.freq-studio-hist-body {
+  display: none;
+  margin-top: 12px;
+  border-top: 1px solid rgba(204,0,0,0.15);
+  padding-top: 12px;
+}
+
+/* 展开后显示正文，隐藏提示 */
+.freq-studio-hist-card.freq-studio-open .freq-studio-hist-body {
   display: block;
 }
 
@@ -1296,24 +1293,23 @@
   color: #444;
   text-align: center;
   margin-top: 8px;
-  transition: color 0.2s;
 }
 
 .freq-studio-hist-card:hover .freq-studio-expand-hint { color: #ff6666; }
+.freq-studio-hist-card.freq-studio-open .freq-studio-expand-hint { display: none; }
 
-.freq-studio-hist-card.freq-studio-expanded .freq-studio-expand-hint { display: none; }
-
-/* 卡片 Header */
+/* ── 卡片通用元素 ── */
 .freq-studio-card-head {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
 
 .freq-studio-card-ico { font-size: 18px; flex-shrink: 0; }
 
-.freq-studio-card-mood {
+.freq-studio-card-label {
   font-size: 14px;
   font-weight: 700;
   color: #ff6666;
@@ -1337,29 +1333,22 @@
   color: #ff9999;
 }
 
-/* 卡片正文 */
-.freq-studio-card-body {
+.freq-studio-card-text {
   color: #ccc;
   font-size: 13px;
   line-height: 1.75;
   white-space: pre-wrap;
   word-wrap: break-word;
-  margin-top: 12px;
+  max-height: none;
+  overflow: visible;
 }
 
-/* Q&A */
-.freq-studio-qa-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-}
-
+/* ── Q&A ── */
 .freq-studio-qa-item {
   padding: 10px 12px;
+  margin-top: 10px;
   background: rgba(0,0,0,0.3);
-  border-left: 3px solid #cc0000;
-  border-radius: 6px;
+  border-left: 3px solid #cc0000;border-radius: 6px;
 }
 
 .freq-studio-q {
@@ -1392,8 +1381,7 @@
   font-size: 11px;
   font-weight: 700;
   border-radius: 4px;
-  flex-shrink: 0;
-  margin-top: 2px;
+  flex-shrink: 0;margin-top: 2px;
   font-family: 'SF Mono', monospace;
 }
 
@@ -1402,7 +1390,7 @@
   color: #ff9999;
 }
 
-/* 空状态 */
+/* ── 空状态 ── */
 .freq-studio-empty {
   display: flex;
   flex-direction: column;
@@ -1431,4 +1419,3 @@
   font-size: 13px;
   color: #555;
 }
-
