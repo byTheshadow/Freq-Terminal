@@ -711,6 +711,8 @@
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 12px;
+  overflow: visible;  /* 加这行 */
+  max-height: none;   /* 加这行 */
 }
 
 .freq-card-header {
@@ -1772,6 +1774,7 @@ mark.freq-highlight-pending {
   padding: 12px 14px;
   animation: freq-fade-in 0.3s ease;
 }
+
 
 /* 最新一条：红色边框高亮 */
 .bs-record-card.bs-latest {
