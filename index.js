@@ -222,10 +222,17 @@ getSettings() {
 },
 
 
-    saveSettings() {
+  saveSettings() {
       try {
         if (typeof window.saveSettingsDebounced === 'function') {
           window.saveSettingsDebounced();
+        } else {
+          // ST 未就绪，延迟重试一次
+          setTimeout(() => {
+            if (typeof window.saveSettingsDebounced === 'function') {
+              window.saveSettingsDebounced();
+            }
+          }, 1000);
         }
       } catch (e) {
         console.error('[FREQ] saveSettings error:', e);
@@ -2095,7 +2102,7 @@ registerApp(BackstageStudioApp);
     console.log('[FREQ] FREQ · TERMINAL v2.0 初始化完成');
   }
 
-  // jQuery 入口
+    // jQuery 入口
   if (typeof jQuery !== 'undefined') {
     jQuery(async () => {
       const maxWait = 10000;
@@ -2106,17 +2113,17 @@ registerApp(BackstageStudioApp);
         await sleep(200);
       }
 
-      // 第二步：等待 ST 把磁盘上的 extension_settings 写入内存
-      const settingsStart = Date.now();
-      while (Date.now() - settingsStart < 3000) {
-        if (
-          window.extension_settings &&
-          window.extension_settings[EXTENSION_NAME] !== undefined
-        ) {
+      // 第二步：等待 ST 核心就绪（saveSettingsDebounced 是 ST 设置系统完全加载的标志）
+      const coreStart = Date.now();
+      while (Date.now() - coreStart < 5000) {
+        if (typeof window.saveSettingsDebounced === 'function') {
           break;
         }
         await sleep(100);
       }
+
+      // 第三步：再等一个短暂的 tick，让 ST 把磁盘数据写入 extension_settings
+      await sleep(500);
 
       await freqInit();
     });
@@ -2127,6 +2134,7 @@ registerApp(BackstageStudioApp);
       freqInit();
     }
   }
+
 
   // ── BLOCK_99 END ──────────────────────────────────────
 
