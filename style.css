@@ -1843,11 +1843,11 @@ mark.freq-highlight-pending {
 }
 
 /* 展开状态：隐藏预览，显示全文 */
-.bs-expanded .bs-record-preview {
+.bs-record-card.bs-expanded .bs-record-preview {
   display: none;
 }
 
-.bs-expanded .bs-record-full {
+.bs-record-card.bs-expanded .bs-record-full {
   display: block;
 }
 
