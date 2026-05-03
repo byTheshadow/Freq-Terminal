@@ -2050,7 +2050,7 @@ if (recordCard && !e.target.closest('.bs-generate-btn')) {
       }
     });
   },
-}
+};
 
 registerApp(BackstageStudioApp);
 
