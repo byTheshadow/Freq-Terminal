@@ -1646,8 +1646,6 @@ registerApp(RadioArchiveApp);
 
 // ┌──────────────────────────────────────────────────────┐
 // │ BLOCK_09  App02·后台录音室 · backstage-studio          │
-// │ 依赖：BLOCK_02 STBridge, BLOCK_03 Parser,              │
-// │       BLOCK_04 SubAPI, BLOCK_05 Notify, BLOCK_07 Settings│
 // └──────────────────────────────────────────────────────┘
 
 const BackstageStudioApp = {
@@ -1657,14 +1655,19 @@ const BackstageStudioApp = {
   _badge: 0,
 
   _loading: {
-    _expandedIndex: {
     monologue: false,
     interview: false,
     private:   false,
   },
+
+  _expandedIndex: {
+    monologue: null,
+    interview: null,
+    private:   null,
+  },
+
   _activeTab: 'monologue',
 
-  // ── 持久化读写 ────────────────────────────────────────
   _getData() {
     const s = STBridge.getSettings();
     if (!s.appData) s.appData = {};
@@ -1679,7 +1682,15 @@ const BackstageStudioApp = {
   },
 
   _saveData() {
-    STBridge.saveSettings();
+    try {
+      if (typeof window.saveSettings === 'function') {
+        window.saveSettings();
+      } else if (typeof window.saveSettingsDebounced === 'function') {
+        window.saveSettingsDebounced();
+      }
+    } catch (e) {
+      console.error('[FREQ] 保存失败:', e);
+    }
   },
 
   _addRecord(mode, text, extra) {
@@ -1691,7 +1702,6 @@ const BackstageStudioApp = {
       charName:    STBridge.getCharName() || '未知角色',
       hasThinking: extra?.hasThinking || false,
     });
-    // 每个模式最多保留 30 条
     if (data[mode].length > 30) data[mode].length = 30;
     this._saveData();
   },
@@ -1711,7 +1721,6 @@ const BackstageStudioApp = {
     this._container = null;
   },
 
-  // ── 失真人格 Prompt ───────────────────────────────────
   _distortionPersona() {
     return [
       '你是「失真」，一个午夜摇滚乐电台的幕后主持人。',
@@ -1723,9 +1732,7 @@ const BackstageStudioApp = {
     ].join('\n');
   },
 
-  // ── 获取剧情摘要 ──────────────────────────────────────
   _getPlotContext() {
-    // getRecentMessages 返回的是拼接好的字符串，不是数组
     const recent = STBridge.getRecentMessages(12);
     if (!recent || typeof recent !== 'string' || recent.trim() === '') {
       return '（当前没有对话记录）';
@@ -1733,12 +1740,10 @@ const BackstageStudioApp = {
     return recent.length > 3000 ? recent.slice(-3000) : recent;
   },
 
-  // ── 获取 Thinking 内容 ────────────────────────────────
   _getThinkingContent() {
     return Parser.getLatestThinking();
   },
 
-  // ── 🎙 失真独白 Prompt ────────────────────────────────
   _buildMonologuePrompt() {
     const charName = STBridge.getCharName() || '未知角色';
     const userName = STBridge.getUserName() || '听众';
@@ -1768,11 +1773,10 @@ const BackstageStudioApp = {
     return { system, user };
   },
 
-  // ── 🎤 演播厅采访 Prompt ──────────────────────────────
   _buildInterviewPrompt() {
-    const charName    = STBridge.getCharName() || '未知角色';
-    const userName    = STBridge.getUserName() || '听众';
-    const plot        = this._getPlotContext();
+    const charName     = STBridge.getCharName() || '未知角色';
+    const userName     = STBridge.getUserName() || '听众';
+    const plot         = this._getPlotContext();
     const customPrompt = SettingsUI.getCustomPrompt('backstage-interview');
 
     const system = customPrompt || [
@@ -1802,12 +1806,11 @@ const BackstageStudioApp = {
     return { system, user };
   },
 
-  // ── 📼 角色私录 Prompt ────────────────────────────────
   _buildPrivateRecordPrompt() {
-    const charName    = STBridge.getCharName() || '未知角色';
-    const userName    = STBridge.getUserName() || '听众';
-    const plot        = this._getPlotContext();
-    const thinking    = this._getThinkingContent();
+    const charName     = STBridge.getCharName() || '未知角色';
+    const userName     = STBridge.getUserName() || '听众';
+    const plot         = this._getPlotContext();
+    const thinking     = this._getThinkingContent();
     const customPrompt = SettingsUI.getCustomPrompt('backstage-private');
 
     const thinkingBlock = thinking
@@ -1848,7 +1851,6 @@ const BackstageStudioApp = {
     return { system, user };
   },
 
-  // ── 调用副 API ────────────────────────────────────────
   async _generate(mode) {
     if (this._loading[mode]) return;
     this._loading[mode] = true;
@@ -1867,11 +1869,9 @@ const BackstageStudioApp = {
       const raw = await SubAPI.call(promptData.system, promptData.user, {
         maxTokens: 600,
       });
-
       this._addRecord(mode, raw || '', {
         hasThinking: mode === 'private' && !!thinking,
       });
-
     } catch (err) {
       Notify.error('后台录音室', err);
       const fallback = {
@@ -1886,7 +1886,6 @@ const BackstageStudioApp = {
     }
   },
 
-  // ── 渲染当前 Tab 内容区 ───────────────────────────────
   _renderTab() {
     if (!this._container) return;
     const contentEl = this._container.querySelector('.bs-content');
@@ -1897,7 +1896,6 @@ const BackstageStudioApp = {
     const records = this._getRecords(mode);
     const thinking = this._getThinkingContent();
 
-    // ── Loading 状态 ──
     if (loading) {
       const loadingTexts = {
         monologue: '失真正在点烟…🚬',
@@ -1913,19 +1911,18 @@ const BackstageStudioApp = {
       return;
     }
 
-    // ── Thinking 提示（仅私录模式）──
     const thinkingHintHTML = mode === 'private'
       ? thinking
         ? '<div class="bs-thinking-hint">💭 检测到 Thinking 内容，将自动注入为素材</div>'
         : '<div class="bs-thinking-hint bs-thinking-absent">💭 未检测到 Thinking 内容，将纯生成</div>'
       : '';
 
-    // ── 录制按钮 ──
     const modeLabels = {
       monologue: '🎙️ 录制独白',
       interview: '🎤 开始采访',
       private:   '📼 开始私录',
     };
+
     const actionBarHTML = `
       <div class="bs-action-bar">
         ${thinkingHintHTML}
@@ -1935,7 +1932,6 @@ const BackstageStudioApp = {
       </div>
     `;
 
-    // ── 空状态 ──
     if (records.length === 0) {
       const hints = {
         monologue: '失真在后台抽烟，还没开始碎碎念',
@@ -1956,38 +1952,30 @@ const BackstageStudioApp = {
       return;
     }
 
-    // ── 有历史记录 ──
     const cardsHTML = records.map((record, i) => {
       const isLatest    = i === 0;
       const fullText    = record.text || '';
       const textEscaped = escapeHtml(fullText);
-      // 超过 80 字才做折叠
       const needExpand  = fullText.length > 80;
       const previewText = needExpand
         ? escapeHtml(fullText.slice(0, 80)) + '…'
         : textEscaped;
+      const isExpanded  = (this._expandedIndex[mode] === i);
 
       return `
         <div class="freq-card bs-record-card
-                    ${isLatest  ? 'bs-latest'    : ''}
-                    ${needExpand ? 'bs-expandable' : ''}"
+                    ${isLatest   ? 'bs-latest'    : ''}
+                    ${needExpand ? 'bs-expandable' : ''}
+                    ${isExpanded ? 'bs-expanded'   : ''}"
              data-record-index="${i}">
-
           <div class="bs-record-header">
             <span class="bs-record-char">${escapeHtml(record.charName || '')}</span>
             <span class="bs-record-time">${escapeHtml(record.time || '')}</span>
           </div>
-
           ${record.hasThinking ? '<div class="bs-thinking-tag">📡 含思维链素材</div>' : ''}
           ${isLatest ? '<div class="bs-latest-tag">最新</div>' : ''}
-
-          <!-- 折叠预览（超过80字时显示截断版） -->
           <div class="bs-record-preview">${previewText}</div>
-
-          <!-- 展开全文（默认隐藏） -->
           <div class="bs-record-full">${textEscaped}</div>
-
-          <!-- 展开提示箭头（只有需要展开时才渲染） -->
           ${needExpand ? '<div class="bs-expand-hint"></div>' : ''}
         </div>
       `;
@@ -2002,7 +1990,6 @@ const BackstageStudioApp = {
     `;
   },
 
-  // ── 构建骨架 HTML ─────────────────────────────────────
   _buildHTML() {
     return `
       <div class="bs-tabs freq-tabs">
@@ -2014,22 +2001,20 @@ const BackstageStudioApp = {
     `;
   },
 
-  // ── 事件绑定 ──────────────────────────────────────────
   _bindEvents(container) {
     this._renderTab();
 
     container.addEventListener('click', (e) => {
 
-      // 1. 录音卡片展开/收起（优先判断，避免和按钮冲突）
+      // 1. 展开/收起卡片
       const recordCard = e.target.closest('.bs-expandable');
-if (recordCard && !e.target.closest('.bs-generate-btn')) {
-  const mode = this._activeTab;
-  const idx = parseInt(recordCard.dataset.recordIndex, 10);
-  // 点同一张 → 收起；点其他 → 展开
-  this._expandedIndex[mode] = (this._expandedIndex[mode] === idx) ? null : idx;
-  this._renderTab();
-  return;
-}
+      if (recordCard && !e.target.closest('.bs-generate-btn')) {
+        const mode = this._activeTab;
+        const idx  = parseInt(recordCard.dataset.recordIndex, 10);
+        this._expandedIndex[mode] = (this._expandedIndex[mode] === idx) ? null : idx;
+        this._renderTab();
+        return;
+      }
 
       // 2. Tab 切换
       const tab = e.target.closest('.bs-tab');
