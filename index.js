@@ -1956,7 +1956,7 @@ const BackstageStudioApp = {
       const isLatest    = i === 0;
       const fullText    = record.text || '';
       const textEscaped = escapeHtml(fullText);
-      const needExpand  = fullText.length > 80;
+      const needExpand  = fullText.length > 0;
       const previewText = needExpand
         ? escapeHtml(fullText.slice(0, 80)) + '…'
         : textEscaped;
