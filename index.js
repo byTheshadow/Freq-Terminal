@@ -1659,7 +1659,8 @@ const BackstageStudioApp = {
   _cache: {
     monologue: null,   // 失真独白
     interview: null,   // 演播厅采访
-    private:null,   // 角色私录},
+    private:null,   // 角色私录
+    },
   _loading: {
     monologue: false,
     interview: false,
