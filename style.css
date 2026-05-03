@@ -1022,18 +1022,25 @@
   to   { opacity: 1; }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   响应式
+/* ═══════════════════════════════════════════════════════════响应式
    ═══════════════════════════════════════════════════════════ */
+
+/*窄屏手机 — 全屏模式 */
 @media (max-width: 430px) {
   :root {
     --freq-phone-w: 100vw;
-    --freq-phone-h: 100vh;--freq-radius: 0px;
+    --freq-phone-h: 100vh;
+    --freq-phone-h: 100dvh; /* 动态视口高度，兼容移动端地址栏 */
+    --freq-radius: 0px;
+    --freq-inner-radius: 0px;
   }
 
   #freq-phone {
     border-radius: 0;
     box-shadow: none;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
   }
 
   #freq-phone::before,
@@ -1044,26 +1051,62 @@
   #freq-phone-overlay {
     background: none;
     backdrop-filter: none;
+    -webkit-backdrop-filter: none;}
+
+  #freq-phone-overlay.visible {
+    /* 确保全屏覆盖 */
+    align-items: stretch;
+    justify-content: stretch;
   }
 
   #freq-app-grid {
     grid-template-columns: repeat(4, 1fr);
     gap: 16px 8px;
   }
-}
 
-@media (max-height: 700px) {
-  :root {
-    --freq-phone-h: 98vh;
+  /*悬浮球移到安全区域内 */
+  #freq-float-btn {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+
+  /* 底部 Home Bar 适配安全区域 */
+  #freq-home-bar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* App 内容区不被底部遮挡 */
+  #freq-app-content {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* 状态栏适配刘海 */
+  #freq-status-bar {
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    height: calc(54px + env(safe-area-inset-top, 0px));
   }
 }
 
+/* 矮屏 */
+@media (max-height: 700px) {
+  :root {
+    --freq-phone-h: 98vh;
+    --freq-phone-h: 98dvh;
+  }
+}
+
+/* 中等屏幕 */
 @media (min-width: 431px) and (max-width: 768px) {
   :root {
     --freq-phone-w: min(390px, 94vw);
     --freq-phone-h: min(844px, 94vh);
+    --freq-phone-h: min(844px, 94dvh);
   }
 }
+
 /* ═══════════════════════════════════════════════════════════════FREQ · TERMINAL v2.0 — settings.css
    配置面板样式
    ═══════════════════════════════════════════════════════════════ */
@@ -1666,93 +1709,108 @@ mark.freq-highlight-pending {
 
 /* ── BLOCK_09 后台录音室 ─────────────────────────── */
 .bs-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--freq-border, rgba(255,255,255,0.08));
-  margin-bottom: 12px;
-}
-
-.bs-tab {
-  flex: 1;
-  padding: 10px 4px;
-  font-size: 12px;
-  text-align: center;
-  background: none;
-  border: none;
-  color: var(--freq-text-dim, #888);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.bs-tab:hover {
-  color: var(--freq-text, #eee);
-}
-
-.bs-tab.active {
-  color: var(--freq-accent, #a78bfa);
-  border-bottom-color: var(--freq-accent, #a78bfa);
+  margin-bottom: 0!important;
+  border-radius: 10px 10px 0 0 !important;
 }
 
 .bs-content {
   min-height: 180px;
-  padding: 0 4px;
+  padding: 12px 4px 4px;
+}
+
+.bs-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .bs-generate-btn {
-  margin-top: 16px;
+  flex-shrink: 0;
 }
 
 .bs-thinking-hint {
   font-size: 11px;
-  color: var(--freq-accent, #a78bfa);
-  margin-top: 8px;
+  color: var(--freq-red, #cc2222);
   opacity: 0.8;
 }
 
 .bs-thinking-hint.bs-thinking-absent {
-  color: var(--freq-text-dim, #888);
+  color: var(--freq-text-muted, #555);
   opacity: 0.5;
 }
 
 .bs-thinking-tag {
   font-size: 10px;
-  color: var(--freq-accent, #a78bfa);
-  background: rgba(167, 139, 250, 0.1);
+  color: var(--freq-red, #cc2222);
+  background: var(--freq-red-subtle, rgba(204,34,34,0.12));
   padding: 3px 8px;
   border-radius: 10px;
   display: inline-block;
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+}
+
+.bs-record-count {
+  font-size: 11px;
+  color: var(--freq-text-muted, #555);
   margin-bottom: 10px;
   letter-spacing: 0.04em;
 }
 
-.bs-result {
+.bs-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bs-record-card {
+  position: relative;
+  padding: 12px 14px;
   animation: freq-fade-in 0.3s ease;
 }
 
-.bs-result-text {
+.bs-record-card.bs-latest {
+  border-color: var(--freq-red-dim, #7a1111);
+}
+
+.bs-record-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.bs-record-char {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--freq-text, #e8e8e8);
+}
+
+.bs-record-time {
+  font-size: 10px;
+  color: var(--freq-text-muted, #555);
+}
+
+.bs-record-text {
   font-size: 13px;
   line-height: 1.75;
   white-space: pre-wrap;
-  word-break: break-all;
-  color: var(--freq-text, #eee);
+  word-break: break-word;
+  color: var(--freq-text-dim, #888);
 }
 
-.bs-result-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 1px solid var(--freq-border, rgba(255,255,255,0.06));
+.bs-latest-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 9px;
+  color: var(--freq-red, #cc2222);
+  background: var(--freq-red-subtle, rgba(204,34,34,0.12));
+  padding: 2px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.06em;
+  font-weight: 600;
 }
-
-.bs-regenerate-btn {
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.bs-regenerate-btn:hover {
-  opacity: 1;
-}
-
