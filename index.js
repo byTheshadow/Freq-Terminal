@@ -2041,6 +2041,7 @@ _bindEvents(container) {
   container.addEventListener('click', this._clickHandler);
   this._renderTab();
 },
+};
 
 registerApp(BackstageStudioApp);
 
