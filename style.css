@@ -1589,4 +1589,79 @@
 .freq-sp-custom-interval {
   transition: all 0.2s;
 }
+/* ── BLOCK_08 电台归档 ───────────────────────────── */
+.ra-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 12px;
+}
+
+.ra-count-label {
+  font-size: 11px;
+  color: var(--freq-text-dim, #888);
+  letter-spacing: 0.04em;
+}
+
+.ra-serial {
+  font-family: monospace;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
+.ra-time {
+  font-size: 11px;
+}
+
+.ra-scene-row {
+  font-size: 12px;
+  color: var(--freq-text-dim, #888);
+  margin: 4px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ra-section-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--freq-accent, #a78bfa);
+  text-transform: uppercase;
+  margin: 12px 0 4px;
+}
+
+.ra-section-label:first-child {
+  margin-top: 0;
+}
+
+.ra-plot-preview,
+.ra-plot-full,
+.ra-seeds,
+.ra-event {
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.ra-raw {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--freq-text-dim, #888);
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  padding: 8px;
+  background: rgba(0,0,0,0.15);
+  border-radius: 6px;
+}
+
+mark.freq-highlight-pending {
+  background: rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+  border-radius: 3px;
+  padding: 0 3px;
+  font-weight: 600;
+}
+
 
