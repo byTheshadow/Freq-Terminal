@@ -1709,8 +1709,7 @@ mark.freq-highlight-pending {
 
 /* ── BLOCK_09 后台录音室 ─────────────────────────── */
 .bs-tabs {
-  margin-bottom: 0!important;
-  border-radius: 10px 10px 0 0 !important;
+  margin-bottom: 0 !important;
 }
 
 .bs-content {
@@ -1718,6 +1717,7 @@ mark.freq-highlight-pending {
   padding: 12px 4px 4px;
 }
 
+/* 录制按钮行 */
 .bs-action-bar {
   display: flex;
   align-items: center;
@@ -1727,10 +1727,7 @@ mark.freq-highlight-pending {
   flex-wrap: wrap;
 }
 
-.bs-generate-btn {
-  flex-shrink: 0;
-}
-
+/* Thinking 提示文字 */
 .bs-thinking-hint {
   font-size: 11px;
   color: var(--freq-red, #cc2222);
@@ -1739,9 +1736,10 @@ mark.freq-highlight-pending {
 
 .bs-thinking-hint.bs-thinking-absent {
   color: var(--freq-text-muted, #555);
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
+/* 含思维链素材标签 */
 .bs-thinking-tag {
   font-size: 10px;
   color: var(--freq-red, #cc2222);
@@ -1753,6 +1751,7 @@ mark.freq-highlight-pending {
   letter-spacing: 0.04em;
 }
 
+/* 记录条数 */
 .bs-record-count {
   font-size: 11px;
   color: var(--freq-text-muted, #555);
@@ -1760,22 +1759,26 @@ mark.freq-highlight-pending {
   letter-spacing: 0.04em;
 }
 
+/* 记录列表容器 */
 .bs-record-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
+/* 单条录音卡片 */
 .bs-record-card {
   position: relative;
   padding: 12px 14px;
   animation: freq-fade-in 0.3s ease;
 }
 
+/* 最新一条：红色边框高亮 */
 .bs-record-card.bs-latest {
   border-color: var(--freq-red-dim, #7a1111);
 }
 
+/* 卡片顶部：角色名 + 时间 */
 .bs-record-header {
   display: flex;
   align-items: center;
@@ -1794,14 +1797,7 @@ mark.freq-highlight-pending {
   color: var(--freq-text-muted, #555);
 }
 
-.bs-record-text {
-  font-size: 13px;
-  line-height: 1.75;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--freq-text-dim, #888);
-}
-
+/* 最新标签（右上角） */
 .bs-latest-tag {
   position: absolute;
   top: 8px;
@@ -1813,4 +1809,60 @@ mark.freq-highlight-pending {
   border-radius: 6px;
   letter-spacing: 0.06em;
   font-weight: 600;
+}
+
+/* ── 折叠/展开逻辑 ── */
+
+/* 预览文字（折叠时显示） */
+.bs-record-preview {
+  font-size: 13px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--freq-text-dim, #888);
+}
+
+/* 全文（默认隐藏） */
+.bs-record-full {
+  display: none;
+  font-size: 13px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--freq-text-dim, #888);
+}
+
+/* 可展开的卡片：鼠标变手型 */
+.bs-expandable {
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.bs-expandable:hover {
+  border-color: var(--freq-red-dim, #7a1111);
+}
+
+/* 展开状态：隐藏预览，显示全文 */
+.bs-expanded .bs-record-preview {
+  display: none;
+}
+
+.bs-expanded .bs-record-full {
+  display: block;
+}
+
+/* 展开提示箭头 */
+.bs-expand-hint {
+  font-size: 11px;
+  color: var(--freq-red, #cc2222);
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+.bs-expand-hint::after {
+  content: '展开全文 ▼';
+}
+
+.bs-expanded .bs-expand-hint::after {
+  content: '收起 ▲';
 }
