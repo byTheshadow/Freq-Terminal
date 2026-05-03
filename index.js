@@ -2068,21 +2068,13 @@ registerApp(BackstageStudioApp);
   async function freqInit() {
     console.log('[FREQ] FREQ · TERMINAL v2.0 初始化开始');
 
-    const settings = STBridge.getSettings();
-
-    // 1. 加载 settings.html到 ST 扩展面板
+    // 1. 加载 settings.html 到 ST 扩展面板
     await SettingsUI.loadSettingsHTML();
 
     // 2. 构建手机 DOM
     PhoneShell.buildDOM();
 
-    // 3. 初始化配置面板逻辑
-    SettingsUI.init();
-
-    // 4. 根据设置控制悬浮球
-    PhoneShell.setFloatVisible(settings.enabled && settings.floatEnabled);
-
-    // 5. 尝试监听 ST 的消息事件
+    // 3. 尝试监听 ST 的消息事件
     try {
       const ctx = STBridge.getContext();
       if (ctx && ctx.eventSource) {
@@ -2102,30 +2094,42 @@ registerApp(BackstageStudioApp);
     console.log('[FREQ] FREQ · TERMINAL v2.0 初始化完成');
   }
 
-    // jQuery 入口
+  // jQuery 入口
   if (typeof jQuery !== 'undefined') {
     jQuery(async () => {
       const maxWait = 10000;
       const start = Date.now();
 
-      // 第一步：等待 SillyTavern.getContext 可用
+      // 等待 SillyTavern.getContext 可用
       while (!window.SillyTavern?.getContext && Date.now() - start < maxWait) {
         await sleep(200);
       }
 
-      // 第二步：等待 ST 核心就绪（saveSettingsDebounced 是 ST 设置系统完全加载的标志）
-      const coreStart = Date.now();
-      while (Date.now() - coreStart < 5000) {
-        if (typeof window.saveSettingsDebounced === 'function') {
-          break;
-        }
+      // 等待 saveSettingsDebounced 可用（ST 设置系统就绪的标志）
+      const settingsStart = Date.now();
+      while (Date.now() - settingsStart < 8000) {
+        if (typeof window.saveSettingsDebounced === 'function') break;
         await sleep(100);
       }
 
-      // 第三步：再等一个短暂的 tick，让 ST 把磁盘数据写入 extension_settings
-      await sleep(500);
-
+      // 先初始化 DOM 和事件
       await freqInit();
+
+      // ST 标准做法：监听 ST 的 loadExtensionSettings 事件来填充面板
+      // 这个事件由 ST 在设置数据就绪后触发，是官方推荐的初始化时机
+      const ctx = STBridge.getContext();
+      if (ctx && ctx.eventSource) {
+        ctx.eventSource.on('settings_loaded', () => {
+          SettingsUI.init();
+          const settings = STBridge.getSettings();
+          PhoneShell.setFloatVisible(settings.enabled && settings.floatEnabled);
+        });
+      }
+
+      // 同时立即尝试一次（应对 settings_loaded 已经触发过的情况）
+      SettingsUI.init();
+      const settings = STBridge.getSettings();
+      PhoneShell.setFloatVisible(settings.enabled && settings.floatEnabled);
     });
   } else {
     if (document.readyState === 'loading') {
@@ -2134,6 +2138,7 @@ registerApp(BackstageStudioApp);
       freqInit();
     }
   }
+
 
 
   // ── BLOCK_99 END ──────────────────────────────────────
