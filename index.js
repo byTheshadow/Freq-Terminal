@@ -823,62 +823,680 @@ ${radioShow?.STATUS ? `当前状态：${radioShow.STATUS}` : ''}
 
 
 // ┌──────────────────────────────────────────────────────────────┐
-// │ BLOCK_06  Phone Shell —手机外壳 + App 注册 + 主屏幕         │
+// │ BLOCK_06  Phone Shell —手机外壳 + App 注册 + 主屏幕          │
 // │ 依赖：BLOCK_00, BLOCK_01, BLOCK_02, BLOCK_05│
-// │⚠ 占位区块— 第二批开发                │
-// └──────────────────────────────────────────────────────────────┘const PhoneShell = (() => {
+// └──────────────────────────────────────────────────────────────┘
+  const PhoneShell = (() => {
     const _registeredApps = [];// 注册的 App 列表
-    let _container= null;       // 手机主DOM 容器
-    let _floatBtn   = null;       // 悬浮窗按钮
-    let _currentApp = null;       // 当前打开的 App ID
-    let _isOpen     = false;      // 手机是否打开
+    let _phoneEl= null;    // .freq-phone 根元素
+    let _screenEl      = null;    // .freq-phone-screen
+    let _bodyEl        = null;    // .freq-phone-body
+    let _homeEl        = null;    // .freq-home-screen
+    let _notifyPanel   = null;    // .freq-notify-panel
+    let _notifyList    = null;    // .freq-notify-list
+    let _floatBtn      = null;    // 悬浮窗按钮
+    let _floatBadge    = null;    // 悬浮窗角标
+    let _clockEl       = null;    // 状态栏时间
+    let _notifyBtnEl   = null;    // 状态栏通知图标
 
-    /**
-     * 注册一个 App
-     * @param {Object} app  { id, name, icon, mount(container), unmount(), _badge }
-     */
+    let _currentApp    = null;    // 当前打开的 App 对象
+    let _currentPage   = null;    // 当前 App 页面 DOM
+    let _isOpen        = false;   // 手机是否打开
+    let _isNotifyOpen  = false;   // 通知栏是否打开
+    let _clockTimer    = null;    // 时钟定时器
+
+    //── 注册 App ───────────────────────────────────────────────
+
     function registerApp(app) {
       if (!app?.id) {
         console.warn('[FREQ PhoneShell] 注册 App 缺少 id，已跳过');
         return;
       }
-      // 防重复注册
       if (_registeredApps.find((a) => a.id === app.id)) {
         console.warn(`[FREQ PhoneShell] App "${app.id}" 已存在，跳过重复注册`);
         return;
       }
       _registeredApps.push(app);}
 
-    /** 获取所有已注册 App */
-    function getApps() { return _registeredApps; }
-
-    /** 获取当前打开的 App ID */
+    function getApps(){ return _registeredApps; }
     function getCurrentApp() { return _currentApp; }
+    function isOpen()        { return _isOpen; }
 
-    /** 手机是否打开 */
-    function isOpen() { return _isOpen; }
+    // ── 挂载 ───────────────────────────────────────────────────
 
-    /** 设置引用（第二批 mount 时调用） */
-    function _setContainer(el)  { _container = el; }
-    function _setFloatBtn(el)   { _floatBtn = el; }
-    function _setOpen(val)      { _isOpen = val; }
-    function _setCurrentApp(id) { _currentApp = id; }
+    function mount() {
+      if (_phoneEl) return; // 防重复挂载
+
+      // 创建悬浮窗
+      _createFloatBtn();
+
+      // 创建手机 DOM
+      _createPhoneDOM();
+
+      // 绑定事件
+      _bindEvents();
+
+      // 启动时钟
+      _startClock();
+
+      // 渲染主屏幕
+      _renderHomeGrid();
+
+      // 渲染通知栏（初始空状态）
+      _renderNotifyList();
+
+      // 监听通知更新
+      EventBus.on('notify:new', _onNotifyUpdate);
+      EventBus.on('notify:read', _onNotifyUpdate);EventBus.on('notify:cleared', _onNotifyUpdate);EventBus.on('notify:errorsCleared', _onNotifyUpdate);
+
+      // 监听角色切换 →刷新主屏幕
+      EventBus.on('st:chatChanged', _renderHomeGrid);
+
+      // 检查悬浮窗开关
+      const settings = STBridge.getSettings();
+      if (!settings.floatBtnEnabled) {
+        _floatBtn.classList.add('freq-hidden');
+      }
+
+      console.log('[FREQ PhoneShell] 手机外壳挂载完成');
+    }
+
+    // ── 创建悬浮窗按钮 ─────────────────────────────────────────
+
+    function _createFloatBtn() {
+      _floatBtn = document.createElement('div');
+      _floatBtn.className = 'freq-float-btn';
+      _floatBtn.innerHTML = `
+        <span class="freq-float-icon">📡</span>
+        <span class="freq-float-badge" data-count="0"></span>
+      `;
+      _floatBadge = _floatBtn.querySelector('.freq-float-badge');
+      document.body.appendChild(_floatBtn);
+
+      // 拖拽逻辑
+      _makeDraggable(_floatBtn, {
+        onClickOnly: () => togglePhone(),
+        snapToEdge: true,
+      });
+    }
+
+    // ── 创建手机 DOM ───────────────────────────────────────────
+
+    function _createPhoneDOM() {
+      _phoneEl = document.createElement('div');
+      _phoneEl.className = 'freq-terminal freq-phone';
+      _phoneEl.innerHTML = `
+        <div class="freq-phone-screen">
+          <!--灵动岛 -->
+          <div class="freq-phone-island"></div>
+
+          <!-- 状态栏 -->
+          <div class="freq-phone-statusbar">
+            <div class="freq-sb-left">
+              <span class="freq-sb-clock">00:00</span></div>
+            <div class="freq-sb-center">
+              <span class="freq-sb-notify-btn" title="通知中心">🔔</span>
+            </div>
+            <div class="freq-sb-right">
+              <span class="freq-sb-signal">●●●●</span>
+              <span class="freq-sb-battery">🔋</span>
+              <button class="freq-phone-close" title="关闭手机">✕</button>
+            </div>
+          </div>
+
+          <!-- 主体内容区 -->
+          <div class="freq-phone-body">
+            <!-- 主屏幕 -->
+            <div class="freq-home-screen">
+              <div class="freq-home-grid"></div>
+            </div></div>
+
+          <!-- 通知栏面板 -->
+          <div class="freq-notify-panel">
+            <div class="freq-notify-header">
+              <span class="freq-notify-title">📬 通知中心</span>
+              <div class="freq-notify-actions">
+                <button class="freq-notify-read-all freq-btn-sm freq-btn-outline">全部已读</button>
+                <button class="freq-notify-clear freq-btn-sm freq-btn-outline">清空</button>
+              </div>
+            </div>
+            <div class="freq-notify-list"></div>
+          </div>
+
+          <!-- Home 指示条 -->
+          <div class="freq-phone-homebar">
+            <div class="freq-phone-homebar-indicator"></div>
+          </div>
+        </div>
+      `;
+
+      // 缓存关键元素引用
+      _screenEl    = _phoneEl.querySelector('.freq-phone-screen');
+      _bodyEl      = _phoneEl.querySelector('.freq-phone-body');
+      _homeEl      = _phoneEl.querySelector('.freq-home-grid');
+      _notifyPanel = _phoneEl.querySelector('.freq-notify-panel');
+      _notifyList  = _phoneEl.querySelector('.freq-notify-list');
+      _clockEl     = _phoneEl.querySelector('.freq-sb-clock');
+      _notifyBtnEl = _phoneEl.querySelector('.freq-sb-notify-btn');
+
+      // 设置初始位置（左下角，悬浮窗上方）
+      _phoneEl.style.bottom = '90px';
+      _phoneEl.style.left   = '20px';
+
+      document.body.appendChild(_phoneEl);
+
+      // 手机拖拽（通过状态栏拖拽）
+      const statusbar = _phoneEl.querySelector('.freq-phone-statusbar');
+      _makePhoneDraggable(statusbar);
+    }
+
+    // ── 绑定事件（全部事件委托） ───────────────────────────────
+
+    function _bindEvents() {
+      // ── 关闭按钮 ──
+      _phoneEl.addEventListener('click', (e) => {
+        if (e.target.closest('.freq-phone-close')) {
+          closePhone();
+          return;
+        }
+      });
+
+      // ── 主屏幕 App 图标点击 ──
+      _homeEl.addEventListener('click', (e) => {
+        const icon = e.target.closest('.freq-app-icon');
+        if (!icon) return;
+        const appId = icon.dataset.appId;
+        if (appId) openApp(appId);
+      });
+
+      // ── Home 指示条点击 = 返回主屏幕 ──
+      _phoneEl.querySelector('.freq-phone-homebar').addEventListener('click', () => {
+        if (_currentApp) {
+          closeApp();
+        } else if (_isNotifyOpen) {
+          _toggleNotify(false);
+        }
+      });
+
+      // ── 状态栏通知图标 ──
+      _notifyBtnEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        _toggleNotify(!_isNotifyOpen);
+      });
+
+      // ── 通知栏：全部已读 ──
+      _notifyPanel.querySelector('.freq-notify-read-all').addEventListener('click', () => {
+        Notify.markRead('all');
+      });
+
+      // ── 通知栏：清空 ──
+      _notifyPanel.querySelector('.freq-notify-clear').addEventListener('click', () => {
+        Notify.clearAll();
+      });
+
+      // ── 通知栏：点击某条通知 →跳转对应 App ──
+      _notifyList.addEventListener('click', (e) => {
+        const item = e.target.closest('.freq-notify-item');
+        if (!item) return;
+        const appId = item.dataset.appId;
+        if (appId && appId !== 'system' && appId !== 'bg-message') {
+          _toggleNotify(false);
+          openApp(appId);
+        }
+      });
+    }
+
+    // ── 打开 / 关闭手机 ───────────────────────────────────────
+
+    function togglePhone() {
+      if (_isOpen) closePhone();
+      else openPhone();
+    }
+
+    function openPhone() {
+      if (_isOpen) return;
+      _isOpen = true;
+      _phoneEl.classList.add('freq-phone-open');
+      _startClock();
+      EventBus.emit('phone:open', null);
+    }
+
+    function closePhone() {
+      if (!_isOpen) return;
+      // 先关闭通知栏和当前 App
+      if (_isNotifyOpen) _toggleNotify(false);
+      if (_currentApp) closeApp();
+      _isOpen = false;
+      _phoneEl.classList.remove('freq-phone-open');
+      _stopClock();
+      EventBus.emit('phone:close', null);
+    }
+
+    // ── 打开 / 关闭 App ───────────────────────────────────────
+
+    function openApp(appId) {
+      const app = _registeredApps.find((a) => a.id === appId);
+      if (!app) {
+        console.warn(`[FREQ PhoneShell] App "${appId}" 未注册`);
+        return;
+      }
+
+      // 如果已有App 打开，先关闭
+      if (_currentApp) closeApp();
+
+      // 关闭通知栏
+      if (_isNotifyOpen) _toggleNotify(false);
+
+      // 创建 App 页面容器
+      _currentPage = document.createElement('div');
+      _currentPage.className = 'freq-app-page';
+      _currentPage.dataset.appId = appId;
+      _currentPage.innerHTML = `
+        <div class="freq-app-topbar">
+          <button class="freq-app-back" title="返回">‹</button>
+          <span class="freq-app-topbar-title">${escapeHtml(app.icon ?? '')} ${escapeHtml(app.name ?? appId)}</span>
+        </div>
+        <div class="freq-app-content"></div>
+      `;
+
+      // 返回按钮
+      _currentPage.querySelector('.freq-app-back').addEventListener('click', () => {
+        closeApp();
+      });
+
+      // 插入到body 后面（叠在主屏幕上方）
+      _bodyEl.appendChild(_currentPage);
+
+      // 触发进入动画（下一帧才能触发 CSS transition）
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          _currentPage.classList.add('freq-app-active');
+        });
+      });
+
+      // 调用 App 的 mount
+      _currentApp = app;
+      const contentEl = _currentPage.querySelector('.freq-app-content');
+      try {
+        app.mount(contentEl);
+      } catch (e) {
+        Notify.error(`App ${app.name || appId}`, e);contentEl.innerHTML = `
+          <div class="freq-empty">
+            <p>⚠ 加载失败</p>
+            <p style="font-size:12px;color:var(--freq-text-muted);margin-top:8px;">${escapeHtml(e.message)}</p>
+          </div>
+        `;
+      }
+
+      // 标记通知已读
+      Notify.markRead(appId);
+
+      EventBus.emit('app:open', { appId });
+    }
+
+    function closeApp() {
+      if (!_currentApp || !_currentPage) return;
+
+      // 调用 App 的 unmount
+      try {
+        _currentApp.unmount?.();
+      } catch (e) {
+        console.error('[FREQ PhoneShell] App unmount 异常:', e);
+      }
+
+      // 退出动画
+      const page = _currentPage;
+      page.classList.remove('freq-app-active');
+
+      // 动画结束后移除 DOM
+      const onEnd = () => {
+        page.removeEventListener('transitionend', onEnd);
+        if (page.parentNode) page.parentNode.removeChild(page);
+      };
+      page.addEventListener('transitionend', onEnd);
+
+      // 兜底：350ms 后强制移除（防止 transitionend 不触发）
+      setTimeout(() => {
+        if (page.parentNode) page.parentNode.removeChild(page);
+      }, 400);
+
+      _currentApp= null;
+      _currentPage = null;
+
+      EventBus.emit('app:close', null);
+    }
+
+    // ── 通知栏 ─────────────────────────────────────────────────
+
+    function _toggleNotify(open) {
+      _isNotifyOpen = open;
+      if (open) {
+        _renderNotifyList();
+        _notifyPanel.classList.add('freq-notify-open');
+        _notifyBtnEl.textContent = '🔕';
+      } else {
+        _notifyPanel.classList.remove('freq-notify-open');
+        _notifyBtnEl.textContent = '🔔';
+      }
+    }
+
+    function _renderNotifyList() {
+      if (!_notifyList) return;
+      const all = Notify.getAll();
+      if (all.length === 0) {
+        _notifyList.innerHTML = '<div class="freq-notify-empty">📭 暂无通知</div>';
+        return;
+      }
+
+      let html = '';
+      for (const n of all) {
+        const typeClass =
+          n.type === 'error'? 'freq-notify-error'  :
+          n.type === 'warn'   ? 'freq-notify-warn'   :
+          n.type === 'system' ? 'freq-notify-system': '';
+
+        const readClass = n.read ? 'freq-notify-read' : '';
+        const appName= _getAppName(n.appId);
+
+        html += `
+          <div class="freq-notify-item ${typeClass} ${readClass}" data-app-id="${escapeHtml(n.appId)}" data-id="${escapeHtml(n.id)}">
+            <div class="freq-notify-item-header">
+              <span class="freq-notify-item-source">${escapeHtml(appName)}</span>
+              <span class="freq-notify-item-time">${escapeHtml(n.time)}</span>
+            </div>
+            <div class="freq-notify-item-title">${escapeHtml(n.title)}</div>
+            <div class="freq-notify-item-body">${escapeHtml(n.body)}</div>
+          </div>
+        `;
+      }
+      _notifyList.innerHTML = html;
+    }
+
+    function _getAppName(appId) {
+      if (appId === 'system') return '🔧 系统';
+      if (appId === 'bg-message') return '📨 角色消息';
+      const app = _registeredApps.find((a) => a.id === appId);
+      return app ? `${app.icon ?? ''} ${app.name ?? appId}` : appId;
+    }
+
+    function _onNotifyUpdate() {
+      // 刷新通知栏列表
+      if (_isNotifyOpen) _renderNotifyList();
+      // 更新悬浮窗角标
+      _updateBadge();
+      // 更新主屏幕 App 角标
+      _updateAppBadges();
+    }
+
+    // ── 角标 ───────────────────────────────────────────────────
+
+    function _updateBadge() {
+      if (!_floatBadge) return;
+      const count = Notify.getUnreadCount();
+      _floatBadge.textContent = count > 99 ? '99+' : (count > 0 ? String(count) : '');_floatBadge.dataset.count = String(count);
+    }
+
+    function _updateAppBadges() {
+      if (!_homeEl) return;
+      for (const app of _registeredApps) {
+        const badge = _homeEl.querySelector(`.freq-app-icon[data-app-id="${app.id}"] .freq-app-badge`);
+        if (!badge) continue;
+        const count = Notify.getUnreadByApp(app.id);
+        badge.textContent = count > 99 ? '99+' : (count > 0 ? String(count) : '');
+        badge.dataset.count = String(count);
+      }
+    }
+
+    // ── 主屏幕网格 ─────────────────────────────────────────────
+
+    function _renderHomeGrid() {
+      if (!_homeEl) return;
+      if (_registeredApps.length === 0) {
+        _homeEl.innerHTML = '<div class="freq-empty">📱 暂无应用</div>';
+        return;
+      }
+
+      let html = '';
+      for (const app of _registeredApps) {
+        const unread = Notify.getUnreadByApp(app.id);
+        const badgeText = unread > 99 ? '99+' : (unread > 0 ? String(unread) : '');
+        html += `
+          <div class="freq-app-icon" data-app-id="${escapeHtml(app.id)}">
+            <div class="freq-app-icon-img">${app.icon ?? '📱'}</div>
+            <span class="freq-app-badge" data-count="${unread}">${badgeText}</span>
+            <span class="freq-app-icon-label">${escapeHtml(app.name ?? app.id)}</span>
+          </div>
+        `;
+      }
+      _homeEl.innerHTML = html;
+    }
+
+    // ── 时钟 ───────────────────────────────────────────────────
+
+    function _startClock() {
+      _updateClock();
+      _stopClock();
+      _clockTimer = setInterval(_updateClock, 30000);
+    }
+
+    function _stopClock() {
+      if (_clockTimer) {
+        clearInterval(_clockTimer);
+        _clockTimer = null;
+      }
+    }
+
+    function _updateClock() {
+      if (!_clockEl) return;
+      const d = new Date();
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      _clockEl.textContent = `${h}:${m}`;
+    }
+
+    // ── 拖拽：悬浮窗 ──────────────────────────────────────────
+
+    /**
+     * 通用拖拽封装
+     * @param {HTMLElement} el         被拖拽的元素
+     * @param {Object}      options
+     *- onClickOnly  {Function}如果未发生拖拽则执行（模拟点击）
+     *   - snapToEdge   {boolean}   松手后吸附左/右边缘
+     */
+    function _makeDraggable(el, options = {}) {
+      let startX, startY, initLeft, initTop;
+      let dragging = false;
+      let hasMoved = false;
+      const THRESHOLD = 5;
+
+      function onStart(e) {
+        const ev = e.touches ? e.touches[0] : e;
+        startX   = ev.clientX;
+        startY   = ev.clientY;
+        const rect = el.getBoundingClientRect();
+        initLeft = rect.left;
+        initTop  = rect.top;
+        dragging = true;
+        hasMoved = false;
+        el.classList.add('freq-dragging');
+
+        document.addEventListener('mousemove', onMove, { passive: false });
+        document.addEventListener('mouseup',   onEnd);document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend',  onEnd);
+        e.preventDefault();
+      }
+
+      function onMove(e) {
+        if (!dragging) return;
+        const ev = e.touches ? e.touches[0] : e;
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+
+        if (!hasMoved && Math.abs(dx) < THRESHOLD && Math.abs(dy) < THRESHOLD) return;
+        hasMoved = true;
+
+        let newLeft = initLeft + dx;
+        let newTop  = initTop  + dy;
+
+        // 边界限制
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const w= el.offsetWidth;
+        const h  = el.offsetHeight;
+        newLeft = Math.max(0, Math.min(vw - w, newLeft));
+        newTop  = Math.max(0, Math.min(vh - h, newTop));
+
+        el.style.left   = newLeft + 'px';
+        el.style.top    = newTop  + 'px';
+        el.style.right  = 'auto';
+        el.style.bottom = 'auto';
+
+        e.preventDefault();
+      }
+
+      function onEnd() {
+        dragging = false;
+        el.classList.remove('freq-dragging');
+
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup',   onEnd);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend',  onEnd);
+
+        if (!hasMoved) {
+          // 没拖动→ 当作点击
+          options.onClickOnly?.();
+          return;
+        }
+
+        //吸附左/右边缘
+        if (options.snapToEdge) {
+          const rect = el.getBoundingClientRect();
+          const vw   = window.innerWidth;
+          const mid  = rect.left + rect.width / 2;
+          if (mid < vw / 2) {
+            el.style.left = '16px';
+          } else {
+            el.style.left = (vw - el.offsetWidth - 16) + 'px';
+          }
+          el.style.right  = 'auto';
+          el.style.bottom = 'auto';
+        }
+      }
+
+      el.addEventListener('mousedown',  onStart);
+      el.addEventListener('touchstart', onStart, { passive: false });
+    }
+
+    // ── 拖拽：手机（通过状态栏拖拽） ──────────────────────────
+
+    function _makePhoneDraggable(handleEl) {
+      let startX, startY, initLeft, initTop;
+      let dragging = false;
+      const THRESHOLD = 5;
+
+      function onStart(e) {
+        // 排除通知按钮和关闭按钮的点击
+        if (e.target.closest('.freq-sb-notify-btn') || e.target.closest('.freq-phone-close')) return;
+
+        // 手机端全屏，不拖拽
+        if (window.innerWidth <= 500) return;
+
+        const ev = e.touches ? e.touches[0] : e;
+        startX = ev.clientX;
+        startY = ev.clientY;
+        const rect = _phoneEl.getBoundingClientRect();
+        initLeft   = rect.left;
+        initTop    = rect.top;
+        dragging   = true;
+
+        _phoneEl.classList.add('freq-phone-dragging');
+
+        document.addEventListener('mousemove', onMove, { passive: false });
+        document.addEventListener('mouseup',   onEnd);
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend',  onEnd);
+        e.preventDefault();
+      }
+
+      function onMove(e) {
+        if (!dragging) return;
+        const ev = e.touches ? e.touches[0] : e;
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+
+        if (Math.abs(dx) < THRESHOLD && Math.abs(dy) < THRESHOLD) return;
+
+        let newLeft = initLeft + dx;
+        let newTop  = initTop  + dy;
+
+        // 边界
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const w  = _phoneEl.offsetWidth;
+        const h  = _phoneEl.offsetHeight;
+        newLeft = Math.max(-w / 2, Math.min(vw - w / 2, newLeft));
+        newTop  = Math.max(0, Math.min(vh -60, newTop));
+
+        _phoneEl.style.left   = newLeft + 'px';
+        _phoneEl.style.top    = newTop  + 'px';
+        _phoneEl.style.right  = 'auto';
+        _phoneEl.style.bottom = 'auto';
+
+        e.preventDefault();
+      }
+
+      function onEnd() {
+        dragging = false;
+        _phoneEl.classList.remove('freq-phone-dragging');
+
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup',   onEnd);
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend',  onEnd);
+      }
+
+      handleEl.addEventListener('mousedown',  onStart);
+      handleEl.addEventListener('touchstart', onStart, { passive: false });
+    }
+
+    // ── 外部控制 ──────────────────────────────────────────────
+
+    /**显示/隐藏悬浮窗 */
+    function setFloatVisible(visible) {
+      if (!_floatBtn) return;
+      if (visible) {
+        _floatBtn.classList.remove('freq-hidden');
+      } else {
+        _floatBtn.classList.add('freq-hidden');
+      }
+    }
+
+    /** 外部直接打开手机（比如从配置面板按钮） */
+    function showPhone() {
+      openPhone();
+    }
 
     return {
       registerApp,
       getApps,
       getCurrentApp,
       isOpen,
-      _registeredApps,
-      _setContainer,
-      _setFloatBtn,
-      _setOpen,
-      _setCurrentApp,// mount / unmount / openApp / closeApp / goHome
-      // → 第二批实现
+      mount,
+      openPhone,
+      closePhone,
+      togglePhone,
+      openApp,
+      closeApp,
+      setFloatVisible,
+      showPhone,
+      _renderHomeGrid,
+      _updateBadge,
     };
   })();
 
-// ── BLOCK_06 END (占位) ───────────────────────────────────────
+// ── BLOCK_06 END ──────────────────────────────────────────────
+
 
 
 // ┌──────────────────────────────────────────────────────────────┐
