@@ -657,8 +657,8 @@
           <div id="freq-status-bar">
             <span class="freq-status-time">${timeNow()}</span>
             <span class="freq-status-icons">
-              <svg viewBox="0 0 24 18"><path d="M1 17h3V7H1v10zm50h3V1H6v16zm5 0h3V9h-3v8zm5 0h3V5h-3v12z"/></svg>
-              <svg viewBox="0 0 24 18"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v11.34C7 17.4 7.6 18 8.33 18h7.34c.73 0 1.33-.6 1.33-1.33V5.33C174.6 16.4 4 15.67 4z"/></svg>
+              <svg viewBox="0 0 24 12" width="16" height="10" fill="currentColor"><rect x="0" y="4" width="3" height="8" rx="1"/><rect x="5" y="2" width="3" height="10" rx="1"/><rect x="10" y="0" width="3" height="12" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+              <svg viewBox="0 0 24 12" width="16" height="10" fill="currentColor"><rect x="1" y="2" width="20" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="4" width="12" height="4" rx="1"/><rect x="22" y="4" width="2" height="4" rx="1"/></svg>
             </span>
           </div>
 
