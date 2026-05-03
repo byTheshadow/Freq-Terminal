@@ -1664,4 +1664,95 @@ mark.freq-highlight-pending {
   font-weight: 600;
 }
 
+/* ── BLOCK_09 后台录音室 ─────────────────────────── */
+.bs-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--freq-border, rgba(255,255,255,0.08));
+  margin-bottom: 12px;
+}
+
+.bs-tab {
+  flex: 1;
+  padding: 10px 4px;
+  font-size: 12px;
+  text-align: center;
+  background: none;
+  border: none;
+  color: var(--freq-text-dim, #888);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.bs-tab:hover {
+  color: var(--freq-text, #eee);
+}
+
+.bs-tab.active {
+  color: var(--freq-accent, #a78bfa);
+  border-bottom-color: var(--freq-accent, #a78bfa);
+}
+
+.bs-content {
+  min-height: 180px;
+  padding: 0 4px;
+}
+
+.bs-generate-btn {
+  margin-top: 16px;
+}
+
+.bs-thinking-hint {
+  font-size: 11px;
+  color: var(--freq-accent, #a78bfa);
+  margin-top: 8px;
+  opacity: 0.8;
+}
+
+.bs-thinking-hint.bs-thinking-absent {
+  color: var(--freq-text-dim, #888);
+  opacity: 0.5;
+}
+
+.bs-thinking-tag {
+  font-size: 10px;
+  color: var(--freq-accent, #a78bfa);
+  background: rgba(167, 139, 250, 0.1);
+  padding: 3px 8px;
+  border-radius: 10px;
+  display: inline-block;
+  margin-bottom: 10px;
+  letter-spacing: 0.04em;
+}
+
+.bs-result {
+  animation: freq-fade-in 0.3s ease;
+}
+
+.bs-result-text {
+  font-size: 13px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--freq-text, #eee);
+}
+
+.bs-result-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--freq-border, rgba(255,255,255,0.06));
+}
+
+.bs-regenerate-btn {
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.bs-regenerate-btn:hover {
+  opacity: 1;
+}
 
