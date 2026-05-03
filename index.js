@@ -1664,6 +1664,7 @@ const BackstageStudioApp = {
     monologue: null,
     interview: null,
     private:   null,
+    _clickHandler: null,
   },
 
   _activeTab: 'monologue',
@@ -1712,10 +1713,10 @@ const BackstageStudioApp = {
   },
 
   mount(container) {
-    this._container = container;
-    container.innerHTML = this._buildHTML();
-    this._bindEvents(container);
-  },
+  this._container = container;
+  container.innerHTML = this._buildHTML();
+  this._bindEvents(container);
+},
 
   unmount() {
     this._container = null;
@@ -2001,41 +2002,45 @@ const BackstageStudioApp = {
     `;
   },
 
-  _bindEvents(container) {
-    this._renderTab();
+_bindEvents(container) {
+  // 移除旧监听器，防止重复绑定
+  if (this._clickHandler) {
+    container.removeEventListener('click', this._clickHandler);
+  }
 
-    container.addEventListener('click', (e) => {
+  this._clickHandler = (e) => {
+    // 1. 展开/收起卡片
+    const recordCard = e.target.closest('.bs-expandable');
+    if (recordCard && !e.target.closest('.bs-generate-btn')) {
+      const mode = this._activeTab;
+      const idx  = parseInt(recordCard.dataset.recordIndex, 10);
+      this._expandedIndex[mode] = (this._expandedIndex[mode] === idx) ? null : idx;
+      this._renderTab();
+      return;
+    }
 
-      // 1. 展开/收起卡片
-      const recordCard = e.target.closest('.bs-expandable');
-      if (recordCard && !e.target.closest('.bs-generate-btn')) {
-        const mode = this._activeTab;
-        const idx  = parseInt(recordCard.dataset.recordIndex, 10);
-        this._expandedIndex[mode] = (this._expandedIndex[mode] === idx) ? null : idx;
-        this._renderTab();
-        return;
-      }
+    // 2. Tab 切换
+    const tab = e.target.closest('.bs-tab');
+    if (tab) {
+      const mode = tab.dataset.tab;
+      this._activeTab = mode;
+      container.querySelectorAll('.bs-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      this._renderTab();
+      return;
+    }
 
-      // 2. Tab 切换
-      const tab = e.target.closest('.bs-tab');
-      if (tab) {
-        const mode = tab.dataset.tab;
-        this._activeTab = mode;
-        container.querySelectorAll('.bs-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        this._renderTab();
-        return;
-      }
+    // 3. 录制按钮
+    const genBtn = e.target.closest('.bs-generate-btn');
+    if (genBtn) {
+      this._generate(genBtn.dataset.mode);
+      return;
+    }
+  };
 
-      // 3. 录制按钮
-      const genBtn = e.target.closest('.bs-generate-btn');
-      if (genBtn) {
-        this._generate(genBtn.dataset.mode);
-        return;
-      }
-    });
-  },
-};
+  container.addEventListener('click', this._clickHandler);
+  this._renderTab();
+},
 
 registerApp(BackstageStudioApp);
 
