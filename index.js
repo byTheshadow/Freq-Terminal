@@ -1645,8 +1645,8 @@ registerApp(RadioArchiveApp);
 // ── BLOCK_08 END ──────────────────────────────────────
 
 // ┌──────────────────────────────────────────────────────┐
-// │ BLOCK_09  App02·后台录音室 · backstage-studio│
-// │ 依赖：BLOCK_02 STBridge, BLOCK_03 Parser,│
+// │ BLOCK_09  App02·后台录音室 · backstage-studio          │
+// │ 依赖：BLOCK_02 STBridge, BLOCK_03 Parser,              │
 // │       BLOCK_04 SubAPI, BLOCK_05 Notify, BLOCK_07 Settings│
 // └──────────────────────────────────────────────────────┘
 
@@ -1659,17 +1659,17 @@ const BackstageStudioApp = {
   _loading: {
     monologue: false,
     interview: false,
-    private:false,
+    private:   false,
   },
   _activeTab: 'monologue',
 
-  //── 持久化读写 ────────────────────────────────────────
+  // ── 持久化读写 ────────────────────────────────────────
   _getData() {
     const s = STBridge.getSettings();
     if (!s.appData) s.appData = {};
     if (!s.appData['backstage-studio']) {
       s.appData['backstage-studio'] = {
-        monologue: [],// { text, time, charName }
+        monologue: [],
         interview: [],
         private:   [],
       };
@@ -1685,9 +1685,9 @@ const BackstageStudioApp = {
     const data = this._getData();
     if (!data[mode]) data[mode] = [];
     data[mode].unshift({
-      text: text,
-      time: dateTimeNow(),
-      charName: STBridge.getCharName() || '未知角色',
+      text:        text,
+      time:        dateTimeNow(),
+      charName:    STBridge.getCharName() || '未知角色',
       hasThinking: extra?.hasThinking || false,
     });
     // 每个模式最多保留 30 条
@@ -1710,7 +1710,7 @@ const BackstageStudioApp = {
     this._container = null;
   },
 
-  // ── 失真的系统 Prompt基底 ─────────────────────────────
+  // ── 失真人格 Prompt ───────────────────────────────────
   _distortionPersona() {
     return [
       '你是「失真」，一个午夜摇滚乐电台的幕后主持人。',
@@ -1722,14 +1722,13 @@ const BackstageStudioApp = {
     ].join('\n');
   },
 
-  // ── 获取剧情摘要（直接用字符串返回）─────────────────────
+  // ── 获取剧情摘要 ──────────────────────────────────────
   _getPlotContext() {
-    // getRecentMessages 返回的是拼接好的字符串
+    // getRecentMessages 返回的是拼接好的字符串，不是数组
     const recent = STBridge.getRecentMessages(12);
     if (!recent || typeof recent !== 'string' || recent.trim() === '') {
       return '（当前没有对话记录）';
     }
-    // 截断过长内容，避免 prompt爆炸
     return recent.length > 3000 ? recent.slice(-3000) : recent;
   },
 
@@ -1738,13 +1737,11 @@ const BackstageStudioApp = {
     return Parser.getLatestThinking();
   },
 
-  // ── 三种模式的Prompt 构建 ────────────────────────────
-
-  //🎙失真独白
+  // ── 🎙 失真独白 Prompt ────────────────────────────────
   _buildMonologuePrompt() {
     const charName = STBridge.getCharName() || '未知角色';
     const userName = STBridge.getUserName() || '听众';
-    const plot = this._getPlotContext();
+    const plot     = this._getPlotContext();
 
     const system = [
       this._distortionPersona(),
@@ -1770,12 +1767,11 @@ const BackstageStudioApp = {
     return { system, user };
   },
 
-  // 🎤 演播厅采访
+  // ── 🎤 演播厅采访 Prompt ──────────────────────────────
   _buildInterviewPrompt() {
-    const charName = STBridge.getCharName() || '未知角色';
-    const userName = STBridge.getUserName() || '听众';
-    const plot = this._getPlotContext();
-
+    const charName    = STBridge.getCharName() || '未知角色';
+    const userName    = STBridge.getUserName() || '听众';
+    const plot        = this._getPlotContext();
     const customPrompt = SettingsUI.getCustomPrompt('backstage-interview');
 
     const system = customPrompt || [
@@ -1805,13 +1801,12 @@ const BackstageStudioApp = {
     return { system, user };
   },
 
-  // 📼 角色私录
+  // ── 📼 角色私录 Prompt ────────────────────────────────
   _buildPrivateRecordPrompt() {
-    const charName = STBridge.getCharName() || '未知角色';
-    const userName = STBridge.getUserName() || '听众';
-    const plot = this._getPlotContext();
-    const thinking = this._getThinkingContent();
-
+    const charName    = STBridge.getCharName() || '未知角色';
+    const userName    = STBridge.getUserName() || '听众';
+    const plot        = this._getPlotContext();
+    const thinking    = this._getThinkingContent();
     const customPrompt = SettingsUI.getCustomPrompt('backstage-private');
 
     const thinkingBlock = thinking
@@ -1852,7 +1847,7 @@ const BackstageStudioApp = {
     return { system, user };
   },
 
-  // ── 调用副API ──────────────────────────────────────
+  // ── 调用副 API ────────────────────────────────────────
   async _generate(mode) {
     if (this._loading[mode]) return;
     this._loading[mode] = true;
@@ -1862,7 +1857,8 @@ const BackstageStudioApp = {
     switch (mode) {
       case 'monologue': promptData = this._buildMonologuePrompt(); break;
       case 'interview': promptData = this._buildInterviewPrompt(); break;
-      case 'private':   promptData = this._buildPrivateRecordPrompt(); break;}
+      case 'private':   promptData = this._buildPrivateRecordPrompt(); break;
+    }
 
     const thinking = this._getThinkingContent();
 
@@ -1871,15 +1867,13 @@ const BackstageStudioApp = {
         maxTokens: 600,
       });
 
-      const text = raw || '';
-
-      // 保存到历史记录
-      this._addRecord(mode, text, {
-        hasThinking: mode === 'private' &&!!thinking,
+      this._addRecord(mode, raw || '', {
+        hasThinking: mode === 'private' && !!thinking,
       });
 
     } catch (err) {
-      Notify.error('后台录音室', err);const fallback = {
+      Notify.error('后台录音室', err);
+      const fallback = {
         monologue: '……设备故障了，失真翻了个白眼走了 (¬_¬)🚬',
         interview: '🎤失真：喂，麦克风呢？\n🗣️???：（沉默）\n\n— 技术故障，采访中断 —',
         private:   '「嗞——」磁带卡住了。录音失败。',
@@ -1891,17 +1885,18 @@ const BackstageStudioApp = {
     }
   },
 
-  // ── 渲染当前 Tab 内容区─────────────────────────────
+  // ── 渲染当前 Tab 内容区 ───────────────────────────────
   _renderTab() {
     if (!this._container) return;
     const contentEl = this._container.querySelector('.bs-content');
     if (!contentEl) return;
 
-    const mode = this._activeTab;
+    const mode    = this._activeTab;
     const loading = this._loading[mode];
     const records = this._getRecords(mode);
     const thinking = this._getThinkingContent();
 
+    // ── Loading 状态 ──
     if (loading) {
       const loadingTexts = {
         monologue: '失真正在点烟…🚬',
@@ -1913,64 +1908,92 @@ const BackstageStudioApp = {
           <div class="freq-spinner"></div>
           <span class="freq-loading-text">${loadingTexts[mode]}</span>
         </div>
-      `;return;
+      `;
+      return;
     }
 
-    // Thinking 提示（仅私录模式）
+    // ── Thinking 提示（仅私录模式）──
     const thinkingHintHTML = mode === 'private'
       ? thinking
         ? '<div class="bs-thinking-hint">💭 检测到 Thinking 内容，将自动注入为素材</div>'
         : '<div class="bs-thinking-hint bs-thinking-absent">💭 未检测到 Thinking 内容，将纯生成</div>'
       : '';
 
-    // 生成按钮
+    // ── 录制按钮 ──
     const modeLabels = {
       monologue: '🎙️ 录制独白',
       interview: '🎤 开始采访',
       private:   '📼 开始私录',
     };
-    const generateBtnHTML = `
+    const actionBarHTML = `
       <div class="bs-action-bar">
         ${thinkingHintHTML}
-        <button class="freq-btn bs-generate-btn" data-mode="${mode}">${modeLabels[mode]}</button>
+        <button class="freq-btn freq-btn-sm bs-generate-btn" data-mode="${mode}">
+          ${modeLabels[mode]}
+        </button>
       </div>
     `;
 
+    // ── 空状态 ──
     if (records.length === 0) {
-      // 无历史记录
       const hints = {
         monologue: '失真在后台抽烟，还没开始碎碎念',
         interview: '演播厅空着，等你按下录制键',
         private:   '录音机待机中，磁带是空白的',
       };
+      const icons = { monologue: '🎙️', interview: '🎤', private: '📼' };
       contentEl.innerHTML = `
         <div class="freq-empty">
-          <span class="freq-empty-icon">${mode === 'monologue' ? '🎙️' : mode === 'interview' ? '🎤' : '📼'}</span>
-          <span class="freq-empty-text">${hints[mode]}</span>${thinkingHintHTML}
-          <button class="freq-btn bs-generate-btn" data-mode="${mode}">${modeLabels[mode]}</button>
+          <span class="freq-empty-icon">${icons[mode]}</span>
+          <span class="freq-empty-text">${hints[mode]}</span>
+          ${thinkingHintHTML}
+          <button class="freq-btn bs-generate-btn" data-mode="${mode}">
+            ${modeLabels[mode]}
+          </button>
         </div>
       `;
       return;
     }
 
-    // 有历史记录 — 显示列表
+    // ── 有历史记录 ──
     const cardsHTML = records.map((record, i) => {
-      const isLatest = i === 0;
+      const isLatest    = i === 0;
+      const fullText    = record.text || '';
+      const textEscaped = escapeHtml(fullText);
+      // 超过 80 字才做折叠
+      const needExpand  = fullText.length > 80;
+      const previewText = needExpand
+        ? escapeHtml(fullText.slice(0, 80)) + '…'
+        : textEscaped;
+
       return `
-        <div class="freq-card bs-record-card ${isLatest ? 'bs-latest' : ''}">
+        <div class="freq-card bs-record-card
+                    ${isLatest  ? 'bs-latest'    : ''}
+                    ${needExpand ? 'bs-expandable' : ''}"
+             data-record-index="${i}">
+
           <div class="bs-record-header">
             <span class="bs-record-char">${escapeHtml(record.charName || '')}</span>
             <span class="bs-record-time">${escapeHtml(record.time || '')}</span>
           </div>
+
           ${record.hasThinking ? '<div class="bs-thinking-tag">📡 含思维链素材</div>' : ''}
-          <div class="bs-record-text">${escapeHtml(record.text || '')}</div>
           ${isLatest ? '<div class="bs-latest-tag">最新</div>' : ''}
+
+          <!-- 折叠预览（超过80字时显示截断版） -->
+          <div class="bs-record-preview">${previewText}</div>
+
+          <!-- 展开全文（默认隐藏） -->
+          <div class="bs-record-full">${textEscaped}</div>
+
+          <!-- 展开提示箭头（只有需要展开时才渲染） -->
+          ${needExpand ? '<div class="bs-expand-hint"></div>' : ''}
         </div>
       `;
     }).join('');
 
     contentEl.innerHTML = `
-      ${generateBtnHTML}
+      ${actionBarHTML}
       <div class="bs-record-count">${records.length} 条录音记录</div>
       <div class="bs-record-list">
         ${cardsHTML}
@@ -1978,23 +2001,32 @@ const BackstageStudioApp = {
     `;
   },
 
+  // ── 构建骨架 HTML ─────────────────────────────────────
   _buildHTML() {
     return `
       <div class="bs-tabs freq-tabs">
         <button class="freq-tab bs-tab active" data-tab="monologue">🎙️ 独白</button>
-        <button class="freq-tab bs-tab" data-tab="interview">🎤 演播厅</button>
-        <button class="freq-tab bs-tab" data-tab="private">📼 私录</button>
+        <button class="freq-tab bs-tab"         data-tab="interview">🎤 演播厅</button>
+        <button class="freq-tab bs-tab"         data-tab="private"  >📼 私录</button>
       </div>
       <div class="bs-content"></div>
     `;
   },
 
+  // ── 事件绑定 ──────────────────────────────────────────
   _bindEvents(container) {
-    // 初始渲染
     this._renderTab();
 
     container.addEventListener('click', (e) => {
-      // Tab 切换
+
+      // 1. 录音卡片展开/收起（优先判断，避免和按钮冲突）
+      const recordCard = e.target.closest('.bs-expandable');
+      if (recordCard && !e.target.closest('.bs-generate-btn')) {
+        recordCard.classList.toggle('bs-expanded');
+        return;
+      }
+
+      // 2. Tab 切换
       const tab = e.target.closest('.bs-tab');
       if (tab) {
         const mode = tab.dataset.tab;
@@ -2005,7 +2037,7 @@ const BackstageStudioApp = {
         return;
       }
 
-      // 生成按钮
+      // 3. 录制按钮
       const genBtn = e.target.closest('.bs-generate-btn');
       if (genBtn) {
         this._generate(genBtn.dataset.mode);
@@ -2018,6 +2050,7 @@ const BackstageStudioApp = {
 registerApp(BackstageStudioApp);
 
 // ── BLOCK_09 END ──────────────────────────────────────
+
 
 
 
