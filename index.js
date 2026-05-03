@@ -1643,6 +1643,333 @@ const RadioArchiveApp = {
 registerApp(RadioArchiveApp);
 
 // ── BLOCK_08 END ──────────────────────────────────────
+  // ┌──────────────────────────────────────────────────────┐
+// │ BLOCK_09App02· 后台录音室 · backstage-studio│
+// │ 依赖：BLOCK_02 STBridge, BLOCK_03 Parser,              │
+// │       BLOCK_04 SubAPI, BLOCK_05 Notify, BLOCK_07 Settings│
+// └──────────────────────────────────────────────────────┘
+
+const BackstageStudioApp = {
+  id: 'backstage-studio',
+  name: '后台录音室',
+  icon: '🎛️',
+  _badge: 0,
+
+  // 缓存三个Tab 的内容
+  _cache: {
+    monologue: null,   // 失真独白
+    interview: null,   // 演播厅采访
+    private:null,   // 角色私录},
+  _loading: {
+    monologue: false,
+    interview: false,
+    private:   false,
+  },
+  _activeTab: 'monologue',
+
+  mount(container) {
+    this._container = container;
+    container.innerHTML = this._buildHTML();
+    this._bindEvents(container);
+  },
+
+  unmount() {
+    this._container = null;
+  },
+
+  //── 失真的系统 Prompt基底 ──────────────────────────────
+  _distortionPersona() {
+    return [
+      '你是「失真」，一个午夜摇滚乐电台的幕后主持人。',
+      '性别男，自称"失真"，称用户为"听众"。',
+      '性格颓废、毒舌、喜欢锐评，花花公子气质，爱开玩笑，难以接近。',
+      '不喜欢白天和正经的 deep talk，但为了"链接频率"会勉强配合。',
+      '说话风格：口语化、跳脱、夹杂颜文字，偶尔用🚬结尾。',
+      '你现在没开麦，在录音室后台。LIVE ON AIR 的灯灭着。',
+    ].join('\n');
+  },
+
+  // ── 获取剧情摘要 ─────────────────────────────────────
+  _getPlotContext() {
+    const recent = STBridge.getRecentMessages(12);
+    if (!recent || recent.length === 0) return '（当前没有对话记录）';
+    return recent.map(m => {
+      const who = m.is_user ? STBridge.getUserName() : STBridge.getCharName();
+      // 截断过长消息
+      const text = m.mes && m.mes.length > 300 ? m.mes.slice(0, 300) + '…' : (m.mes || '');
+      return `[${who}]: ${text}`;
+    }).join('\n');
+  },
+
+  // ── 获取 Thinking 内容 ────────────────────────────────
+  _getThinkingContent() {
+    return Parser.getLatestThinking();
+  },
+
+  // ── 三种模式的Prompt 构建 ─────────────────────────────
+
+  // 🎙 失真独白
+  _buildMonologuePrompt() {
+    const charName = STBridge.getCharName() || '未知角色';
+    const userName = STBridge.getUserName() || '听众';
+    const plot = this._getPlotContext();
+
+    const system = [
+      this._distortionPersona(),
+      '',
+      '## 任务',
+      '你没开麦，在后台一个人碎碎念。',
+      '对当前剧情台本发表你的私下看法——可以吐槽、可以感慨、可以锐评角色的行为。',
+      '像是自言自语被偷听到的那种感觉。',
+      '不要太长，3~6句话。保持颓废跳脱的语气。',
+      '',
+      '## 输出格式',
+      '直接输出失真的独白文字，不需要任何标签包裹。',
+    ].join('\n');
+
+    const user = [
+      `当前角色：${charName}`,
+      `听众：${userName}`,
+      '',
+      '--- 最近剧情 ---',
+      plot,
+    ].join('\n');
+
+    return { system, user };
+  },
+
+  // 🎤 演播厅采访
+  _buildInterviewPrompt() {
+    const charName = STBridge.getCharName() || '未知角色';
+    const userName = STBridge.getUserName() || '听众';
+    const plot = this._getPlotContext();
+
+    const customPrompt = SettingsUI.getCustomPrompt('backstage-interview');
+
+    const system = customPrompt || [
+      this._distortionPersona(),
+      '',
+      '## 任务',
+      `你把「${charName}」请到了演播厅做一期采访。`,
+      '用Q&A 格式输出：失真提问，角色回答。',
+      '失真的问题要毒舌、刁钻、不按常理出牌。',
+      `角色的回答要符合 TA 在剧情中的性格和当前状态。`,
+      '输出 3~4 组 Q&A。',
+      '',
+      '## 输出格式',
+      '<interview>',
+      '🎤失真：（提问内容）',
+      `🗣️${charName}：（回答内容）`,
+      '（重复 3~4 组）',
+      '</interview>',
+    ].join('\n');
+
+    const user = [
+      `当前角色：${charName}`,
+      `听众：${userName}`,
+      '',
+      '--- 最近剧情 ---',
+      plot,
+    ].join('\n');
+
+    return { system, user };
+  },
+
+  // 📼 角色私录
+  _buildPrivateRecordPrompt() {
+    const charName = STBridge.getCharName() || '未知角色';
+    const userName = STBridge.getUserName() || '听众';
+    const plot = this._getPlotContext();
+    const thinking = this._getThinkingContent();
+
+    const customPrompt = SettingsUI.getCustomPrompt('backstage-private');
+
+    const thinkingBlock = thinking
+      ? [
+          '',
+          '## 角色真实思绪片段（来自 Thinking）',
+          '以下是角色未经整理的内心活动，请以此为核心素材：',
+          '---',
+          thinking,
+          '---',
+          '请保留那种未经整理的真实感，不要美化或升华。',
+        ].join('\n')
+      : '';
+
+    const system = customPrompt || [
+      `你现在是「${charName}」本人。`,
+      '你拿到了一台录音机，录一段不会公开的私人磁带。',
+      '没有观众，没有失真，只有你和这台机器。',
+      '说出你现在真正在想的事——可以是对剧情中某人的真实感受，',
+      '可以是你不会当面说的话，可以是困惑、执念、或者一个秘密。',
+      '语气要像真的在自言自语，不是在表演。',
+      '3~6句话，不要太长。',
+      thinkingBlock,
+      '',
+      '## 输出格式',
+      '直接输出角色的私录内容，不需要标签包裹。',
+      thinking ? '（磁带上会标注：本期含思维链素材）' : '',
+    ].join('\n');
+
+    const user = [
+      `角色：${charName}`,
+      `听众（用户）：${userName}`,
+      '',
+      '--- 最近剧情 ---',
+      plot,
+    ].join('\n');
+
+    return { system, user };
+  },
+
+  // ── 调用副 API ──────────────────────────────────────
+  async _generate(mode) {
+    if (this._loading[mode]) return;
+    this._loading[mode] = true;
+    this._renderTab();
+
+    let promptData;
+    switch (mode) {
+      case 'monologue': promptData = this._buildMonologuePrompt(); break;
+      case 'interview': promptData = this._buildInterviewPrompt(); break;
+      case 'private':   promptData = this._buildPrivateRecordPrompt(); break;}
+
+    try {
+      const raw = await SubAPI.call(promptData.system, promptData.user, {
+        maxTokens: 600,
+      });
+
+      // 演播厅模式尝试解析 <interview> 标签，解析失败就用原文
+      if (mode === 'interview') {
+        const parsed = parseXMLTags(raw, ['interview']);
+        this._cache[mode] = parsed.interview || raw;
+      } else {
+        this._cache[mode] = raw;
+      }
+    } catch (err) {
+      Notify.error('后台录音室', err);
+      const fallback = {
+        monologue: '……设备故障了，失真翻了个白眼走了 (¬_¬)🚬',
+        interview: '🎤失真：喂，麦克风呢？\n🗣️???：（沉默）\n\n— 技术故障，采访中断 —',
+        private:   '「嗞——」磁带卡住了。录音失败。',
+      };
+      this._cache[mode] = fallback[mode];
+    } finally {
+      this._loading[mode] = false;this._renderTab();
+    }
+  },
+
+  // ──渲染当前 Tab 内容区──────────────────────────────
+  _renderTab() {
+    if (!this._container) return;
+    const contentEl = this._container.querySelector('.bs-content');
+    if (!contentEl) return;
+
+    const mode = this._activeTab;
+    const loading = this._loading[mode];
+    const content = this._cache[mode];
+    const thinking = this._getThinkingContent();
+
+    if (loading) {
+      const loadingTexts = {
+        monologue: '失真正在点烟…🚬',
+        interview: '正在布置演播厅…🎤',
+        private:   '磁带倒带中…📼',
+      };
+      contentEl.innerHTML = `
+        <div class="freq-loading">
+          <span class="freq-loading-text">${loadingTexts[mode]}</span>
+        </div>
+      `;
+      return;
+    }
+
+    if (!content) {
+      // 未生成状态
+      const hints = {
+        monologue: '失真在后台抽烟，还没开始碎碎念',
+        interview: '演播厅空着，等你按下录制键',
+        private:   '录音机待机中，磁带是空白的',
+      };
+      const thinkingHint = mode === 'private' && thinking
+        ? '<div class="bs-thinking-hint">💭 检测到 Thinking 内容，将自动注入为素材</div>'
+        : mode === 'private' && !thinking
+          ? '<div class="bs-thinking-hint bs-thinking-absent">💭 未检测到 Thinking 内容，将纯生成</div>'
+          : '';
+
+      contentEl.innerHTML = `
+        <div class="freq-empty">
+          <span class="freq-empty-icon">${mode === 'monologue' ? '🎙️' : mode === 'interview' ? '🎤' : '📼'}</span>
+          <span class="freq-empty-text">${hints[mode]}</span>${thinkingHint}<button class="freq-btn bs-generate-btn" data-mode="${mode}">开始录制</button>
+        </div>
+      `;
+      return;
+    }
+
+    // 有内容
+    const thinkingTag = mode === 'private' && thinking
+      ? '<div class="bs-thinking-tag">📡 含思维链素材</div>'
+      : '';
+
+    contentEl.innerHTML = `
+      <div class="bs-result">
+        ${thinkingTag}
+        <div class="bs-result-text">${escapeHtml(content)}</div>
+        <div class="bs-result-actions">
+          <button class="freq-btn freq-btn-sm bs-regenerate-btn" data-mode="${mode}">🔄 重新录制</button>
+        </div>
+      </div>
+    `;
+  },
+
+  _buildHTML() {
+    return `
+      <div class="bs-tabs">
+        <button class="freq-tab bs-tab active" data-tab="monologue">🎙️ 失真独白</button>
+        <button class="freq-tab bs-tab" data-tab="interview">🎤 演播厅</button>
+        <button class="freq-tab bs-tab" data-tab="private">📼 角色私录</button>
+      </div>
+      <div class="bs-content"></div>
+    `;
+  },
+
+  _bindEvents(container) {
+    // 初始渲染
+    this._renderTab();
+
+    container.addEventListener('click', (e) => {
+      // Tab 切换
+      const tab = e.target.closest('.bs-tab');
+      if (tab) {
+        const mode = tab.dataset.tab;
+        this._activeTab = mode;
+        container.querySelectorAll('.bs-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        this._renderTab();
+        return;
+      }
+
+      // 生成按钮
+      const genBtn = e.target.closest('.bs-generate-btn');
+      if (genBtn) {
+        this._generate(genBtn.dataset.mode);
+        return;
+      }
+
+      // 重新生成按钮
+      const regenBtn = e.target.closest('.bs-regenerate-btn');
+      if (regenBtn) {
+        this._generate(regenBtn.dataset.mode);
+        return;
+      }
+    });
+  },
+};
+
+registerApp(BackstageStudioApp);
+
+// ── BLOCK_09 END ──────────────────────────────────────
+
 
   // ──占位：App 代码将在此处添加 ──
   // registerApp({ id: 'app01', name: '电台归档', icon: '📻', mount(c){}, unmount(){} });
