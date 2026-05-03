@@ -1480,6 +1480,169 @@
   // │由其他 AI 或后续开发填充                                │
   // │ 每个 App 使用 registerApp() 注册                       │
   // └──────────────────────────────────────────────────────┘
+// ┌──────────────────────────────────────────────────────┐
+// │ BLOCK_08  App01 · 电台归档 · radio-archive             │
+// │ 依赖：BLOCK_03 Parser, BLOCK_02 STBridge               │
+// └──────────────────────────────────────────────────────┘
+
+const RadioArchiveApp = {
+  id: 'radio-archive',
+  name: '电台归档',
+  icon: '🗂️',
+  _badge: 0,
+
+  mount(container) {
+    this._container = container;
+    container.innerHTML = this._buildHTML();
+    this._bindEvents(container);
+  },
+
+  unmount() {
+    this._container = null;
+  },
+
+  // ── 从 _raw 兜底提取字段（应对非 XML 格式）──────────────
+  _extractField(data, field, raw) {
+    if (data[field] && data[field].trim()) return data[field].trim();
+    // 尝试匹配 "field:内容" 格式（到行尾或下一个字段）
+    const patterns = {
+      serial: /serial\s*[:：]\s*(.+)/i,
+      time:   /time\s*[:：]\s*(.+)/i,
+      scene:  /scene\s*[:：]\s*(.+)/i,
+      plot:   /plot\s*[:：]\s*([\s\S]+?)(?=\n\s*(?:serial|time|scene|seeds|event)\s*[:：]|$)/i,
+      seeds:  /seeds\s*[:：]\s*([\s\S]+?)(?=\n\s*(?:serial|time|scene|plot|event)\s*[:：]|$)/i,
+      event:  /event\s*[:：]\s*(.+)/i,
+    };
+    const pattern = patterns[field];
+    if (!pattern) return '';
+    const m = raw.match(pattern);
+    return m ? m[1].trim() : '';
+  },
+
+  // ── 构建单条归档卡片 HTML ────────────────────────────────
+  _buildCard(entry, index) {
+    const { _raw } = entry;
+
+    const serial = this._extractField(entry, 'serial', _raw);
+    const time   = this._extractField(entry, 'time',   _raw);
+    const scene  = this._extractField(entry, 'scene',  _raw);
+    const plot   = this._extractField(entry, 'plot',   _raw);
+    const seeds  = this._extractField(entry, 'seeds',  _raw);
+    const event  = this._extractField(entry, 'event',  _raw);
+
+    // serial 显示：有就用，没有就用序号
+    const serialDisplay = serial || `No.${String(index + 1).padStart(3, '0')}`;
+
+    // seeds 高亮「待回收」
+    const seedsHTML = seeds
+      ? escapeHtml(seeds).replace(/待回收/g, '<mark class="freq-highlight-pending">待回收</mark>')
+      : '';
+
+    // plot 超过 60 字才做展开
+    const plotEscaped = escapeHtml(plot || _raw);
+    const needExpand  = (plot || _raw).length > 60;
+    const plotPreview = needExpand ? plotEscaped.slice(0, 60) + '…' : plotEscaped;
+
+    return `
+      <div class="freq-card freq-card-expandable ra-card" data-index="${index}">
+        <div class="freq-card-preview">
+          <div class="freq-card-header">
+            <span class="freq-card-title ra-serial">${escapeHtml(serialDisplay)}</span>
+            ${time ? `<span class="freq-card-meta ra-time">${escapeHtml(time)}</span>` : ''}
+          </div>
+          ${scene ? `<div class="ra-scene-row"><span class="freq-badge freq-badge-dim">📍</span> ${escapeHtml(scene)}</div>` : ''}
+          <div class="freq-card-body ra-plot-preview">${plotPreview}</div>
+          ${needExpand || seeds || event ? `<div class="freq-expand-hint"></div>` : ''}
+        </div>
+
+        <div class="freq-card-full">
+          ${plot ? `
+            <div class="ra-section-label">剧情摘要</div>
+            <div class="freq-card-body ra-plot-full">${plotEscaped}</div>
+          ` : ''}
+
+          ${seeds ? `
+            <div class="ra-section-label">世界观碎片</div>
+            <div class="freq-card-body ra-seeds">${seedsHTML}</div>
+          ` : ''}
+
+          ${event ? `
+            <div class="ra-section-label">倒计日</div>
+            <div class="freq-card-body ra-event">${escapeHtml(event)}</div>
+          ` : ''}
+
+          ${(!plot && !seeds && !event) ? `
+            <div class="ra-section-label">原始记录</div>
+            <pre class="ra-raw">${escapeHtml(_raw)}</pre>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  },
+
+  _buildHTML() {
+    const entries = Parser.getAllMeowFM();
+
+    if (entries.length === 0) {
+      return `
+        <div class="freq-empty">
+          <span class="freq-empty-icon">📻</span>
+          <span class="freq-empty-text">暂无归档记录<br>剧情推进后将自动收录</span>
+        </div>
+      `;
+    }
+
+    // 倒序展示（最新在前）
+    const reversed = [...entries].reverse();
+    const totalCount = entries.length;
+
+    const cardsHTML = reversed
+      .map((entry, i) => this._buildCard(entry, totalCount - 1 - i))
+      .join('');
+
+    return `
+      <div class="ra-header">
+        <span class="ra-count-label">共 ${totalCount} 期连线记录</span>
+        <button class="freq-btn freq-btn-sm ra-sort-btn" data-order="desc">最新优先</button>
+      </div>
+      <div class="ra-list" data-order="desc">
+        ${cardsHTML}
+      </div>
+    `;
+  },
+
+  _bindEvents(container) {
+    container.addEventListener('click', (e) => {
+
+      // 展开 / 收起卡片
+      const card = e.target.closest('.ra-card');
+      if (card && !e.target.closest('.ra-sort-btn')) {
+        card.classList.toggle('expanded');
+        return;
+      }
+
+      // 排序切换
+      const sortBtn = e.target.closest('.ra-sort-btn');
+      if (sortBtn) {
+        const list = container.querySelector('.ra-list');
+        const current = list.dataset.order;
+        const next = current === 'desc' ? 'asc' : 'desc';
+
+        list.dataset.order = next;
+        sortBtn.dataset.order = next;
+        sortBtn.textContent = next === 'desc' ? '最新优先' : '最早优先';
+
+        // 反转卡片顺序
+        const cards = Array.from(list.querySelectorAll('.ra-card'));
+        cards.reverse().forEach(c => list.appendChild(c));
+      }
+    });
+  },
+};
+
+registerApp(RadioArchiveApp);
+
+// ── BLOCK_08 END ──────────────────────────────────────
 
   // ──占位：App 代码将在此处添加 ──
   // registerApp({ id: 'app01', name: '电台归档', icon: '📻', mount(c){}, unmount(){} });
