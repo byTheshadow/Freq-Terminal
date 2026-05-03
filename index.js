@@ -201,19 +201,26 @@
       }).join('\n');
     },
 
-    getSettings() {
-      if (!window.extension_settings) window.extension_settings = {};
-      if (!window.extension_settings[EXTENSION_NAME]) {
-        window.extension_settings[EXTENSION_NAME] = deepClone(DEFAULT_SETTINGS);
-      }
-      const s = window.extension_settings[EXTENSION_NAME];
-      for (const key in DEFAULT_SETTINGS) {
-        if (!(key in s)) {
-          s[key] = deepClone(DEFAULT_SETTINGS[key]);
-        }
-      }
-      return s;
-    },
+    
+getSettings() {
+  if (!window.extension_settings) window.extension_settings = {};
+  if (!window.extension_settings[EXTENSION_NAME]) {
+    window.extension_settings[EXTENSION_NAME] = deepClone(DEFAULT_SETTINGS);
+  }
+  const s = window.extension_settings[EXTENSION_NAME];
+  // 只补全缺失的 key，不覆盖已有数据（原逻辑已正确，保持不变）
+  for (const key in DEFAULT_SETTINGS) {
+    if (!(key in s)) {
+      s[key] = deepClone(DEFAULT_SETTINGS[key]);
+    }
+  }
+  // appData 也做深层补全，防止子 key 丢失
+  if (typeof s.appData !== 'object' || s.appData === null) {
+    s.appData = {};
+  }
+  return s;
+},
+
 
     saveSettings() {
       try {
@@ -1683,16 +1690,9 @@ const BackstageStudioApp = {
   },
 
   _saveData() {
-    try {
-      if (typeof window.saveSettings === 'function') {
-        window.saveSettings();
-      } else if (typeof window.saveSettingsDebounced === 'function') {
-        window.saveSettingsDebounced();
-      }
-    } catch (e) {
-      console.error('[FREQ] 保存失败:', e);
-    }
+    STBridge.saveSettings();
   },
+
 
   _addRecord(mode, text, extra) {
     const data = this._getData();
@@ -2100,9 +2100,24 @@ registerApp(BackstageStudioApp);
     jQuery(async () => {
       const maxWait = 10000;
       const start = Date.now();
+
+      // 第一步：等待 SillyTavern.getContext 可用
       while (!window.SillyTavern?.getContext && Date.now() - start < maxWait) {
         await sleep(200);
       }
+
+      // 第二步：等待 ST 把磁盘上的 extension_settings 写入内存
+      const settingsStart = Date.now();
+      while (Date.now() - settingsStart < 3000) {
+        if (
+          window.extension_settings &&
+          window.extension_settings[EXTENSION_NAME] !== undefined
+        ) {
+          break;
+        }
+        await sleep(100);
+      }
+
       await freqInit();
     });
   } else {
