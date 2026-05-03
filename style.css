@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════FREQ · TERMINAL v2.0 — style.css
-   手机外壳 +悬浮球 + 通知栏 + App 公共样式
+   手机外壳 + 悬浮球 + 通知栏 + App 公共样式
    ═══════════════════════════════════════════════════════════════ */
 
 /* ──全局变量 ─────────────────────────────────────────────── */
@@ -53,27 +53,30 @@
   align-items: center;
   justify-content: center;
   font-size: 24px;
-  cursor: pointer;
+  cursor: grab;
   z-index: 99998;
   user-select: none;
-  transition: transform var(--freq-transition), box-shadow var(--freq-transition);
-  touch-action: none;
+  transition: box-shadow 0.2s;touch-action: none;
 }
 
 #freq-float-btn.hidden {
   display: none !important;
 }
 
+#freq-float-btn.dragging {
+  cursor: grabbing;
+  box-shadow:
+    0 0 24px var(--freq-red-glow),
+    0 8px 32px rgba(0,0,0,0.9),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+  transition: none;
+}
+
 #freq-float-btn:hover {
-  transform: scale(1.08);
   box-shadow:
     0 0 20px var(--freq-red-glow),
     0 6px 28px rgba(0,0,0,0.8),
     inset 0 1px 0 rgba(255,255,255,0.08);
-}
-
-#freq-float-btn:active {
-  transform: scale(0.95);
 }
 
 #freq-float-btn .freq-float-badge {
@@ -96,6 +99,7 @@
   opacity: 0;
   transform: scale(0);
   transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
 }
 
 #freq-float-btn .freq-float-badge.visible {
@@ -163,7 +167,8 @@
   width: 3px;
   height: 36px;
   background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
-  border-radius: 2px 0 0 2px;box-shadow: 0 50px 0 #1a1a1a, 0 100px 0 #1a1a1a;
+  border-radius: 2px 0 0 2px;
+  box-shadow: 0 50px 0 #1a1a1a, 0 100px 0 #1a1a1a;
 }
 
 #freq-phone::after {
@@ -211,7 +216,8 @@
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #1a1a2e, #050505);
   border: 1px solid #1a1a1a;
-  box-shadow: 0 0 4px rgba(0,100,255,0.3);flex-shrink: 0;
+  box-shadow: 0 0 4px rgba(0,100,255,0.3);
+  flex-shrink: 0;
 }
 
 #freq-dynamic-island .di-status {
@@ -312,7 +318,7 @@
   flex-direction: column;
 }
 
-/* ── 通知下拉区───────────────────────────────────────────── */
+/* ── 通知下拉区 ───────────────────────────────────────────── */
 #freq-notification-drawer {
   position: absolute;
   top: 0;
@@ -358,7 +364,7 @@
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 6px;
-  transition: background 0.2s;
+  transition: background0.2s;
   font-family: var(--freq-font);
 }
 
@@ -460,7 +466,7 @@
   padding: 32px 0;
 }
 
-/*下拉手势指示条 */
+/* 下拉手势指示条 */
 #freq-swipe-hint {
   position: absolute;
   top: 0;
@@ -881,8 +887,7 @@
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
+  white-space: nowrap;overflow: hidden;
   text-overflow: ellipsis;
 }
 
@@ -994,7 +999,7 @@
    ═══════════════════════════════════════════════════════════ */
 @keyframes freq-pulse {
   0%, 100% { opacity: 1; }
-  50%{ opacity: 0.3; }
+  50% { opacity: 0.3; }
 }
 
 @keyframes freq-spin {
@@ -1028,7 +1033,8 @@
 
   #freq-phone {
     border-radius: 0;
-    box-shadow: none;}
+    box-shadow: none;
+  }
 
   #freq-phone::before,
   #freq-phone::after {
