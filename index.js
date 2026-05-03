@@ -1657,6 +1657,7 @@ const BackstageStudioApp = {
   _badge: 0,
 
   _loading: {
+    _expandedIndex: {
     monologue: false,
     interview: false,
     private:   false,
@@ -2021,10 +2022,14 @@ const BackstageStudioApp = {
 
       // 1. 录音卡片展开/收起（优先判断，避免和按钮冲突）
       const recordCard = e.target.closest('.bs-expandable');
-      if (recordCard && !e.target.closest('.bs-generate-btn')) {
-        recordCard.classList.toggle('bs-expanded');
-        return;
-      }
+if (recordCard && !e.target.closest('.bs-generate-btn')) {
+  const mode = this._activeTab;
+  const idx = parseInt(recordCard.dataset.recordIndex, 10);
+  // 点同一张 → 收起；点其他 → 展开
+  this._expandedIndex[mode] = (this._expandedIndex[mode] === idx) ? null : idx;
+  this._renderTab();
+  return;
+}
 
       // 2. Tab 切换
       const tab = e.target.closest('.bs-tab');
