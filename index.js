@@ -1507,16 +1507,20 @@ async function _generate() {
     }
   }
 
-  async function _loadRecords() {
-    try {
-      const saved = await _ctx.store.get('studio_records');
-      if (saved && Array.isArray(saved)) {
-        _records = saved;
-      }
-    } catch (e) {
-      _ctx.log.error('studio', '加载录音记录失败', e.message);
+async function _loadRecords() {
+  try {
+    const saved = await _ctx.store.get('studio_records');
+    if (saved && Array.isArray(saved)) {
+      _records = saved;
+      _ctx.log.info('studio', `已加载 ${_records.length} 条录音记录`);
     }
+    // 如果 saved 是 undefined（首次使用），保持 _records = [] 不动
+  } catch (e) {
+    _ctx.log.error('studio', '加载录音记录失败', e.message);
+    // 加载失败时保持现有内存数据，不覆盖
   }
+}
+
 
   // ── 渲染 ──
   function _render() {
@@ -1706,25 +1710,37 @@ async function _generate() {
     id: 'studio',
     name: '后台录音室',
     icon: '🎙️',
+init(ctx) {
+  _ctx = ctx;
+  // 预加载数据到内存，不等待（mount 时会再检查）
+  _loadRecords().catch(() => {});
 
-    init(ctx) {
-      _ctx = ctx;
-      _loadRecords();
+  _ctx.bus.on('chat:loaded', () => {
+    _expandedIndex = null;
+    _statusText = '';
+    _userQuestion = '';
+    // 切换聊天时不清空记录，录音档案是全局的，不跟聊天绑定
+  });
+},
 
-      _ctx.bus.on('chat:loaded', () => {
-        _records = [];
-        _expandedIndex = null;
-        _statusText = '';
-        _userQuestion = '';
-        _loadRecords();
-      });
-    },
+async mount(container) {
+  _container = container;
+  // 先渲染一个加载状态，避免白屏
+  _container.innerHTML = `
+    <div class="freq-loading">
+      <div class="freq-loading-dot"></div>
+      <div class="freq-loading-dot"></div>
+      <div class="freq-loading-dot"></div>
+    </div>`;
 
-    mount(container) {
-      _container = container;
-      _render();
-      _bindEvents(container);
-    },
+  // 等数据真正从 IndexedDB 读回来再渲染
+  await _loadRecords();
+
+  if (!_container) return; // 如果期间用户已经退出 App，放弃渲染
+  _render();
+  _bindEvents(_container);
+},
+
 
     unmount() {
       if (_container && _clickHandler) {
