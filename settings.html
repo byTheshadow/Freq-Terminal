@@ -60,6 +60,29 @@
       </label>
       <div class="freq-sp-hint">触发一次后进入 3 小时静默期，之后重新计时。</div>
     </div>
+    <!-- ── App04 · 信号气象站 ── -->
+<div class="freq-sp-section">
+  <div class="freq-sp-title">🌦️ 信号气象站</div>
+
+  <label class="freq-sp-row freq-sp-col">
+    <span>和风天气 API Key</span>
+    <input type="password" id="freq-sp-hefeng-key" placeholder="请输入和风天气 Web API Key" class="freq-sp-input" />
+  </label>
+
+  <label class="freq-sp-row">
+    <span>每日自动推送天气关心</span>
+    <input type="checkbox" id="freq-sp-app04-auto-push" />
+  </label>
+
+  <label class="freq-sp-row">
+    <span>启用位置获取（城市级别）</span>
+    <input type="checkbox" id="freq-sp-app04-location-enabled" />
+  </label>
+
+  <div class="freq-sp-hint freq-sp-disclaimer">
+    🔒 隐私声明：位置信息仅用于查询当地天气，直接从您的设备发送至和风天气 API，本插件无后端服务器，不收集、不存储、不传输您的任何个人信息。您可随时关闭此开关，关闭后将无法获取实时天气数据。
+  </div>
+</div>
 
     <!-- ── 通知设置 ── -->
     <div class="freq-sp-section">
