@@ -1,0 +1,115 @@
+<!-- Freq · Terminal — 配置面板 -->
+<div id="ft-settings-wrap">
+
+  <!-- 标题 -->
+  <div class="ft-set-header">
+    <span class="ft-set-logo">📻</span>
+    <div class="ft-set-header-text">
+      <h3class="ft-set-title">Freq · Terminal</h3>
+      <p class="ft-set-subtitle">失真电台·虚拟手机面板</p>
+    </div>
+    <span class="ft-set-version">v1.0.0</span>
+  </div>
+
+  <!-- ═══ 基础开关 ═══ -->
+  <div class="ft-set-section">
+    <div class="ft-set-section-title">基础设置</div><label class="ft-set-row">
+      <span class="ft-set-label">启用插件</span>
+      <input type="checkbox" id="ft-set-enabled" class="ft-set-toggle" />
+    </label>
+
+    <label class="ft-set-row">
+      <span class="ft-set-label">显示悬浮球</span>
+      <input type="checkbox" id="ft-set-fab" class="ft-set-toggle" />
+    </label>
+
+    <div class="ft-set-row ft-set-row-btn">
+      <span class="ft-set-label">打开手机面板</span>
+      <button id="ft-set-open-phone" class="ft-set-btn">打开</button>
+    </div>
+  </div>
+
+  <!-- ═══ 副API 配置 ═══ -->
+  <div class="ft-set-section">
+    <div class="ft-set-section-title">副 API 配置</div>
+
+    <div class="ft-set-field">
+      <label class="ft-set-field-label">API 地址</label>
+      <input type="text" id="ft-set-api-url" class="ft-set-input"
+             placeholder="https://api.example.com/v1" />
+    </div>
+
+    <div class="ft-set-field">
+      <label class="ft-set-field-label">API 密钥</label>
+      <div class="ft-set-input-group">
+        <input type="password" id="ft-set-api-key" class="ft-set-input"
+               placeholder="sk-..." />
+        <button id="ft-set-key-toggle" class="ft-set-btn-icon" title="显示/隐藏">👁</button>
+      </div>
+    </div>
+
+    <div class="ft-set-field">
+      <label class="ft-set-field-label">可用模型</label>
+      <div class="ft-set-input-group">
+        <select id="ft-set-model" class="ft-set-select" disabled>
+          <option value="">请先连接获取模型列表</option>
+        </select>
+        <button id="ft-set-fetch-models" class="ft-set-btn">连接</button>
+      </div>
+      <p id="ft-set-model-status" class="ft-set-hint"></p>
+    </div>
+
+    <div class="ft-set-field">
+      <label class="ft-set-field-label">自动触发频率</label>
+      <select id="ft-set-trigger-freq" class="ft-set-select">
+        <option value="0">关闭自动触发</option>
+        <option value="1800000">每 30 分钟</option>
+        <option value="3600000">每 1 小时</option>
+        <option value="custom">自定义</option>
+      </select>
+    </div>
+
+    <div class="ft-set-field ft-set-custom-freq" style="display:none;">
+      <label class="ft-set-field-label">自定义间隔（分钟）</label>
+      <input type="number" id="ft-set-custom-freq-val" class="ft-set-input"
+             placeholder="60" min="5" max="1440" />
+    </div>
+
+    <div class="ft-set-field">
+      <label class="ft-set-field-label">静默期（小时）</label>
+      <input type="number" id="ft-set-cooldown" class="ft-set-input"
+             value="3" min="0" max="24" step="0.5" />
+      <p class="ft-set-hint">触发一次后进入静默期，期间不再自动触发</p>
+    </div>
+  </div>
+
+  <!-- ═══ 提示词编辑 ═══ -->
+  <div class="ft-set-section">
+    <div class="ft-set-section-title">提示词自定义</div>
+    <p class="ft-set-hint" style="margin-bottom:12px;">
+      每个 App 的系统提示词可在此自定义。留空则使用默认提示词。
+    </p>
+    <div id="ft-set-prompts-list">
+      <!-- JS 动态生成 17 个 App 的提示词编辑区-->
+    </div>
+  </div>
+
+  <!-- ═══ 报错日志 ═══ -->
+  <div class="ft-set-section">
+    <div class="ft-set-section-title">报错日志</div>
+    <div class="ft-set-row ft-set-row-btn">
+      <span class="ft-set-label">日志条数</span>
+      <span id="ft-set-error-count" class="ft-set-badge">0</span>
+      <button id="ft-set-clear-errors" class="ft-set-btn ft-set-btn-danger">清空</button>
+    </div><div id="ft-set-error-list" class="ft-set-error-list">
+      <!-- JS 动态生成 --><div class="ft-set-error-empty">暂无错误日志 ✨</div>
+    </div>
+  </div>
+
+  <!-- ═══ 关于 ═══ -->
+  <div class="ft-set-section ft-set-about">
+    <p>Freq · Terminal v1.0.0</p>
+    <p>为「失真电台」预设打造的虚拟手机面板</p>
+  </div>
+
+</div>
