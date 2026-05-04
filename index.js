@@ -428,18 +428,27 @@ FT.Parser = (() => {
 FT.STBridge = (() => {
   let _bound = false;
   let _lastMsgId = null;
+  let _retryCount = 0;
+  const MAX_RETRIES = 10;
 
   function bind() {
     if (_bound) return;
-    _bound = true;
 
     try {
       const es = window.eventSource;
       if (!es) {
-        FT.ErrorLogger?.log('STBridge', 'eventSource 未找到，延迟重试');
-        setTimeout(() => { _bound = false; bind(); }, 3000);
+        _retryCount++;
+        if (_retryCount > MAX_RETRIES) {
+          console.warn('[FT] STBridge: eventSource 始终未找到，放弃绑定');
+          FT.ErrorLogger?.log('STBridge', `eventSource 未找到，已重试 ${MAX_RETRIES} 次后放弃`);
+          return;
+        }
+        console.log(`[FT] STBridge: eventSource 未找到，${_retryCount}/${MAX_RETRIES} 次重试`);
+        setTimeout(bind, 3000);
         return;
       }
+
+      _bound = true;
 
       es.on('message_received', (msgId) => {
         _onNewMessage(msgId);
@@ -497,7 +506,7 @@ FT.STBridge = (() => {
       if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
         const ctx = SillyTavern.getContext();
         return {
-          name: ctx.name2 || '',
+          name: ctx.name2|| '',
           avatar: ctx.characterAvatar || '',
           description: ctx.characterDescription || '',};
       }
@@ -1954,20 +1963,31 @@ FT.Settings = (() => {
     FT.ErrorLogger._renderSettingsErrors();
   }
 
-  function _waitForElement(selector, timeout = 5000) {
+   function _waitForElement(selector, timeout = 10000) {
     return new Promise((resolve) => {
       const el = document.querySelector(selector);
       if (el) { resolve(el); return; }
 
-      const observer = new MutationObserver(() => {
-        const el = document.querySelector(selector);
-        if (el) { observer.disconnect(); resolve(el); }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
+      let elapsed = 0;
+      const interval = 500;
 
-      setTimeout(() => { observer.disconnect(); resolve(null); }, timeout);
+      const timer = setInterval(() => {
+        elapsed += interval;
+        const el = document.querySelector(selector);
+        if (el) {
+          clearInterval(timer);
+          resolve(el);
+          return;
+        }
+        if (elapsed >= timeout) {
+          clearInterval(timer);
+          console.warn(`[FT] 等待 ${selector} 超时`);
+          resolve(null);
+        }
+      }, interval);
     });
   }
+
 
   /**
    * 渲染提示词编辑列表
@@ -2293,30 +2313,173 @@ FT.Settings = (() => {
   return { init };
 })();
 
-
-/* ═══════════════════════════════════════════════════════════
- *  block_99 — 最终初始化入口
- *  这是整个插件的启动函数，按顺序初始化所有模块
+/*═══════════════════════════════════════════════════════════
+ *  block_99— 最终初始化入口
+ *  等待 ST 完全就绪后再启动，避免卡死页面
  * ═══════════════════════════════════════════════════════════ */
-(async function FreqTerminalInit() {
-  try {
-    console.log(`[FT] Freq · Terminal v${FT.VERSION}初始化开始`);
 
+/**
+ * 等待 SillyTavern 就绪
+ * 原理：轮询检测 eventSource 或 SillyTavern.getContext是否存在
+ * 不使用 MutationObserver，避免在 ST 启动阶段卡死主线程
+ */
+function waitForSTReady() {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 60; // 最多等 30 秒
+
+    const check = () => {
+      attempts++;
+
+      // 检测 ST 是否就绪的标志
+      const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
+      const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
+      const hasJQuery = typeof jQuery !== 'undefined';
+      const bodyReady = document.getElementById('send_but') || document.getElementById('sheld');
+
+      if ((hasEventSource || hasContext) && hasJQuery && bodyReady) {
+        console.log(`[FT] ST 就绪，等待了 ${attempts * 500}ms`);
+        resolve();
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        console.warn('[FT] 等待 ST 就绪超时，尝试强制启动');
+        resolve();
+        return;
+      }
+
+      setTimeout(check, 500);
+    };
+
+    // 如果 DOM 还没加载完，先等 DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
+    } else {
+      // DOM 已加载，但 ST 可能还在初始化，延迟 1 秒开始检测
+      setTimeout(check, 1000);
+    }
+  });
+}
+
+/**
+ * 主初始化流程
+ */
+function waitForSTReady() {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    const check = () => {
+      attempts++;
+
+      const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
+      const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
+      const hasJQuery = typeof jQuery !== 'undefined';
+      const bodyReady = document.getElementById('send_but') || document.getElementById('sheld');
+
+      if ((hasEventSource || hasContext) && hasJQuery && bodyReady) {
+        console.log(`[FT] ST 就绪，等待了 ${attempts * 500}ms`);
+        resolve();
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        console.warn('[FT] 等待 ST 就绪超时，尝试强制启动');
+        resolve();
+        return;
+      }
+
+      setTimeout(check, 500);
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
+    } else {
+      setTimeout(check, 1000);
+    }
+  });
+}
+
+function waitForSTReady() {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    const check = () => {
+      attempts++;
+
+      const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
+      const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
+      const hasJQuery = typeof jQuery !== 'undefined';
+      const bodyReady = document.getElementById('send_but') || document.getElementById('sheld');
+
+      if ((hasEventSource || hasContext) && hasJQuery && bodyReady) {
+        console.log(`[FT] ST 就绪，等待了 ${attempts * 500}ms`);
+        resolve();
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        console.warn('[FT] 等待 ST 就绪超时，尝试强制启动');
+        resolve();
+        return;
+      }
+
+      setTimeout(check, 500);
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
+    } else {
+      setTimeout(check, 1000);
+    }
+  });
+}
+
+function waitForSTReady() {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 60;
+    const check = () => {
+      attempts++;
+      const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
+      const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
+      const hasJQuery = typeof jQuery !== 'undefined';
+      const bodyReady = document.getElementById('send_but') || document.getElementById('sheld');
+      if ((hasEventSource || hasContext) && hasJQuery && bodyReady) {
+        console.log(`[FT] ST 就绪，等待了 ${attempts * 500}ms`);
+        resolve();
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        console.warn('[FT] 等待 ST 就绪超时，尝试强制启动');
+        resolve();
+        return;
+      }
+      setTimeout(check, 500);
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
+    } else {
+      setTimeout(check, 1000);
+    }
+  });
+}
+
+async function FreqTerminalInit() {
+  try {
+    console.log(`[FT] Freq · Terminal v${FT.VERSION} 初始化开始`);
     // 1. 打开数据库
     await FT.Store.open();
-
-    // 2. 初始化报错日志（最先，后续模块可以用它记录错误）
+    // 2. 初始化报错日志
     await FT.ErrorLogger.init();
-
     // 3. 初始化通知系统
     await FT.NotificationSystem.init();
-
     // 4. 构建手机外壳 DOM
     FT.Shell.buildShell();
-
-    // 5.绑定手机事件（悬浮球点击、Dock、拖动等）
+    // 5. 绑定手机事件
     FT.Shell.bindEvents();
-
     // 6. 检查是否启用
     const basic = await FT.Store.get('settings', 'basic') || {};
     if (basic.enabled === false) {
@@ -2325,22 +2488,23 @@ FT.Settings = (() => {
     } else if (basic.fabVisible === false) {
       FT.Shell.hideFab();
     }
-
-    // 7. 绑定 ST 事件源（监听主对话新消息）
+    // 7. 绑定 ST 事件源
     FT.STBridge.bind();
-
-    // 8. 初始化调度器（定时触发副 API）
+    // 8. 初始化调度器
     await FT.Scheduler.init();
-
-    // 9. 初始化配置面板
-    FT.Settings.init();
-
-    // 10. 初始化电台归档 App
+    // 9. 初始化配置面板（延迟，不阻塞）
+    setTimeout(() => {
+      FT.Settings.init();
+    }, 500);
+    // 10. 初始化电台归档App
     await FT.AppRadio.init();
-
     console.log(`[FT] Freq · Terminal v${FT.VERSION} 初始化完成✅`);
   } catch (e) {
     console.error('[FT] 初始化失败', e);
     FT.ErrorLogger?.log('Init', '插件初始化失败', e);
   }
-})();
+}
+waitForSTReady().then(() => {
+  FreqTerminalInit();
+});
+
