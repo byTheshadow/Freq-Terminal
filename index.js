@@ -48,7 +48,19 @@ app03_comment: `任务：你是 [{char_name}]，正在 Freq·Wave 上看到 [{po
 「{post_content}」
 请以你的角色性格留一条评论，可以是共鸣、调侃、关心，或者莫名其妙的一句话。
 不超过 40 字。只输出评论本身，无前缀无标签。`,
-app04: '任务：当前天气信息如下：{weather_info}。请以角色身份，用当前 BGM「{current_bgm}」的文风，写一句关心语。不超过 50 字。只输出关心语本身。',
+app04_care: `你是角色{char_name}。现在是{real_datetime}。
+当前天气：{weather_desc}，气温{temp}°C，体感{feels_like}°C，湿度{humidity}%，风力{wind_desc}。
+{bgm_line}
+请以{char_name}的性格和语气，写一段针对{user_name}的天气关心语。
+要求：
+- 100字以内，口语化，有角色个性
+- 自然融入天气细节，不要逐条列举数据
+- 不要用"作为AI"等元描述
+- 用<care>标签包裹输出内容，例如：<care>关心语内容</care>`,
+app04_notify: `你是角色{char_name}。现在{real_datetime}，{weather_desc}，{temp}°C。
+{bgm_line}
+用{char_name}的语气，写一句20字以内的天气提醒，作为手机通知推送。
+只输出通知正文，不加任何标签或解释。`,
     app05: '任务：随机截获一个 NPC 的内心独白碎片。像收音机扫台时偶尔捕获的杂音，短小（20-40 字）、神秘、不完整。格式：[截获频率· {npc_name}] {内心独白碎片}',
     app06: '任务：宇宙频率已开启。角色感知到屏幕外的信息：时间 {real_datetime}，天气 {weather_info}。写一条穿透第四面墙的感知消息，隐晦不点破，不超过 50 字。',
     app07: '任务：User 完成了打卡目标「{goal_name}」，已连续 {streak} 天。以角色身份生成即时反馈，连续天数影响语气。不超过 60 字。',
@@ -2585,6 +2597,417 @@ const App03Moments = (() => {
   };
 })();
 // ============================================================ end block_12
+// ============================================================
+//  block_13 — App04 · 信号气象站
+// ============================================================
+const App04Weather = (() => {
+  let _ctx = null;
+  let _container = null;
+  let _clickHandler = null;
+
+  // ── 状态变量 ──
+  let _loading = false;
+  let _statusText = '';
+  let _weatherData = null;   // 最新天气数据
+  let _careHistory = [];     // 最近5条关心语 [{charName, text, time, weatherDesc, temp}]
+  let _lastPushDate = '';    // 上次自动推送的日期字符串 'YYYY-MM-DD'
+  let _autoPushTimer = null;
+
+  // ── 常量 ──
+  const STORE_KEY_HISTORY  = 'app04_care_history';
+  const STORE_KEY_LASTPUSH = 'app04_last_push_date';
+  const HEFENG_BASE        = 'https://devapi.qweather.com/v7';
+  const HEFENG_GEO_BASE    = 'https://geoapi.qweather.com/v2';
+  const MAX_HISTORY        = 5;
+
+  // ── 天气图标映射（和风天气 icon code → emoji） ──
+  const WEATHER_EMOJI = {
+    '100':'☀️','101':'🌤️','102':'⛅','103':'🌥️','104':'☁️',
+    '150':'🌙','151':'🌙','152':'🌙','153':'🌙',
+    '300':'🌦️','301':'🌧️','302':'⛈️','303':'⛈️','304':'🌩️',
+    '305':'🌧️','306':'🌧️','307':'🌧️','308':'🌧️','309':'🌧️',
+    '310':'🌧️','311':'🌧️','312':'🌧️','313':'🌧️','314':'🌧️',
+    '315':'🌧️','316':'🌧️','317':'🌧️','318':'🌧️','399':'🌧️',
+    '400':'🌨️','401':'❄️','402':'❄️','403':'❄️','404':'🌨️',
+    '405':'🌨️','406':'🌨️','407':'🌨️','408':'🌨️','409':'🌨️',
+    '410':'🌨️','499':'🌨️',
+    '500':'🌫️','501':'🌫️','502':'🌫️','503':'🌫️','504':'🌫️',
+    '507':'🌪️','508':'🌪️','509':'🌫️','510':'🌫️','511':'🌫️',
+    '512':'🌫️','513':'🌫️','514':'🌫️','515':'🌫️',
+  };
+
+  function _getWeatherEmoji(iconCode) {
+    return WEATHER_EMOJI[String(iconCode)] || '🌡️';
+  }
+
+  function _escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function _formatTime(isoStr) {
+    try {
+      const d = new Date(isoStr);
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mi = String(d.getMinutes()).padStart(2,'0');
+      return `${mm}/${dd} ${hh}:${mi}`;
+    } catch { return isoStr || ''; }
+  }
+
+  function _todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  // ── 加载持久化数据 ──
+  async function _loadData() {
+    try {
+      const h = await _ctx.store.get(STORE_KEY_HISTORY);
+      if (h && Array.isArray(h)) _careHistory = h;
+      const lp = await _ctx.store.get(STORE_KEY_LASTPUSH);
+      if (lp && typeof lp === 'string') _lastPushDate = lp;
+    } catch (e) {
+      _ctx.log.warn('weather', '加载历史数据失败', e.message);
+    }
+  }
+
+  async function _saveHistory() {
+    try {
+      await _ctx.store.set(STORE_KEY_HISTORY, _careHistory);
+    } catch (e) {
+      _ctx.log.warn('weather', '保存历史失败', e.message);
+    }
+  }
+
+  // ── 获取城市位置（Geolocation → 和风GeoAPI） ──
+  async function _getLocation() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('浏览器不支持 Geolocation'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        err => reject(new Error(`位置获取失败：${err.message}`)),
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 3600000 }
+      );
+    });
+  }
+
+  async function _getCityId(lat, lon, apiKey) {
+    const url = `${HEFENG_GEO_BASE}/city/lookup?location=${lon},${lat}&key=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`GeoAPI HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.code !== '200' || !data.location || !data.location[0]) {
+      throw new Error(`城市查询失败，code=${data.code}`);
+    }
+    return { id: data.location[0].id, name: data.location[0].name };
+  }
+
+  // ── 获取天气数据 ──
+  async function _fetchWeather(cityId, apiKey) {
+    const url = `${HEFENG_BASE}/weather/now?location=${cityId}&key=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`天气API HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (data.code !== '200' || !data.now) {
+      throw new Error(`天气查询失败，code=${data.code}`);
+    }
+    return data.now;
+  }
+
+  // ── 生成关心语（副 API） ──
+  async function _generateCare(weatherNow, cityName) {
+    const charName = _ctx.bridge.getCharName() || '角色';
+    const userName = _ctx.bridge.getUserName() || 'User';
+
+    // 尝试获取 BGM
+    let bgmLine = '';
+    try {
+      const msgs = _ctx.bridge.getChatMessages();
+      const bgm = _ctx.parser.getLatestBGM(msgs);
+      if (bgm) bgmLine = `当前配乐风格：${bgm}。请让关心语的文风与这个配乐氛围相符。`;
+    } catch (e) { /* BGM 获取失败不影响主流程 */ }
+
+    const windDesc = `${weatherNow.windDir} ${weatherNow.windScale}级`;
+
+    const messages = _ctx.subapi.buildMessages('app04_care', {
+      char_name:   charName,
+      user_name:   userName,
+      weather_desc: weatherNow.text,
+      temp:        weatherNow.temp,
+      feels_like:  weatherNow.feelsLike,
+      humidity:    weatherNow.humidity,
+      wind_desc:   windDesc,
+      bgm_line:    bgmLine,
+    });
+
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 200, temperature: 0.92 });
+
+    // 解析 <care> 标签，兜底纯文本
+    let careText = '';
+    const blocks = _ctx.subapi.parseResponse(raw, 'care');
+    if (blocks && blocks.length > 0) {
+      careText = blocks[0].trim();
+    } else {
+      careText = _ctx.subapi.safeParseText(raw).trim();
+    }
+
+    if (!careText) throw new Error('AI 返回内容为空');
+
+    return { charName, careText, cityName, weatherNow };
+  }
+
+  // ── 生成通知简短版 ──
+  async function _generateNotifyText(weatherNow) {
+    const charName = _ctx.bridge.getCharName() || '角色';
+    let bgmLine = '';
+    try {
+      const msgs = _ctx.bridge.getChatMessages();
+      const bgm = _ctx.parser.getLatestBGM(msgs);
+      if (bgm) bgmLine = `配乐风格：${bgm}。`;
+    } catch (e) { /* 忽略 */ }
+
+    const messages = _ctx.subapi.buildMessages('app04_notify', {
+      char_name:    charName,
+      weather_desc: weatherNow.text,
+      temp:         weatherNow.temp,
+      bgm_line:     bgmLine,
+    });
+
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 60, temperature: 0.88 });
+    return _ctx.subapi.safeParseText(raw).trim() || `${weatherNow.text} ${weatherNow.temp}°C，注意天气变化。`;
+  }
+
+  // ── 主流程：获取天气 + 生成关心语 ──
+  async function _fetchAndGenerate(pushNotify = false) {
+    const apiKey = _ctx.settings.hefengApiKey || '';
+    if (!apiKey) throw new Error('请先在配置面板填写和风天气 API Key');
+
+    const locationEnabled = _ctx.settings.app04LocationEnabled !== false;
+    if (!locationEnabled) throw new Error('请在配置面板开启位置获取权限');
+
+    // 1. 获取位置
+    const { lat, lon } = await _getLocation();
+
+    // 2. 查城市
+    const { id: cityId, name: cityName } = await _getCityId(lat, lon, apiKey);
+
+    // 3. 获取天气
+    const weatherNow = await _fetchWeather(cityId, apiKey);
+    _weatherData = { ...weatherNow, cityName };
+
+    // 4. 生成关心语
+    const { charName, careText } = await _generateCare(weatherNow, cityName);
+
+    // 5. 存入历史
+    const record = {
+      charName,
+      text: careText,
+      time: new Date().toISOString(),
+      weatherDesc: weatherNow.text,
+      temp: weatherNow.temp,
+      iconCode: weatherNow.icon,
+      cityName,
+    };
+    _careHistory.unshift(record);
+    if (_careHistory.length > MAX_HISTORY) _careHistory = _careHistory.slice(0, MAX_HISTORY);
+    await _saveHistory();
+
+    // 6. 推送通知
+    if (pushNotify) {
+      try {
+        const notifyText = await _generateNotifyText(weatherNow);
+        _ctx.notify.push('weather', '🌦️', `${charName} · 天气关心`, notifyText);
+      } catch (e) {
+        // 通知生成失败不影响主流程，直接用天气数据兜底
+        _ctx.notify.push('weather', '🌦️', `${charName} · 天气关心`,
+          `${weatherNow.text} ${weatherNow.temp}°C，${cityName}`);
+      }
+    }
+
+    return record;
+  }
+
+  // ── 每日自动推送检查 ──
+  function _checkAutoPush() {
+    const autoPush = _ctx.settings.app04AutoPush;
+    if (!autoPush) return;
+    const today = _todayStr();
+    if (_lastPushDate === today) return; // 今天已推过
+
+    _lastPushDate = today;
+    _ctx.store.set(STORE_KEY_LASTPUSH, today).catch(() => {});
+
+    _fetchAndGenerate(true).then(() => {
+      _ctx.log.info('weather', `每日自动推送完成 ${today}`);
+    }).catch(e => {
+      _ctx.log.warn('weather', '每日自动推送失败', e.message);
+    });
+  }
+
+  function _startAutoPushTimer() {
+    if (_autoPushTimer) clearInterval(_autoPushTimer);
+    // 每小时检查一次（轻量，只在日期变化时才真正触发）
+    _autoPushTimer = setInterval(_checkAutoPush, 60 * 60 * 1000);
+    // 启动时也立即检查一次
+    setTimeout(_checkAutoPush, 3000);
+  }
+
+  // ── 渲染 ──
+  function _renderWeatherHero() {
+    if (!_weatherData) return '';
+    const w = _weatherData;
+    const emoji = _getWeatherEmoji(w.icon);
+    return `
+      <div class="fwx-hero">
+        <div class="fwx-hero-city">${_escHtml(w.cityName)}</div>
+        <div class="fwx-hero-temp">${_escHtml(w.temp)}<span class="fwx-hero-unit">°</span></div>
+        <div class="fwx-hero-desc">${emoji} ${_escHtml(w.text)}</div>
+        <div class="fwx-hero-feels">体感 ${_escHtml(w.feelsLike)}°C</div>
+        <div class="fwx-detail-row">
+          <div class="fwx-detail-card">
+            <div class="fwx-detail-label">💧 湿度</div>
+            <div class="fwx-detail-val">${_escHtml(w.humidity)}%</div>
+          </div>
+          <div class="fwx-detail-card">
+            <div class="fwx-detail-label">🌬️ 风向</div>
+            <div class="fwx-detail-val">${_escHtml(w.windDir)}</div>
+          </div>
+          <div class="fwx-detail-card">
+            <div class="fwx-detail-label">💨 风力</div>
+            <div class="fwx-detail-val">${_escHtml(w.windScale)} 级</div>
+          </div>
+          <div class="fwx-detail-card">
+            <div class="fwx-detail-label">👁️ 能见度</div>
+            <div class="fwx-detail-val">${_escHtml(w.vis)} km</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function _renderHistory() {
+    if (_careHistory.length === 0) {
+      return `<div class="fwx-empty">
+        <div class="fwx-empty-icon">📡</div>
+        <div class="fwx-empty-text">还没有收到任何天气关心</div>
+        <div class="fwx-empty-hint">点击下方按钮接收信号</div>
+      </div>`;
+    }
+    return _careHistory.map((r, i) => `
+      <div class="fwx-care-bubble ${i === 0 ? 'fwx-care-bubble--new' : ''}">
+        <div class="fwx-care-header">
+          <span class="fwx-care-char">${_escHtml(r.charName)}</span>
+          <span class="fwx-care-meta">${_getWeatherEmoji(r.iconCode)} ${_escHtml(r.weatherDesc)} ${_escHtml(r.temp)}°C · ${_escHtml(r.cityName)}</span>
+          <span class="fwx-care-time">${_formatTime(r.time)}</span>
+        </div>
+        <div class="fwx-care-text">
+          <div class="fwx-noise-overlay"></div>
+          ${_escHtml(r.text)}
+        </div>
+      </div>`).join('');
+  }
+
+  function _render() {
+    if (!_container) return;
+    _container.innerHTML = `
+      <div class="fwx-wrap">
+
+        ${_renderWeatherHero()}
+
+        <div class="fwx-section-title">📻 来自角色的关心</div>
+        <div class="fwx-history">
+          ${_loading
+            ? `<div class="freq-loading">
+                <div class="freq-loading-dot"></div>
+                <div class="freq-loading-dot"></div>
+                <div class="freq-loading-dot"></div>
+               </div>`
+            : _renderHistory()
+          }
+        </div>
+
+        ${_statusText ? `<div class="fwx-status-bar">${_escHtml(_statusText)}</div>` : ''}
+
+        <div class="fwx-bottom-bar">
+          <button class="fwx-btn-receive" id="fwx-btn-receive" ${_loading ? 'disabled' : ''}>
+            ${_loading ? '📡 接收中…' : '📡 接收信号'}
+          </button>
+        </div>
+
+      </div>`;
+  }
+
+  function _bindEvents(container) {
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+    _clickHandler = async (e) => {
+      if (e.target.id === 'fwx-btn-receive') {
+        _loading = true;
+        _statusText = '📡 正在接收信号…';
+        _render(); _bindEvents(_container);
+
+        try {
+          await _fetchAndGenerate(false);
+          _statusText = '✓ 信号接收成功';
+          _ctx.log.info('weather', '手动刷新成功');
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error('weather', '手动刷新失败', err.message);
+        }
+
+        _loading = false;
+        _render(); _bindEvents(_container);
+
+        setTimeout(() => {
+          if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 3000);
+      }
+    };
+    container.addEventListener('click', _clickHandler);
+  }
+
+  // ── 公开接口 ──
+  return {
+    id: 'weather',
+    name: '信号气象站',
+    icon: '🌦️',
+
+    init(ctx) {
+      _ctx = ctx;
+      _loadData().then(() => {
+        _startAutoPushTimer();
+      }).catch(() => {});
+    },
+
+    async mount(container) {
+      _container = container;
+      _container.innerHTML = `<div class="freq-loading">
+        <div class="freq-loading-dot"></div>
+        <div class="freq-loading-dot"></div>
+        <div class="freq-loading-dot"></div>
+      </div>`;
+      await _loadData();
+      if (!_container) return;
+      _render();
+      _bindEvents(_container);
+    },
+
+    unmount() {
+      if (_container && _clickHandler) {
+        _container.removeEventListener('click', _clickHandler);
+      }
+      _container = null;
+    },
+  };
+})();
+// ============================================================ end block_13
+
 
 
 
@@ -3058,6 +3481,7 @@ const FreqTerminal = (() => {
     App01Archive,
     App02Studio,
     App03Moments,
+    App04Weather,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
   ];
   for (const app of implementations) {
