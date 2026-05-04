@@ -88,7 +88,19 @@ app05_scan: `你是一台失灵的收音机，正在扫描这个世界的频率�
     app10: '任务：基于预设世界观，生成一个地点的详细介绍。包含地名、简介、氛围描述。用 <location> 标签包裹。',
     app11: '任务：基于当前天气「{weather_info}」和BGM「{current_bgm}」，以角色身份推荐 2-3 道菜，每道菜附角色口吻的点评。用 <menu> 标签包裹。',
     app12: '任务：基于以下角色人设列表，生成 3-5 条论坛帖子和互评。包含发帖人、标题、内容、回复。用 <thread> 标签包裹每个帖子。',
-    app13: '任务：User 在 {delay_time} 前写了一条时光胶囊消息：「{user_message}」。现在时间到了，以角色身份回信。角色知道等待了多久，会在回信里自然提及这个时间感。不超过 200 字。',
+    app13_reply: `你是角色{char_name}。现在是{real_datetime}。
+用户在 {delay_desc} 前给你写了一封信，刚刚送达到你手中。
+这是他们写的内容：
+"{user_message}"
+
+请以书信体，用{char_name}的口吻写一封回信。
+要求：
+- 字数 300-500 字
+- 语气自然真实，像真正的私人信件，不要像 AI 生成的回复
+- 可以提及等待的时间感（"这封信在路上走了{delay_desc}"之类的意象）
+- 回应信中的具体内容，不要泛泛而谈
+- 结尾用角色自己的方式落款
+- 直接输出信件正文，不要加任何额外说明`,
     app14: '任务：User 描述了一个梦境：「{dream_content}」。以角色视角解读这个梦，可荒诞、可温柔、可锐评。不超过 150 字。',
     app15: '任务：分析以下对话内容的情绪倾向，生成一句角色视角的感知描述。不超过 60 字。同时给出情绪关键词（用 <emotion> 标签包裹）。',
     app16: '任务：生成一段角色之间不在User 面前的私下对话或内部通讯记录。像在偷窥一个不属于你的世界。用 <secret> 标签包裹。不超过 200 字。',
@@ -3297,6 +3309,429 @@ const App05Scanner = (() => {
   };
 })();
 // ============================================================ end block_14
+// ============================================================
+// block_22 — App13 · 时光胶囊
+// ============================================================
+const App13Capsule = (() => {
+  let _ctx = null;
+  let _container = null;
+  let _clickHandler = null;
+  let _intervalId = null;
+
+  // ── 状态 ──
+  let _capsules = [];       // 全部胶囊数组
+  let _tab = 'write';       // 'write' | 'pending' | 'replied'
+  let _loading = false;
+  let _statusText = '';
+  let _processing = new Set(); // 正在生成回信的胶囊 id，防止重复触发
+
+  // ── 写信表单状态 ──
+  let _draftMsg = '';
+  let _draftDelay = '3600';  // 默认1小时，单位秒
+
+  const STORE_KEY = 'app13_capsules';
+  const MAX_CAPSULES = 20;
+
+  const DELAY_OPTIONS = [
+    { label: '1 小时后',  value: '3600' },
+    { label: '6 小时后',  value: '21600' },
+    { label: '24 小时后', value: '86400' },
+    { label: '3 天后',    value: '259200' },
+    { label: '7 天后',    value: '604800' },
+    { label: '自定义…',   value: 'custom' },
+  ];
+
+  function _escHtml(s) {
+    if (!s) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ── 时间格式化 ──
+  function _fmtDatetime(ts) {
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function _fmtCountdown(ms) {
+    if (ms <= 0) return '即将送达';
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s} 秒后`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} 分钟后`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h} 小时 ${m % 60} 分钟后`;
+    const day = Math.floor(h / 24);
+    return `${day} 天 ${h % 24} 小时后`;
+  }
+
+  function _fmtDelayDesc(sendAt, createdAt) {
+    const ms = sendAt - createdAt;
+    const h = Math.round(ms / 3600000);
+    if (h < 24) return `${h} 小时`;
+    const d = Math.round(ms / 86400000);
+    return `${d} 天`;
+  }
+
+  // ── 持久化 ──
+  async function _load() {
+    const saved = await _ctx.store.get(STORE_KEY);
+    _capsules = Array.isArray(saved) ? saved : [];
+  }
+
+  async function _save() {
+    await _ctx.store.set(STORE_KEY, _capsules);
+  }
+
+  // ── 后台调度：检查到期胶囊 ──
+  async function _checkPending() {
+    const now = Date.now();
+    const due = _capsules.filter(
+      c => c.status === 'pending' && c.sendAt <= now && !_processing.has(c.id)
+    );
+    if (due.length === 0) return;
+
+    for (const capsule of due) {
+      _processing.add(capsule.id);
+      try {
+        const charName = _ctx.bridge.getCharName();
+        const delayDesc = _fmtDelayDesc(capsule.sendAt, capsule.id);
+        const messages = _ctx.subapi.buildMessages('app13_reply', {
+          user_message: capsule.userMsg,
+          delay_desc: delayDesc,
+        });
+        const raw = await _ctx.subapi.call(messages, { maxTokens: 700, temperature: 0.92 });
+        const reply = _ctx.subapi.safeParseText(raw);
+
+        capsule.status = 'replied';
+        capsule.reply = reply;
+        capsule.repliedAt = Date.now();
+        await _save();
+
+        _ctx.notify.push(
+          'app13',
+          '💌',
+          `${charName} 回信了`,
+          reply.slice(0, 40) + (reply.length > 40 ? '…' : '')
+        );
+
+        // 如果当前正在看这个 App，刷新界面
+        if (_container) { _render(); _bindEvents(_container); }
+      } catch (err) {
+        _ctx.log.error('app13', '生成回信失败', err.message);
+      } finally {
+        _processing.delete(capsule.id);
+      }
+    }
+  }
+
+  // ── 渲染 ──
+  function _render() {
+    if (!_container) return;
+    _container.innerHTML = `
+      <div class="f13-wrap">
+        ${_renderTabs()}
+        <div class="f13-body">
+          ${_tab === 'write'   ? _renderWrite()   : ''}
+          ${_tab === 'pending' ? _renderPending() : ''}
+          ${_tab === 'replied' ? _renderReplied() : ''}
+        </div>
+        ${_statusText ? `<div class="f13-status">${_escHtml(_statusText)}</div>` : ''}
+      </div>`;
+  }
+
+  function _renderTabs() {
+    const pendingCount  = _capsules.filter(c => c.status === 'pending').length;
+    const unreadCount   = _capsules.filter(c => c.status === 'replied').length;
+    const tabs = [
+      { id: 'write',   label: '✉️ 写信' },
+      { id: 'pending', label: `⏳ 等待中${pendingCount  ? ` <span class="f13-badge">${pendingCount}</span>`  : ''}` },
+      { id: 'replied', label: `💌 已回信${unreadCount   ? ` <span class="f13-badge f13-badge-new">${unreadCount}</span>` : ''}` },
+    ];
+    return `
+      <div class="f13-tabs">
+        ${tabs.map(t => `
+          <button class="f13-tab${_tab === t.id ? ' f13-tab-active' : ''}" data-tab="${t.id}">
+            ${t.label}
+          </button>`).join('')}
+      </div>`;
+  }
+
+  function _renderWrite() {
+    const isFull = _capsules.length >= MAX_CAPSULES;
+    const isCustom = _draftDelay === 'custom';
+    return `
+      <div class="f13-write">
+        ${isFull ? `<div class="f13-full-tip">📦 胶囊已满（${MAX_CAPSULES} 条上限），请先删除旧记录</div>` : ''}
+        <div class="f13-write-label">写下你想说的话</div>
+        <textarea
+          id="f13-textarea"
+          class="f13-textarea"
+          placeholder="亲爱的……"
+          maxlength="500"
+          ${isFull ? 'disabled' : ''}
+        >${_escHtml(_draftMsg)}</textarea>
+        <div class="f13-write-label">送达时间</div>
+        <div class="f13-delay-options">
+          ${DELAY_OPTIONS.map(opt => `
+            <button
+              class="f13-delay-btn${_draftDelay === opt.value ? ' f13-delay-active' : ''}"
+              data-delay="${opt.value}"
+              ${isFull ? 'disabled' : ''}
+            >${opt.label}</button>`).join('')}
+        </div>
+        ${isCustom ? `
+          <div class="f13-custom-row">
+            <input
+              id="f13-custom-hours"
+              class="f13-custom-input"
+              type="number"
+              min="1"
+              max="720"
+              placeholder="小时数"
+            />
+            <span class="f13-custom-unit">小时后送达</span>
+          </div>` : ''}
+        <button
+          id="f13-btn-send"
+          class="f13-send-btn"
+          ${isFull || _loading ? 'disabled' : ''}
+        >
+          ${_loading ? '⏳ 封存中…' : '📮 封存胶囊'}
+        </button>
+      </div>`;
+  }
+
+  function _renderPending() {
+    const list = _capsules.filter(c => c.status === 'pending')
+      .sort((a, b) => a.sendAt - b.sendAt);
+    if (list.length === 0) {
+      return `<div class="freq-empty-state">暂无等待中的胶囊<br><span class="f13-empty-sub">去写信页封存一封吧</span></div>`;
+    }
+    const now = Date.now();
+    return `
+      <div class="f13-list">
+        ${list.map(c => `
+          <div class="f13-card f13-card-pending">
+            <div class="f13-card-meta">
+              <span class="f13-card-time">📅 ${_fmtDatetime(c.id)}</span>
+              <span class="f13-card-countdown">${_fmtCountdown(c.sendAt - now)}</span>
+            </div>
+            <div class="f13-card-preview">${_escHtml(
+              c.userMsg.length > 60 ? c.userMsg.slice(0, 60) + '…' : c.userMsg
+            )}</div>
+            <div class="f13-card-footer">
+              <span class="f13-card-sendat">预计送达：${_fmtDatetime(c.sendAt)}</span>
+              <button class="f13-del-btn" data-id="${c.id}">🗑</button>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  function _renderReplied() {
+    const list = _capsules.filter(c => c.status === 'replied')
+      .sort((a, b) => b.repliedAt - a.repliedAt);
+    if (list.length === 0) {
+      return `<div class="freq-empty-state">还没有收到回信<br><span class="f13-empty-sub">封存一封，耐心等待吧</span></div>`;
+    }
+    return `
+      <div class="f13-list">
+        ${list.map(c => `
+          <div class="f13-card f13-card-replied">
+            <div class="f13-card-meta">
+              <span class="f13-card-time">💌 ${_fmtDatetime(c.repliedAt)}</span>
+              <span class="f13-card-waited">等待了 ${_fmtDelayDesc(c.sendAt, c.id)}</span>
+            </div>
+            <div class="f13-letter-block">
+              <div class="f13-letter-section f13-letter-user">
+                <div class="f13-letter-tag">你写道</div>
+                <div class="f13-letter-text">${_escHtml(
+                  !c.expanded
+                    ? (c.userMsg.length > 60 ? c.userMsg.slice(0, 60) + '…' : c.userMsg)
+                    : c.userMsg
+                )}</div>
+              </div>
+              <div class="f13-letter-divider">· · ·</div>
+              <div class="f13-letter-section f13-letter-char">
+                <div class="f13-letter-tag">回信</div>
+                <div class="f13-letter-text">${_escHtml(
+                  !c.expanded
+                    ? (c.reply.length > 80 ? c.reply.slice(0, 80) + '…' : c.reply)
+                    : c.reply
+                )}</div>
+              </div>
+            </div>
+            <div class="f13-card-footer">
+              <button class="f13-expand-btn" data-id="${c.id}">
+                ${c.expanded ? '收起 ▴' : '展开全文 ▾'}
+              </button>
+              <button class="f13-del-btn" data-id="${c.id}">🗑</button>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  // ── 事件绑定 ──
+  function _bindEvents(container) {
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+
+    _clickHandler = async (e) => {
+      // Tab 切换
+      const tabBtn = e.target.closest('.f13-tab');
+      if (tabBtn) {
+        _tab = tabBtn.dataset.tab;
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 延迟选项
+      const delayBtn = e.target.closest('.f13-delay-btn');
+      if (delayBtn) {
+        // 保存当前 textarea 内容
+        const ta = _container.querySelector('#f13-textarea');
+        if (ta) _draftMsg = ta.value;
+        _draftDelay = delayBtn.dataset.delay;
+        _render(); _bindEvents(_container);
+        // 恢复光标位置
+        const newTa = _container.querySelector('#f13-textarea');
+        if (newTa) { newTa.focus(); newTa.setSelectionRange(newTa.value.length, newTa.value.length); }
+        return;
+      }
+
+      // 封存胶囊
+      if (e.target.id === 'f13-btn-send') {
+        const ta = _container.querySelector('#f13-textarea');
+        const msg = ta ? ta.value.trim() : '';
+        if (!msg) {
+          _statusText = '⚠ 请先写点什么';
+          _render(); _bindEvents(_container);
+          setTimeout(() => { _statusText = ''; if (_container) { _render(); _bindEvents(_container); } }, 3000);
+          return;
+        }
+
+        let delaySec = parseInt(_draftDelay, 10);
+        if (_draftDelay === 'custom') {
+          const customInput = _container.querySelector('#f13-custom-hours');
+          const h = customInput ? parseInt(customInput.value, 10) : NaN;
+          if (!h || h < 1 || h > 720) {
+            _statusText = '⚠ 请输入 1–720 之间的小时数';
+            _render(); _bindEvents(_container);
+            setTimeout(() => { _statusText = ''; if (_container) { _render(); _bindEvents(_container); } }, 3000);
+            return;
+          }
+          delaySec = h * 3600;
+        }
+
+        _loading = true;
+        _statusText = '⏳ 封存中…';
+        _render(); _bindEvents(_container);
+
+        try {
+          const now = Date.now();
+          const capsule = {
+            id: now,
+            userMsg: msg,
+            sendAt: now + delaySec * 1000,
+            status: 'pending',
+            reply: '',
+            repliedAt: null,
+            expanded: false,
+          };
+          _capsules.push(capsule);
+          await _save();
+          _draftMsg = '';
+          _draftDelay = '3600';
+          _tab = 'pending';
+          _statusText = '✓ 胶囊已封存，耐心等待吧';
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error('app13', '封存失败', err.message);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+        setTimeout(() => {
+          if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 3000);
+        return;
+      }
+
+      // 删除胶囊
+      const delBtn = e.target.closest('.f13-del-btn');
+      if (delBtn) {
+        const id = Number(delBtn.dataset.id);
+        _capsules = _capsules.filter(c => c.id !== id);
+        await _save();
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 展开/收起
+      const expandBtn = e.target.closest('.f13-expand-btn');
+      if (expandBtn) {
+        const id = Number(expandBtn.dataset.id);
+        const item = _capsules.find(c => c.id === id);
+        if (item) {
+          item.expanded = !item.expanded;
+          _render(); _bindEvents(_container);
+        }
+        return;
+      }
+    };
+
+    container.addEventListener('click', _clickHandler);
+  }
+
+  // ── 公开接口 ──
+  return {
+    id: 'app13',
+    name: '时光胶囊',
+    icon: '💌',
+
+    async init(ctx) {
+      _ctx = ctx;
+      await _load();
+
+      // 启动后台调度，每 60 秒检查一次
+      _intervalId = setInterval(() => _checkPending(), 60 * 1000);
+      // 启动时立即检查一次（处理上次关闭期间到期的胶囊）
+      _checkPending();
+    },
+
+    async mount(container) {
+      _container = container;
+      _container.innerHTML = `
+        <div class="freq-loading">
+          <div class="freq-loading-dot"></div>
+          <div class="freq-loading-dot"></div>
+          <div class="freq-loading-dot"></div>
+        </div>`;
+      await _load();
+      _render();
+      _bindEvents(_container);
+    },
+
+    unmount() {
+      if (_container && _clickHandler) {
+        _container.removeEventListener('click', _clickHandler);
+      }
+      _container = null;
+    },
+
+    destroy() {
+      if (_intervalId) { clearInterval(_intervalId); _intervalId = null; }
+    },
+  };
+})();
+// ============================================================ end block_22
 
 
 
@@ -3774,6 +4209,7 @@ const FreqTerminal = (() => {
     App03Moments,
     App04Weather,
     App05Scanner,
+    App13Capsule,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
   ];
   for (const app of implementations) {
