@@ -2072,78 +2072,93 @@ registerApp(BackstageStudioApp);
   // │ BLOCK_99Init — jQuery 入口，挂载 DOM，绑定 ST事件    │
   // └──────────────────────────────────────────────────────┘
 
-  async function freqInit() {
-    console.log('[FREQ] FREQ · TERMINAL v2.0 初始化开始');
+// ┌──────────────────────────────────────────────────────┐
+// │ BLOCK_99  Init — jQuery 入口，挂载 DOM，绑定 ST 事件  │
+// └──────────────────────────────────────────────────────┘
 
-    // 1. 加载 settings.html 到 ST 扩展面板
-    await SettingsUI.loadSettingsHTML();
+async function freqInit() {
+  console.log('[FREQ] FREQ · TERMINAL v2.0 初始化开始');
 
-    // 2. 构建手机 DOM
-    PhoneShell.buildDOM();
+  // 1. 加载 settings.html 到 ST 扩展面板
+  await SettingsUI.loadSettingsHTML();
 
-    // 3. 尝试监听 ST 的消息事件
-    try {
-      const ctx = STBridge.getContext();
-      if (ctx && ctx.eventSource) {
-        if (ctx.eventSource.on) {
-          ctx.eventSource.on('message_received', () => {
-            EventBus.emit('chat:message', { type: 'received' });
-          });
-          ctx.eventSource.on('message_sent', () => {
-            EventBus.emit('chat:message', { type: 'sent' });
-          });
-        }
-      }
-    } catch (e) {
-      console.warn('[FREQ] 无法绑定 ST 事件:', e);
-    }
+  // 2. 构建手机 DOM
+  PhoneShell.buildDOM();
 
-    console.log('[FREQ] FREQ · TERMINAL v2.0 初始化完成');
-  }
-
-  // jQuery 入口
-  if (typeof jQuery !== 'undefined') {
-         const maxWait = 10000;
-      const start = Date.now();
-
-      // 等待 SillyTavern.getContext 可用
-      while (!window.SillyTavern?.getContext && Date.now() - start < maxWait) {
-        await sleep(200);
-      }
-
-      // 等待 saveSettingsDebounced 可用（ST 设置系统就绪的标志）
-      const settingsStart = Date.now();
-      while (Date.now() - settingsStart < 8000) {
-        if (typeof window.saveSettingsDebounced === 'function') break;
-        await sleep(100);
-      }
-
-      // 先初始化 DOM 和事件
-      await freqInit();
-
-      // ST 标准做法：监听 ST 的 loadExtensionSettings 事件来填充面板
-      // 这个事件由 ST 在设置数据就绪后触发，是官方推荐的初始化时机
-      const ctx = STBridge.getContext();
-      if (ctx && ctx.eventSource) {
-        ctx.eventSource.on('settings_loaded', () => {
-          SettingsUI.init();
-          const settings = STBridge.getSettings();
-          PhoneShell.setFloatVisible(settings.enabled && settings.floatEnabled);
+  // 3. 尝试监听 ST 的消息事件
+  try {
+    const ctx = STBridge.getContext();
+    if (ctx && ctx.eventSource) {
+      if (ctx.eventSource.on) {
+        ctx.eventSource.on('message_received', () => {
+          EventBus.emit('chat:message', { type: 'received' });
+        });
+        ctx.eventSource.on('message_sent', () => {
+          EventBus.emit('chat:message', { type: 'sent' });
         });
       }
+    }
+  } catch (e) {
+    console.warn('[FREQ] 无法绑定 ST 事件:', e);
+  }
 
-      // 同时立即尝试一次（应对 settings_loaded 已经触发过的情况）
+  console.log('[FREQ] FREQ · TERMINAL v2.0 初始化完成');
+}
+
+// jQuery 入口
+if (typeof jQuery !== 'undefined') {
+  // ✅ 必须包在 async 函数里才能用 await
+  jQuery(async () => {
+    const maxWait = 10000;
+    const start = Date.now();
+
+    // 等待 SillyTavern.getContext 可用
+    while (!window.SillyTavern?.getContext && Date.now() - start < maxWait) {
+      await sleep(200);
+    }
+
+    // 等待 saveSettingsDebounced 可用（ST 设置系统就绪的标志）
+    const settingsStart = Date.now();
+    while (Date.now() - settingsStart < 8000) {
+      if (typeof window.saveSettingsDebounced === 'function') break;
+      await sleep(100);
+    }
+
+    // 先构建 DOM 和事件
+    await freqInit();
+
+    const ctx = STBridge.getContext();
+
+    let settingsInited = false;
+
+    const doSettingsInit = () => {
+      if (settingsInited) return;
+      settingsInited = true;
       SettingsUI.init();
       const settings = STBridge.getSettings();
       PhoneShell.setFloatVisible(settings.enabled && settings.floatEnabled);
-    });
-  } else {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => freqInit());
-    } else {
-      freqInit();
+    };
+
+    if (ctx && ctx.eventSource) {
+      ctx.eventSource.on('settings_loaded', () => {
+        doSettingsInit();
+      });
     }
+
+    // 延迟兜底：等 ST 有足够时间加载 settings.json
+    setTimeout(() => {
+      doSettingsInit();
+    }, 2000);
+  });
+} else {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => freqInit());
+  } else {
+    freqInit();
   }
+}
+
+// ── BLOCK_99 END ──────────────────────────────────────
 
 
 
