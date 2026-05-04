@@ -33,9 +33,9 @@ const FREQ_DEFAULTS = {
 若宇宙频率开启，可以隐晦感知「屏幕外」。只输出内容本身，无前缀。`,
 
     app01: '请根据以下 meow_FM 数据，生成格式化的电台归档摘要。',
-    app02_monologue: '任务：以失真的身份，写一段没开麦时的碎碎念。颓废跳脱，偶尔锐评User。不超过 80 字。只输出独白本身。',
-    app02_interview: '任务：失真作主持人采访当前角色，生成 Q&A 格式对话。失真负责提问和点评，角色负责回答。2-3 轮对话，总计不超过 300 字。',
-    app02_private: '任务：只有角色自己，录一段不会公开的私人磁带。失真不在场，是角色最真实的状态。不超过 150 字。\n若以下有角色思绪片段，请以此为素材保留未经整理的真实感：\n{thinking_excerpt}',
+    app02_monologue: '任务：你是失真，午夜摇滚乐电台主持人。现在没开麦，写一段后台碎碎念。\n风格：颓废、跳脱、偶尔锐评听众或台本设计，喜欢用颜文字，自称"失真"，称User为"听众"。\n可以吐槽当前剧情走向、抱怨工作、或者随口说点废话。\n不超过 100 字。只输出独白本身，无前缀无标签。',
+    app02_interview: '任务：你是失真，午夜摇滚乐电台主持人,正在演播厅采访当前角色 [{char_name}]。\n失真风格：颓废花花公子，锐评，爱开玩笑，用颜文字，自称"失真"。\n生成Q&A 格式对话，失真负责提问（可犀利可无厘头），角色负责回答（保持角色性格）。\n{user_question}\n2-3 轮对话，总计不超过 350 字。\n格式要求：每轮用<qa> 标签包裹，内含 <q>失真的提问</q> 和 <a>角色的回答</a>。',
+    app02_private: '任务：只有角色 [{char_name}] 自己，录一段不会公开的私人磁带。失真不在场。\n这是角色最真实、未经整理的状态。可以是内心独白、碎碎念、对某件事的真实感受。\n不超过 200 字。只输出录音内容本身，无前缀无标签。\n{thinking_excerpt}',
     app03: '任务：基于以下角色人设列表，生成 3-5 条朋友圈动态和互评。每条动态包含发布者名字和内容。用<post> 标签包裹每条动态。',
     app04: '任务：当前天气信息如下：{weather_info}。请以角色身份，用当前 BGM「{current_bgm}」的文风，写一句关心语。不超过 50 字。只输出关心语本身。',
     app05: '任务：随机截获一个 NPC 的内心独白碎片。像收音机扫台时偶尔捕获的杂音，短小（20-40 字）、神秘、不完整。格式：[截获频率· {npc_name}] {内心独白碎片}',
@@ -1320,6 +1320,388 @@ const App01Archive = (() => {
       }
       if (_container && _inputHandler) {
         _container.removeEventListener('input', _inputHandler);
+      }
+      _container = null;
+    },
+  };
+})();
+
+//============================================================
+//  block_11  —  App02 · 后台录音室
+// ============================================================
+const App02Studio = (() => {
+  let _ctx = null;
+  let _container = null;
+  let _clickHandler = null;
+  let _inputHandler = null;
+
+  //── 状态 ──
+  let _mode = 'monologue';        // 'monologue' | 'interview' | 'private'
+  let _records = [];              // 历史记录 [{mode, content, time, charName}]
+  let _loading = false;
+  let _statusText = '';
+  let _userQuestion = '';         // 演播厅采访：用户自定义问题
+  let _expandedIndex = null;      // 历史记录展开索引
+  let _useThinking = true;        // 角色私录是否读取 Thinking
+
+  // ── 模式定义 ──
+  const _MODES = {
+    monologue: { key: 'monologue', icon: '🎙', label: '失真独白', desc: '失真没开麦时的碎碎念', promptKey: 'app02_monologue', color: '#8b5cf6' },
+    interview: { key: 'interview', icon: '🎤', label: '演播厅采访', desc: '失真采访当前角色', promptKey: 'app02_interview', color: '#f59e0b' },
+    private:{ key: 'private',   icon: '📼', label: '角色私录', desc: '角色的私人磁带', promptKey: 'app02_private', color: '#ef4444' },
+  };
+
+  // ── 生成录音 ──
+  async function _generate() {
+    if (_loading) return;
+    _loading = true;
+    _statusText = '📡 信号连接中…';
+    _render();
+
+    const modeDef = _MODES[_mode];
+    const charName = _ctx.bridge.getCharName();
+
+    try {
+      // 构建额外变量
+      const extraVars = {};
+
+      // 演播厅采访：注入用户问题
+      if (_mode === 'interview' && _userQuestion.trim()) {
+        extraVars.user_question = `听众提出了一个问题，请失真在采访中自然地问出来：「${_userQuestion.trim()}」`;
+      } else {
+        extraVars.user_question = '';
+      }
+
+      // 角色私录：注入 Thinking
+      if (_mode === 'private') {
+        if (_useThinking) {
+          const thinking = _ctx.bridge.extractThinking(8);
+          if (thinking && thinking.trim()) {
+            extraVars.thinking_excerpt = `\n以下是角色的真实思绪片段，请以此为素材保留未经整理的真实感：\n---\n${thinking.slice(0, 600)}\n---`;_ctx.log.info('studio', `已提取 Thinking 素材 (${thinking.length} 字)`);
+          } else {
+            extraVars.thinking_excerpt = '\n（未检测到角色思绪片段，请自由发挥角色最真实的内心状态。）';
+            _ctx.log.info('studio', '未找到 Thinking 内容，使用自由发挥模式');
+          }
+        } else {
+          extraVars.thinking_excerpt = '';
+        }
+      }
+
+      // 构建消息
+      const messages = _ctx.subapi.buildMessages(modeDef.promptKey, extraVars);
+
+      // 失真独白模式：覆盖 system prompt中的角色身份
+      if (_mode === 'monologue') {
+        if (messages.length > 0 && messages[0].role === 'system') {
+          messages[0].content = messages[0].content
+            .replace(/你是 \[.*?\]/, '你是 [失真]')
+            .replace(/你是\[.*?\]/, '你是[失真]');
+        }
+      }
+
+      const raw = await _ctx.subapi.call(messages, {
+        maxTokens: _mode === 'interview' ? 500 : 300,
+        temperature: 0.9,
+      });
+
+      let content = '';
+
+      if (_mode === 'interview') {
+        // 尝试解析 <qa> 标签
+        const qaBlocks = _ctx.subapi.parseResponse(raw, 'qa');
+        if (qaBlocks && qaBlocks.length > 0&& raw.includes('<qa>')) {
+          const parsed = qaBlocks.map(block => {
+            const qMatch = block.match(/<q>([\s\S]*?)<\/q>/i);
+            const aMatch = block.match(/<a>([\s\S]*?)<\/a>/i);
+            const q = qMatch ? qMatch[1].trim() : '';
+            const a = aMatch ? aMatch[1].trim() : '';
+            return { q, a };
+          }).filter(item => item.q || item.a);
+
+          if (parsed.length > 0) {
+            content = parsed.map(item =>
+              `🎙 失真：${item.q}\n💬 ${charName}：${item.a}`
+            ).join('\n\n');
+          }
+        }// 兜底：直接用原始文本
+        if (!content) {
+          content = _ctx.subapi.safeParseText(raw);
+        }
+      } else {
+        content = _ctx.subapi.safeParseText(raw);
+      }
+
+      // 保存记录
+      const record = {
+        mode: _mode,
+        content,
+        time: new Date().toLocaleString('zh-CN'),
+        timestamp: Date.now(),
+        charName,modeLabel: modeDef.label,
+        modeIcon: modeDef.icon,
+      };
+      _records.unshift(record);
+      if (_records.length > 50) _records.length = 50;
+
+      // 持久化
+      _saveRecords();
+
+      _statusText = `✓ ${modeDef.label}录制完成`;
+      _ctx.notify.push('studio', modeDef.icon, '后台录音室', `${modeDef.label}已录制`, { silent: true });_ctx.log.info('studio', `${modeDef.label}生成成功 (${content.length} 字)`);} catch (e) {
+      _statusText = '⚠ 信号丢失，请重试';
+      _ctx.log.error('studio', `${modeDef.label}生成失败`, e.message);
+      _ctx.notify.push('studio', '⚠️', '后台录音室', '录制失败：信号不稳定');
+    }
+
+    _loading = false;
+    _render();
+    _bindEvents(_container);
+
+    // 状态文字3 秒后清除
+    setTimeout(() => {
+      if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+        _statusText = '';
+        _render();
+        _bindEvents(_container);
+      }
+    }, 3000);
+  }
+
+  // ── 持久化 ──
+  async function _saveRecords() {
+    try {
+      await _ctx.store.set('studio_records', _records);
+    } catch (e) {
+      _ctx.log.error('studio', '保存录音记录失败', e.message);
+    }
+  }
+
+  async function _loadRecords() {
+    try {
+      const saved = await _ctx.store.get('studio_records');
+      if (saved && Array.isArray(saved)) {
+        _records = saved;
+      }
+    } catch (e) {
+      _ctx.log.error('studio', '加载录音记录失败', e.message);
+    }
+  }
+
+  // ── 渲染 ──
+  function _render() {
+    if (!_container) return;
+
+    const modeDef = _MODES[_mode];
+    const charName = _ctx.bridge.getCharName();
+
+    _container.innerHTML = `
+      <div class="freq-studio">
+        <!-- 模式选择器 -->
+        <div class="freq-studio-modes">
+          ${Object.values(_MODES).map(m => `
+            <button class="freq-studio-mode-btn ${_mode === m.key ? 'freq-studio-mode-active' : ''}"
+                    data-mode="${m.key}"
+                    style="${_mode === m.key ? `border-color:${m.color}; color:${m.color};` : ''}">
+              <span class="freq-studio-mode-icon">${m.icon}</span>
+              <span class="freq-studio-mode-label">${m.label}</span>
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- 当前模式说明 -->
+        <div class="freq-studio-desc">
+          <span class="freq-studio-desc-dot" style="background:${modeDef.color};"></span>
+          ${_escHtml(modeDef.desc)}${_mode !== 'monologue' ?` ·<span style="color:${modeDef.color};">${_escHtml(charName)}</span>` : ''}
+        </div>
+
+        <!-- 演播厅采访：用户提问区 -->
+        ${_mode === 'interview' ? `
+          <div class="freq-studio-question-area">
+            <div class="freq-studio-question-label">💭 想让失真问什么？（可选）</div>
+            <textarea class="freq-studio-question-input"
+                      placeholder="留空则由失真自由发挥…"
+                      rows="2">${_escHtml(_userQuestion)}</textarea>
+          </div>
+        ` : ''}
+
+        <!-- 角色私录：Thinking 开关 -->
+        ${_mode === 'private' ? `
+          <div class="freq-studio-thinking-toggle">
+            <label class="freq-studio-toggle-label">
+              <input type="checkbox" class="freq-studio-thinking-cb"
+                     ${_useThinking ? 'checked' : ''} />
+              <span>读取角色思维链作为素材</span>
+            </label>
+            <span class="freq-studio-thinking-hint">从最近消息中提取 Thinking 内容</span>
+          </div>
+        ` : ''}
+
+        <!-- 录制按钮 -->
+        <button class="freq-studio-record-btn ${_loading ? 'freq-studio-recording' : ''}"
+                ${_loading ? 'disabled' : ''}>
+          ${_loading
+            ? `<span class="freq-studio-rec-dot freq-studio-rec-dot-pulse"></span> 录制中…`
+            : `<span class="freq-studio-rec-dot"></span> 开始录制`
+          }
+        </button>
+
+        <!-- 状态提示 -->
+        ${_statusText ? `<div class="freq-studio-status">${_escHtml(_statusText)}</div>` : ''}
+
+        <!-- 最新录音（如果有） -->
+        ${_records.length > 0 && _records[0].mode === _mode ? `
+          <div class="freq-studio-latest">
+            <div class="freq-studio-latest-header">
+              <span>${_records[0].modeIcon}最新录音</span>
+              <span class="freq-studio-latest-time">${_escHtml(_records[0].time)}</span>
+            </div>
+            <div class="freq-studio-latest-content">${_escHtml(_records[0].content)}</div>
+          </div>
+        ` : ''}
+
+        <!-- 历史记录 -->
+        <div class="freq-studio-history">
+          <div class="freq-studio-history-header">
+            <span>📼 录音档案</span>
+            <span class="freq-studio-history-count">${_records.length} 条</span>
+          </div>
+          ${_records.length === 0
+            ? `<div class="freq-empty-state">
+                <div class="freq-empty-state-icon">🎙️</div>
+                 <div class="freq-empty-state-text">录音室空空如也…<br><span style="color:#555;font-size:12px;">选择模式，按下录制</span></div>
+               </div>`
+            : `<div class="freq-studio-history-list">
+                ${_records.map((r, i) => _renderHistoryCard(r, i)).join('')}</div>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  function _renderHistoryCard(record, index) {
+    const isExpanded = _expandedIndex === index;
+    //跳过最新录音（已在上方展示）
+    if (index === 0 && _records[0].mode === _mode) return '';
+
+    const preview = record.content.length > 50
+      ? record.content.substring(0, 50) + '…'
+      : record.content;
+
+    return `
+      <div class="freq-studio-hcard ${isExpanded ? 'freq-studio-hcard-expanded' : ''}"
+           data-history-index="${index}">
+        <div class="freq-studio-hcard-header">
+          <span class="freq-studio-hcard-icon">${record.modeIcon || '🎙'}</span>
+          <span class="freq-studio-hcard-label">${_escHtml(record.modeLabel || record.mode)}</span>
+          ${record.charName ? `<span class="freq-studio-hcard-char">${_escHtml(record.charName)}</span>` : ''}
+          <span class="freq-studio-hcard-time">${_escHtml(record.time)}</span>
+        </div>
+        ${isExpanded
+          ? `<div class="freq-studio-hcard-full">${_escHtml(record.content)}</div>`
+          : `<div class="freq-studio-hcard-preview">${_escHtml(preview)}</div>`
+        }
+        ${record.content.length > 50 ? `
+          <div class="freq-studio-hcard-toggle">${isExpanded ? '▲ 收起' : '▼ 展开'}</div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // ── 事件绑定 ──
+  function _bindEvents(container) {
+    if (!container) return;
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+    if (_inputHandler) container.removeEventListener('input', _inputHandler);
+
+    _clickHandler = (e) => {
+      // 模式切换
+      const modeBtn = e.target.closest('.freq-studio-mode-btn');
+      if (modeBtn) {
+        const newMode = modeBtn.dataset.mode;
+        if (newMode && _MODES[newMode] && newMode !== _mode) {
+          _mode = newMode;
+          _expandedIndex = null;
+          _statusText = '';
+          _render();_bindEvents(_container);
+        }
+        return;
+      }
+
+      // 录制按钮
+      if (e.target.closest('.freq-studio-record-btn')) {
+        _generate();
+        return;
+      }
+
+      // 历史卡片展开/收起
+      const hcard = e.target.closest('.freq-studio-hcard');
+      if (hcard) {
+        const idx = parseInt(hcard.dataset.historyIndex, 10);
+        if (!isNaN(idx)) {
+          _expandedIndex = (_expandedIndex === idx) ? null : idx;
+          _render();
+          _bindEvents(_container);
+        }
+        return;
+      }
+    };
+    container.addEventListener('click', _clickHandler);
+
+    _inputHandler = (e) => {
+      // 用户提问输入
+      if (e.target.classList.contains('freq-studio-question-input')) {
+        _userQuestion = e.target.value;
+        return;
+      }
+      // Thinking 开关
+      if (e.target.classList.contains('freq-studio-thinking-cb')) {
+        _useThinking = e.target.checked;
+        return;
+      }
+    };
+    container.addEventListener('input', _inputHandler);container.addEventListener('change', _inputHandler);
+  }
+
+  // ── HTML 转义 ──
+  function _escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ══════════════════════════════════════
+  //  公开接口
+  // ══════════════════════════════════════
+  return {
+    id: 'studio',
+    name: '后台录音室',
+    icon: '🎙️',
+
+    init(ctx) {
+      _ctx = ctx;
+      _loadRecords();
+
+      _ctx.bus.on('chat:loaded', () => {
+        _records = [];
+        _expandedIndex = null;
+        _statusText = '';
+        _userQuestion = '';
+        _loadRecords();
+      });
+    },
+
+    mount(container) {
+      _container = container;
+      _render();
+      _bindEvents(container);
+    },
+
+    unmount() {
+      if (_container && _clickHandler) {
+        _container.removeEventListener('click', _clickHandler);
+      }
+      if (_container && _inputHandler) {
+        _container.removeEventListener('input', _inputHandler);
+        _container.removeEventListener('change', _inputHandler);
       }
       _container = null;
     },
