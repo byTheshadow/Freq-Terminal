@@ -1,6 +1,6 @@
-/* ═══════════════════════════════════════════════════════════
- *  FREQ · TERMINAL — 主逻辑
- *  block_00EventBus
+/*═══════════════════════════════════════════════════════════
+ *FREQ · TERMINAL —主逻辑（完整文件）
+ *  block_00  EventBus
  *  block_01  Store (IndexedDB)
  *  block_02  Parser (XML /正则 / 兜底)
  *  block_03  STBridge (ST 通信)
@@ -8,13 +8,15 @@
  *  block_05  Scheduler (定时 + 静默)
  *  block_06  NotificationSystem
  *  block_07  ErrorLogger
- *  block_99  注册 + 初始化 + 手机外壳 + 悬浮球 + 拖动
+ *  block_10  App:电台归档
+ *  block_99  注册 + 初始化 + 手机外壳 + 悬浮球 + 拖动 + 配置面板
  * ═══════════════════════════════════════════════════════════ */
 
 //── 插件命名空间 ─────────────────────────────────────────────
 const FT = window.FreqTerminal = window.FreqTerminal || {};
 FT.VERSION = '1.0.0';
 FT.NAME = 'freq-terminal';
+
 
 /* ═══════════════════════════════════════════════════════════
  *  block_00 — EventBus
@@ -36,7 +38,7 @@ FT.EventBus = (() => {
     if (!_map[event]) return;
     for (const fn of _map[event]) {
       try { fn(...args); }
-      catch (e) { FT.ErrorLogger?.log('EventBus', `emit(${event})失败`, e); }
+      catch (e) { FT.ErrorLogger?.log('EventBus', `emit(${event}) 失败`, e); }
     }
   }
 
@@ -57,14 +59,13 @@ FT.Store = (() => {
   const DB_VER = 1;
   let _db = null;
 
-  //所有 store 名称
   const STORES = [
-    'settings',       // 配置
-    'notifications',  // 通知
-    'errors',         // 报错日志
-    'app_data',       // 各App 数据
-    'prompts',        // 自定义提示词
-    'scheduler',      // 定时器状态
+    'settings',
+    'notifications',
+    'errors',
+    'app_data',
+    'prompts',
+    'scheduler',
   ];
 
   function open() {
@@ -181,12 +182,11 @@ FT.Parser = (() => {
 
   /**
    * 提取 XML 标签内容（支持嵌套）
-   * 返回数组，每项是标签内的文本
+   *返回数组，每项是标签内的文本
    */
   function extractTag(text, tagName) {
     const results = [];
     if (!text || !tagName) return results;
-    // 正则：非贪婪匹配标签内容
     const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'gi');
     let match;
     while ((match = regex.exec(text)) !== null) {
@@ -221,6 +221,7 @@ FT.Parser = (() => {
   /**
    * 解析 meow_FM 块
    *<meow_FM type="..." mood="..." signal="...">内容</meow_FM>
+   * 也支持无属性的纯文本 meow_FM
    */
   function parseMeowFM(text) {
     const results = [];
@@ -230,22 +231,63 @@ FT.Parser = (() => {
       const contents = extractTag(text, 'meow_FM');
       for (let i = 0; i < contents.length; i++) {
         const openTag = tags[i] || '';
+        const raw = contents[i] || '';
+        const fields = _parseMeowFMContent(raw);
         results.push({
-          type: extractAttr(openTag, 'type') || 'unknown',
-          mood: extractAttr(openTag, 'mood') || '',
-          signal: extractAttr(openTag, 'signal') || '',
-          content: contents[i] || '',
+          type: extractAttr(openTag, 'type') || fields.type ||'unknown',
+          mood: extractAttr(openTag, 'mood') || fields.mood || '',
+          signal: extractAttr(openTag, 'signal') || fields.signal || '',
+          content: raw,
+          serial: fields.serial || '',time: fields.time || '',
+          scene: fields.scene || '',
+          plot: fields.plot || '',
         });
       }
     } catch (e) {
-      FT.ErrorLogger?.log('Parser', 'parseMeowFM 解析失败', e);
+      FT.ErrorLogger?.log('Parser','parseMeowFM 解析失败', e);
     }
     return results;
   }
 
   /**
+   * 从 meow_FM 内容中提取结构化字段
+   * 支持格式：
+   *   serial:🩻No.001
+   *   time:2024.03.15.星期五☆14:00-15:30
+   *   scene:咖啡厅
+   *   plot:剧情摘要...
+   * 也支持无标签的纯文本（兜底）
+   */
+  function _parseMeowFMContent(raw) {
+    const result = { serial: '', time: '', scene: '', plot: '', type: '', mood: '', signal: '' };
+    if (!raw) return result;
+
+    const lines = raw.split('\n');
+    let currentKey = '';
+    let currentVal = '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      const kvMatch = trimmed.match(/^(serial|time|scene|plot|type|mood|signal)\s*[:：]\s*(.*)$/i);
+      if (kvMatch) {
+        if (currentKey) {
+          result[currentKey] = currentVal.trim();
+        }
+        currentKey = kvMatch[1].toLowerCase();
+        currentVal = kvMatch[2];
+      } else if (currentKey) {
+        currentVal += '\n' + trimmed;
+      }
+    }
+    if (currentKey) {
+      result[currentKey] = currentVal.trim();
+    }
+
+    return result;
+  }
+
+  /**
    * 解析 radio_show 块
-   * <radio_show segment="..." host="...">内容</radio_show>
    */
   function parseRadioShow(text) {
     const results = [];
@@ -258,8 +300,7 @@ FT.Parser = (() => {
         results.push({
           segment: extractAttr(openTag, 'segment') || '',
           host: extractAttr(openTag, 'host') || '',
-          content: contents[i] || '',
-        });
+          content: contents[i] || '',});
       }
     } catch (e) {
       FT.ErrorLogger?.log('Parser', 'parseRadioShow 解析失败', e);
@@ -269,9 +310,6 @@ FT.Parser = (() => {
 
   /**
    * 解析 branches 块
-   * <branches>
-   *   <branch id="..." label="...">描述</branch>
-   * </branches>
    */
   function parseBranches(text) {
     const results = [];
@@ -298,7 +336,6 @@ FT.Parser = (() => {
 
   /**
    * 解析 snow（内心独白）
-   * <snow>内容</snow>
    */
   function parseSnow(text) {
     if (!text) return [];
@@ -312,7 +349,6 @@ FT.Parser = (() => {
 
   /**
    * 解析 thinking
-   * <thinking>内容</thinking>
    */
   function parseThinking(text) {
     if (!text) return [];
@@ -337,14 +373,53 @@ FT.Parser = (() => {
     };
   }
 
+  /**
+   * 通用XML 标签批量提取（规范1标准方法）
+   * @param {string} raw - AI 返回的原始文本
+   * @param {string[]} tagNames - 要提取的标签名数组
+   * @returns {object} { tagName: content, ... }
+   *
+   * 用法：const data = FT.Parser.parseXMLTags(raw, ['title', 'body']);
+   */
+  function parseXMLTags(raw, tagNames) {
+    const result = {};
+    if (!raw || !Array.isArray(tagNames)) return result;
+    for (const tag of tagNames) {
+      const values = extractTag(raw, tag);
+      result[tag] = values.length > 0 ? values[0] : '';
+    }
+    return result;
+  }
+
+  /**
+   * 通用 XML 标签批量提取（返回数组版本，用于多条记录）
+   * @param {string} raw - AI 返回的原始文本
+   * @param {string} wrapperTag - 外层包裹标签
+   * @param {string[]} innerTags - 内层要提取的标签名
+   * @returns {object[]} [{ tag1: val, tag2: val }, ...]
+   */
+  function parseXMLTagsMulti(raw, wrapperTag, innerTags) {
+    const results = [];
+    if (!raw) return results;
+    const blocks = extractTag(raw, wrapperTag);
+    for (const block of blocks) {
+      const item = {};
+      for (const tag of innerTags) {
+        const vals = extractTag(block, tag);
+        item[tag] = vals.length > 0 ? vals[0] : '';
+      }
+      results.push(item);
+    }
+    return results;
+  }
+
   return {
     extractTag, extractAttr, extractOpenTag,
     parseMeowFM, parseRadioShow, parseBranches,
     parseSnow, parseThinking, parseAll,
+    parseXMLTags, parseXMLTagsMulti,
   };
 })();
-
-
 /* ═══════════════════════════════════════════════════════════
  *  block_03 — STBridge (与 SillyTavern 通信)
  *  监听 eventSource，获取角色/对话数据
@@ -354,39 +429,31 @@ FT.STBridge = (() => {
   let _bound = false;
   let _lastMsgId = null;
 
-  /**
-   * 绑定 ST 事件源
-   */
   function bind() {
     if (_bound) return;
     _bound = true;
 
     try {
-      // ST 1.15的eventSource
       const es = window.eventSource;
       if (!es) {
         FT.ErrorLogger?.log('STBridge', 'eventSource 未找到，延迟重试');
-        setTimeout(bind, 3000);
-        _bound = false;
+        setTimeout(() => { _bound = false; bind(); }, 3000);
         return;
       }
 
-      // 监听新消息
       es.on('message_received', (msgId) => {
         _onNewMessage(msgId);
       });
 
-      // 监听角色切换
       es.on('chatLoaded', () => {
         FT.EventBus.emit('st:chatLoaded');
       });
 
-      // 监听生成完成
       es.on('generation_ended', (msgId) => {
         _onNewMessage(msgId);
       });
 
-      console.log('[FT] STBridge 已绑定eventSource');
+      console.log('[FT] STBridge 已绑定 eventSource');
     } catch (e) {
       FT.ErrorLogger?.log('STBridge', '绑定 eventSource 失败', e);
     }
@@ -406,7 +473,6 @@ FT.STBridge = (() => {
       const text = lastMsg.mes || '';
       if (!text) return;
 
-      // 解析所有标签
       const parsed = FT.Parser.parseAll(text);
       FT.EventBus.emit('st:newMessage', { msgId, text, parsed, character: lastMsg.name });
     } catch (e) {
@@ -414,15 +480,11 @@ FT.STBridge = (() => {
     }
   }
 
-  /**
-   * 获取当前聊天记录
-   */
   function getChat() {
     try {
       if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
         return SillyTavern.getContext().chat || [];
       }
-      //兜底：全局变量
       return window.chat || [];
     } catch (e) {
       FT.ErrorLogger?.log('STBridge', 'getChat 失败', e);
@@ -430,9 +492,6 @@ FT.STBridge = (() => {
     }
   }
 
-  /**
-   * 获取当前角色信息
-   */
   function getCharacter() {
     try {
       if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
@@ -440,8 +499,7 @@ FT.STBridge = (() => {
         return {
           name: ctx.name2 || '',
           avatar: ctx.characterAvatar || '',
-          description: ctx.characterDescription || '',
-        };
+          description: ctx.characterDescription || '',};
       }
       return { name: '', avatar: '', description: '' };
     } catch (e) {
@@ -450,9 +508,6 @@ FT.STBridge = (() => {
     }
   }
 
-  /**
-   * 获取最后 N 条消息文本（用于副API上下文）
-   */
   function getRecentMessages(count = 10) {
     try {
       const chat = getChat();
@@ -481,9 +536,6 @@ FT.SubAPI = (() => {
   let _queue = [];
   let _processing = false;
 
-  /**
-   * 获取副 API 配置
-   */
   async function _getConfig() {
     const settings = await FT.Store.get('settings', 'subapi') || {};
     return {
@@ -492,15 +544,10 @@ FT.SubAPI = (() => {
       model: settings.model || '',};
   }
 
-  /**
-   * 拉取可用模型列表（不消耗额度）
-   */
   async function fetchModels(url, key) {
     try {
-      // 确保 URL 格式正确
       let baseUrl = url.replace(/\/+$/, '');
       if (!baseUrl.endsWith('/v1')) {
-        // 如果不以 /v1 结尾，检查是否需要添加
         if (!baseUrl.includes('/v1')) {
           baseUrl += '/v1';
         }
@@ -509,8 +556,7 @@ FT.SubAPI = (() => {
       const resp = await fetch(`${baseUrl}/models`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${key}`,
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key}`,'Content-Type': 'application/json',
         },
       });
 
@@ -519,7 +565,6 @@ FT.SubAPI = (() => {
       }
 
       const data = await resp.json();
-      // OpenAI 格式：{ data: [{ id: "model-name", ... }] }
       const models = (data.data || data || []).map(m => ({
         id: m.id || m.name || '',
         name: m.id || m.name || '',
@@ -532,13 +577,6 @@ FT.SubAPI = (() => {
     }
   }
 
-  /**
-   * 发送请求到副 API
-   * @param {string} systemPrompt - 系统提示词
-   * @param {string} userContent - 用户内容
-   * @param {object} opts - 额外选项
-   * @returns {Promise<string>} 返回文本
-   */
   async function send(systemPrompt, userContent, opts = {}) {
     const config = await _getConfig();
     if (!config.url || !config.key || !config.model) {
@@ -558,7 +596,6 @@ FT.SubAPI = (() => {
         { role: 'system', content: systemPrompt },
       ];
 
-      // 如果需要上下文
       if (opts.includeContext) {
         const recent = FT.STBridge.getRecentMessages(opts.contextCount || 5);
         messages.push(...recent);
@@ -594,9 +631,6 @@ FT.SubAPI = (() => {
     }
   }
 
-  /**
-   * 队列化发送（防止并发过多）
-   */
   function enqueue(systemPrompt, userContent, opts = {}) {
     return new Promise((resolve, reject) => {
       _queue.push({ systemPrompt, userContent, opts, resolve, reject });
@@ -615,8 +649,7 @@ FT.SubAPI = (() => {
         item.resolve(result);
       } catch (e) {
         item.reject(e);
-      }// 间隔 500ms 防止速率限制
-      if (_queue.length > 0) {
+      }if (_queue.length > 0) {
         await new Promise(r => setTimeout(r, 500));
       }
     }
@@ -624,7 +657,37 @@ FT.SubAPI = (() => {
     _processing = false;
   }
 
-  return { fetchModels, send, enqueue };
+  /**
+   * 安全调用副 API（规范2：try-catch + 兜底 + XML解析）
+   * @param {string} appName - 调用来源 App 名称（用于报错日志）
+   * @param {string} systemPrompt - 系统提示词
+   * @param {string} userContent - 用户内容
+   * @param {string[]} expectTags - 期望 AI 返回的 XML 标签名
+   * @param {object} opts - 额外选项
+   * @returns {object} { ok: boolean, data: {tag:val,...}, raw: string, fallback: string }
+   */
+  async function safeSend(appName, systemPrompt, userContent, expectTags = [], opts = {}) {
+    let raw = '';
+    try {
+      raw = await send(systemPrompt, userContent, opts);
+      if (!raw || !raw.trim()) {
+        return { ok: false, data: {}, raw: '', fallback: '信号丢失，未收到回应。' };
+      }
+      const data = FT.Parser.parseXMLTags(raw, expectTags);
+      const hasContent = expectTags.some(t => data[t] && data[t].trim());
+      if (!hasContent && expectTags.length > 0) {
+        //兜底：把整段文本当作第一个标签的内容
+        data[expectTags[0]] = raw.trim();
+      }
+      return { ok: true, data, raw };
+    } catch (e) {
+      FT.ErrorLogger.log(appName, '副 API 调用失败', e);
+      FT.NotificationSystem.push(appName, '⚠️', '信号不稳定，请稍后重试');
+      return { ok: false, data: {}, raw, fallback: '信号丢失，请重试。' };
+    }
+  }
+
+  return { fetchModels, send, enqueue, safeSend };
 })();
 
 
@@ -634,13 +697,10 @@ FT.SubAPI = (() => {
  * ═══════════════════════════════════════════════════════════ */
 FT.Scheduler = (() => {
   let _timer = null;
-  let _cooldownUntil = 0;   // 静默期结束时间戳
-  let _interval = 0;        // 触发间隔 ms
-  let _cooldownDuration = 3* 60 * 60 * 1000; // 默认 3 小时
+  let _cooldownUntil = 0;
+  let _interval = 0;
+  let _cooldownDuration = 3* 60 * 60 * 1000;
 
-  /**
-   * 初始化调度器
-   */
   async function init() {
     try {
       const saved = await FT.Store.get('scheduler', 'state') || {};
@@ -658,9 +718,6 @@ FT.Scheduler = (() => {
     }
   }
 
-  /**
-   * 启动定时器
-   */
   function start() {
     stop();
     if (_interval <= 0) return;
@@ -672,9 +729,6 @@ FT.Scheduler = (() => {
     console.log(`[FT] Scheduler 启动，间隔 ${_interval / 60000} 分钟`);
   }
 
-  /**
-   * 停止定时器
-   */
   function stop() {
     if (_timer) {
       clearInterval(_timer);
@@ -682,37 +736,27 @@ FT.Scheduler = (() => {
     }
   }
 
-  /**
-   * 定时触发
-   */
   async function _tick() {
     const now = Date.now();
 
-    // 检查静默期
     if (now < _cooldownUntil) {
       console.log(`[FT] Scheduler 静默中，剩余 ${Math.round((_cooldownUntil - now) / 60000)} 分钟`);
       return;
     }
 
-    // 检查副 API 是否配置
     const config = await FT.Store.get('settings', 'subapi') || {};
     if (!config.url || !config.key || !config.model) {
       return;
     }
 
-    // 触发事件，让各App 决定是否响应
     FT.EventBus.emit('scheduler:tick', { timestamp: now });
 
-    // 进入静默期
     _cooldownUntil = now + _cooldownDuration;
     await FT.Store.set('scheduler', 'state', { cooldownUntil: _cooldownUntil });
 
     console.log(`[FT] Scheduler 已触发，进入静默期 ${_cooldownDuration / 3600000} 小时`);
   }
 
-  /**
-   * 更新配置
-   */
   async function updateConfig(interval, cooldownHours) {
     _interval = interval;
     _cooldownDuration = (cooldownHours ?? 3) * 60 * 60 * 1000;
@@ -729,9 +773,6 @@ FT.Scheduler = (() => {
     }
   }
 
-  /**
-   * 手动重置静默期
-   */
   async function resetCooldown() {
     _cooldownUntil = 0;
     await FT.Store.set('scheduler', 'state', { cooldownUntil: 0 });
@@ -748,11 +789,9 @@ FT.Scheduler = (() => {
 
   return { init, start, stop, updateConfig, resetCooldown, isInCooldown, getCooldownRemaining };
 })();
-
-
 /* ═══════════════════════════════════════════════════════════
  *  block_06 — NotificationSystem
- *  通知栏 + 灵动岛提示 + 角标
+ *  通知栏 + 灵动岛提示+ 角标
  * ═══════════════════════════════════════════════════════════ */
 FT.NotificationSystem = (() => {
   let _notifications = [];
@@ -770,12 +809,6 @@ FT.NotificationSystem = (() => {
     }
   }
 
-  /**
-   * 推送通知
-   * @param {string} appName - 来源 App 名称
-   * @param {string} icon - emoji 图标
-   * @param {string} text - 通知内容
-   */
   async function push(appName, icon, text) {
     const notif = {
       id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
@@ -788,7 +821,6 @@ FT.NotificationSystem = (() => {
 
     _notifications.unshift(notif);
 
-    // 限制数量
     if (_notifications.length > _maxNotifications) {
       _notifications = _notifications.slice(0, _maxNotifications);
     }
@@ -801,15 +833,11 @@ FT.NotificationSystem = (() => {
     FT.EventBus.emit('notification:new', notif);
   }
 
-  /**
-   * 灵动岛短暂展示
-   */
   function _showIsland(icon, text) {
     const island = document.getElementById('ft-dynamic-island');
     const content = document.getElementById('ft-island-content');
     if (!island || !content) return;
 
-    // 清除之前的定时器
     if (_islandTimer) clearTimeout(_islandTimer);
 
     content.textContent = `${icon} ${text}`;
@@ -819,20 +847,15 @@ FT.NotificationSystem = (() => {
       island.classList.remove('ft-island-expand');}, 3000);
   }
 
-  /**
-   * 渲染角标数字
-   */
   function _renderBadge() {
     const unread = _notifications.filter(n => !n.read).length;
 
-    //悬浮球角标
     const fabBadge = document.getElementById('ft-fab-badge');
     if (fabBadge) {
       fabBadge.textContent = unread > 99 ? '99+' : unread;
       fabBadge.classList.toggle('ft-visible', unread > 0);
     }
 
-    // Dock 通知按钮角标
     const dockBadge = document.querySelector('#ft-dock-notif .ft-dock-badge');
     if (dockBadge) {
       dockBadge.textContent = unread > 99 ? '99+' : unread;
@@ -840,9 +863,6 @@ FT.NotificationSystem = (() => {
     }
   }
 
-  /**
-   * 渲染通知列表
-   */
   function _renderList() {
     const list = document.getElementById('ft-notif-list');
     if (!list) return;
@@ -886,23 +906,16 @@ FT.NotificationSystem = (() => {
     await FT.Store.set('notifications', 'list', _notifications);
   }
 
-  /**
-   * 标记全部已读
-   */
   async function markAllRead() {
     _notifications.forEach(n => n.read = true);
     await _save();
     _renderBadge();
   }
 
-  /**
-   * 清空所有通知
-   */
   async function clearAll() {
     _notifications = [];
     await _save();
-    _renderBadge();
-    _renderList();
+    _renderBadge();_renderList();
   }
 
   function getUnreadCount() {
@@ -932,12 +945,6 @@ FT.ErrorLogger = (() => {
     }
   }
 
-  /**
-   * 记录错误
-   * @param {string} source - 来源模块
-   * @param {string} message - 错误描述
-   * @param {Error|any} error - 错误对象
-   */
   function log(source, message, error) {
     const entry = {
       id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
@@ -949,27 +956,18 @@ FT.ErrorLogger = (() => {
 
     _errors.unshift(entry);
 
-    // 限制数量
     if (_errors.length > MAX_ERRORS) {
       _errors = _errors.slice(0, MAX_ERRORS);
     }
 
-    // 异步保存，不阻塞
     FT.Store.set('errors', 'list', _errors).catch(() => {});
 
-    // 控制台也输出
     console.error(`[FT][${source}] ${message}`, error || '');
 
-    // 更新配置面板
     _renderSettingsErrors();
-
-    // 更新 Dock 角标
     _renderDockBadge();
   }
 
-  /**
-   * 渲染配置面板中的错误列表
-   */
   function _renderSettingsErrors() {
     const list = document.getElementById('ft-set-error-list');
     const count = document.getElementById('ft-set-error-count');
@@ -1032,55 +1030,371 @@ FT.ErrorLogger = (() => {
 
   return { init, log, clear, getAll, getCount, _renderSettingsErrors, _renderDockBadge };
 })();
-
-
 /* ═══════════════════════════════════════════════════════════
- *  block_99 — 注册 + 初始化 + 手机外壳 + 悬浮球 + 拖动
- *             + 配置面板绑定
+ *  block_10 — App: 电台归档
+ *  从主聊天窗提取 <meow_FM> 包裹的内容，归档展示
+ *纯提取，不调用副 API
+ * ═══════════════════════════════════════════════════════════ */
+FT.AppRadio = (() => {
+  // 状态存对象，不存DOM
+  let _records = [];
+  let _expandedIndex = null;
+  let _container = null;
+  let _clickHandler = null;
+  let _mounted = false;
+
+  /**
+   * 初始化：加载数据 → 构建页面 → 监听事件 → 首次扫描
+   */
+  async function init() {
+    // 从IndexedDB 加载已保存的记录
+    try {
+      const saved = await FT.Store.get('app_data', 'radio_records');
+      if (Array.isArray(saved)) {
+        _records = saved;
+      }
+    } catch (e) {
+      FT.ErrorLogger.log('电台归档', '加载归档数据失败', e);
+    }
+
+    // 构建 App 页面 DOM
+    _buildPage();
+
+    // 监听新消息，提取 meow_FM
+    FT.EventBus.on('st:newMessage', _onNewMessage);
+
+    // 首次扫描全部聊天记录
+    _scanAllMessages();
+  }
+
+  /**
+   * 构建 App 页面 DOM（只执行一次）
+   */
+  function _buildPage() {
+    const pages = document.getElementById('ft-app-pages');
+    if (!pages) return;
+
+    // 防止重复构建
+    if (document.getElementById('ft-page-app_radio')) return;
+
+    const page = document.createElement('div');
+    page.className = 'ft-app-page';
+    page.id = 'ft-page-app_radio';
+    page.innerHTML = `
+      <div class="ft-app-nav">
+        <span class="ft-app-nav-back" data-action="back">‹ 返回</span>
+        <span class="ft-app-nav-title">📻 电台归档</span>
+        <span class="ft-app-nav-action" id="ft-radio-refresh-btn">刷新</span>
+      </div>
+      <div class="ft-app-scroll">
+        <div id="ft-radio-list"></div>
+      </div>
+    `;
+    pages.appendChild(page);}
+
+  /**
+   * 挂载：每次用户点击 App 图标打开时调用
+   *绑定事件 +渲染列表
+   */
+  function mount() {
+    _container = document.getElementById('ft-radio-list');
+    _render();
+    _bindEvents();_mounted = true;
+  }
+
+  /**
+   * 卸载：用户离开 App 页面时调用
+   * 清理事件监听器，防止内存泄漏
+   */
+  function unmount() {
+    if (_container && _clickHandler) {
+      _container.removeEventListener('click', _clickHandler);
+    }
+    _container = null;
+    _clickHandler = null;
+    _mounted = false;
+  }
+
+  /**
+   * 绑定事件（先移除旧的再注册新的）
+   */
+  function _bindEvents() {
+    if (!_container) return;
+
+    // ── 列表点击事件（展开/收起卡片）──
+    if (_clickHandler) {
+      _container.removeEventListener('click', _clickHandler);
+    }
+
+    _clickHandler = (e) => {
+      const header = e.target.closest('.ft-radio-card-header');
+      if (!header) return;
+
+      const card = header.closest('.ft-radio-card');
+      if (!card) return;
+
+      const idx = parseInt(card.dataset.index, 10);
+      if (isNaN(idx)) return;
+
+      // 切换展开状态（存在变量里，不存DOM）
+      _expandedIndex = (_expandedIndex === idx) ? null : idx;
+      // 重新渲染（渲染时读取 _expandedIndex 决定是否加class）
+      _render();
+    };
+
+    _container.addEventListener('click', _clickHandler);
+
+    // ── 刷新按钮 ──
+    const refreshBtn = document.getElementById('ft-radio-refresh-btn');
+    if (refreshBtn && !refreshBtn._ftBound) {
+      refreshBtn._ftBound = true;
+      refreshBtn.addEventListener('click', () => {
+        _scanAllMessages();_render();
+        FT.NotificationSystem.push('电台归档', '📻', '归档已刷新');
+      });
+    }
+  }
+
+  /**
+   * 监听新消息事件，自动提取 meow_FM
+   */
+  function _onNewMessage(data) {
+    try {
+      if (!data || !data.parsed) return;
+      const meowFMs = data.parsed.meowFM;
+      if (!meowFMs || meowFMs.length === 0) return;
+
+      let newCount = 0;
+      for (const fm of meowFMs) {
+        // 去重：用serial 或 content 前50字符作为指纹
+        const fingerprint = fm.serial || fm.content.substring(0, 50);
+        const exists = _records.some(r =>
+          (r.serial && r.serial === fm.serial) ||
+          (r.fingerprint === fingerprint)
+        );
+
+        if (!exists) {
+          _records.push({
+            ...fm,
+            fingerprint,
+            msgIndex: data.msgId,
+            character: data.character || '',
+            capturedAt: Date.now(),
+          });
+          newCount++;
+        }
+      }
+
+      if (newCount > 0) {
+        _sortRecords();
+        _save();
+        if (_mounted) _render();
+        FT.NotificationSystem.push('电台归档', '📻', `捕获 ${newCount} 条新电波`);
+        _updateBadge();
+      }
+    } catch (e) {
+      FT.ErrorLogger.log('电台归档', '处理新消息失败', e);
+    }
+  }
+
+  /**
+   * 扫描全部聊天记录（首次加载或手动刷新时调用）
+   */
+  function _scanAllMessages() {
+    try {
+      const chat = FT.STBridge.getChat();
+      if (!chat || chat.length === 0) return;
+
+      let newCount = 0;
+
+      for (let i = 0; i < chat.length; i++) {
+        const msg = chat[i];
+        if (!msg || msg.is_user) continue;
+        const text = msg.mes || '';
+        if (!text) continue;
+
+        const meowFMs = FT.Parser.parseMeowFM(text);
+        for (const fm of meowFMs) {
+          const fingerprint = fm.serial || fm.content.substring(0, 50);
+          const exists = _records.some(r =>
+            (r.serial && r.serial === fm.serial) ||
+            (r.fingerprint === fingerprint)
+          );
+
+          if (!exists) {
+            _records.push({
+              ...fm,
+              fingerprint,
+              msgIndex: i,
+              character: msg.name || '',
+              capturedAt: Date.now(),
+            });
+            newCount++;
+          }
+        }
+      }
+
+      if (newCount > 0) {
+        _sortRecords();
+        _save();
+        _updateBadge();
+      }
+    } catch (e) {
+      FT.ErrorLogger.log('电台归档', '扫描聊天记录失败', e);
+    }
+  }
+
+  /**
+   * 排序：优先按serial 编号，其次按捕获时间
+   */
+  function _sortRecords() {
+    _records.sort((a, b) => {
+      const numA = _extractSerialNum(a.serial);
+      const numB = _extractSerialNum(b.serial);
+      if (numA !== null && numB !== null) return numA - numB;
+      if (numA !== null) return -1;
+      if (numB !== null) return 1;
+      return (a.capturedAt || 0) - (b.capturedAt || 0);
+    });
+  }
+
+  /**
+   * 从 serial 字段提取编号数字
+   *例如 "🩻No.003" → 3
+   */
+  function _extractSerialNum(serial) {
+    if (!serial) return null;
+    const m = serial.match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  /**
+   * 渲染列表（根据 _expandedIndex 状态决定展开哪张卡片）
+   */
+  function _render() {
+    if (!_container) return;
+
+    if (_records.length === 0) {
+      _container.innerHTML = `
+        <div class="ft-empty">
+          <div class="ft-empty-icon">📻</div>
+          <div>尚未捕获到电波信号</div>
+          <div style="margin-top:8px;font-size:12px;color:var(--ft-light);">
+            当对话中出现 &lt;meow_FM&gt; 标签时<br>内容会自动归档到这里
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    _container.innerHTML = _records.map((record, idx) => {
+      const isExpanded = _expandedIndex === idx;
+      const serialDisplay = record.serial || `#${idx + 1}`;
+      const timeDisplay = record.time || '';
+      const sceneDisplay = record.scene || '';
+
+      const previewSource = record.plot || record.content || '';
+      const preview = previewSource.length > 60
+        ? previewSource.substring(0, 60) + '…'
+        : previewSource;
+
+      return `
+        <div class="ft-card ft-radio-card ${isExpanded ? 'ft-expanded' : ''}" data-index="${idx}">
+          <div class="ft-radio-card-header ft-card-header">
+            <div class="ft-radio-serial">${_escHtml(serialDisplay)}</div>
+            <div class="ft-radio-meta">
+              ${timeDisplay ? `<span class="ft-radio-time">${_escHtml(timeDisplay)}</span>` : ''}
+              ${sceneDisplay ? `<span class="ft-radio-scene">${_escHtml(sceneDisplay)}</span>` : ''}
+            </div>
+            <span class="ft-card-chevron">▼</span>
+          </div>
+          ${!isExpanded ? `<div class="ft-radio-preview">${_escHtml(preview)}</div>` : ''}
+          <div class="ft-card-body">
+            <div class="ft-radio-full-content">${_escHtml(record.content || '')}</div>
+            ${record.character ? `<div class="ft-radio-character">— ${_escHtml(record.character)}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function _escHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  /**
+   * 更新 App 图标上的角标数字
+   */
+  function _updateBadge() {
+    const badge = document.querySelector('[data-app="app_radio"] .ft-app-icon-badge');
+    if (badge) {
+      const count = _records.length;
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.classList.toggle('ft-visible', count > 0);
+    }
+  }
+
+  /**
+   * 保存到 IndexedDB
+   */
+  async function _save() {
+    try {
+      await FT.Store.set('app_data', 'radio_records', _records);
+    } catch (e) {
+      FT.ErrorLogger.log('电台归档', '保存归档数据失败', e);
+    }
+  }
+
+  return { init, mount, unmount };
+})();
+/* ═══════════════════════════════════════════════════════════
+ *  block_99 — 手机外壳 + 悬浮球 + 拖动+ App 管理
  * ═══════════════════════════════════════════════════════════ */
 FT.Shell = (() => {
   let _isOpen = false;
-  let _currentApp = null;  // 当前打开的 App 页面 id
+  let _currentApp = null;   // 当前打开的 App 页面 id，例如 'ft-page-app_radio'
   let _notifPanelOpen = false;
 
-  //── 17个 App 定义（占位，后续阶段填充功能） ──────────────
+  //── 17个 App 定义 ──────────────────────────────────────
   const APP_DEFS = [
-    { id: 'app_radio',icon: '📻', label: '电台归档', color: '#A32D2D', colorSoft: '#FCEBEB' },
-    { id: 'app_diary',     icon: '📓', label: '日记本',color: '#633806', colorSoft: '#FAEEDA' },
-    { id: 'app_mood',      icon: '🌡', label: '情绪温度', color: '#085041', colorSoft: '#E1F5EE' },
-    { id: 'app_chat',      icon: '💬', label: '私聊频道', color: '#0C447C', colorSoft: '#E6F1FB' },
-    { id: 'app_gallery',   icon: '🖼', label: '相册',     color: '#3C3489', colorSoft: '#EEEDFE' },
-    { id: 'app_music',     icon: '🎵', label: '歌单',     color: '#72243E', colorSoft: '#FBEAF0' },
-    { id: 'app_map',       icon: '🗺', label: '足迹地图', color: '#2D5A0E', colorSoft: '#EAF3DE' },
-    { id: 'app_contacts',  icon: '👥', label: '通讯录',   color: '#2E2E3A', colorSoft: '#EBEBF0' },
-    { id: 'app_news',      icon: '📰', label: '新闻',     color: '#0C447C', colorSoft: '#E6F1FB' },
-    { id: 'app_weather',   icon: '🌤', label: '天气',     color: '#085041', colorSoft: '#E1F5EE' },
-    { id: 'app_notes',     icon: '📝', label: '便签',     color: '#633806', colorSoft: '#FAEEDA' },
-    { id: 'app_calendar',  icon: '📅', label: '日历',     color: '#A32D2D', colorSoft: '#FCEBEB' },
-    { id: 'app_dreams',    icon: '🌙', label: '梦境记录', color: '#3C3489', colorSoft: '#EEEDFE' },
-    { id: 'app_recipes',   icon: '🍳', label: '食谱',     color: '#72243E', colorSoft: '#FBEAF0' },
-    { id: 'app_fitness',   icon: '🏃', label: '运动',     color: '#2D5A0E', colorSoft: '#EAF3DE' },
-    { id: 'app_secrets',   icon: '🔒', label: '加密笔记', color: '#2E2E3A', colorSoft: '#EBEBF0' },
-    { id: 'app_radio_live',icon: '📡', label: '实时电波', color: '#A32D2D', colorSoft: '#FCEBEB' },
+    { id: 'app_radio',icon: '📻', label: '电台归档',color: '#A32D2D', colorSoft: '#FCEBEB' },
+    { id: 'app_diary',     icon: '📓', label: '日记本',     color: '#633806', colorSoft: '#FAEEDA' },
+    { id: 'app_mood',      icon: '🌡', label: '情绪温度',   color: '#085041', colorSoft: '#E1F5EE' },
+    { id: 'app_chat',      icon: '💬', label: '私聊频道',   color: '#0C447C', colorSoft: '#E6F1FB' },
+    { id: 'app_gallery',   icon: '🖼', label: '相册',       color: '#3C3489', colorSoft: '#EEEDFE' },
+    { id: 'app_music',     icon: '🎵', label: '歌单',       color: '#72243E', colorSoft: '#FBEAF0' },
+    { id: 'app_map',       icon: '🗺', label: '足迹地图',   color: '#2D5A0E', colorSoft: '#EAF3DE' },
+    { id: 'app_contacts',  icon: '👥', label: '通讯录',     color: '#2E2E3A', colorSoft: '#EBEBF0' },
+    { id: 'app_news',      icon: '📰', label: '新闻',       color: '#0C447C', colorSoft: '#E6F1FB' },
+    { id: 'app_weather',   icon: '🌤', label: '天气',       color: '#085041', colorSoft: '#E1F5EE' },
+    { id: 'app_notes',     icon: '📝', label: '便签',       color: '#633806', colorSoft: '#FAEEDA' },
+    { id: 'app_calendar',  icon: '📅', label: '日历',       color: '#A32D2D', colorSoft: '#FCEBEB' },
+    { id: 'app_dreams',    icon: '🌙', label: '梦境记录',   color: '#3C3489', colorSoft: '#EEEDFE' },
+    { id: 'app_recipes',   icon: '🍳', label: '食谱',       color: '#72243E', colorSoft: '#FBEAF0' },
+    { id: 'app_fitness',   icon: '🏃', label: '运动',       color: '#2D5A0E', colorSoft: '#EAF3DE' },
+    { id: 'app_secrets',   icon: '🔒', label: '加密笔记',   color: '#2E2E3A', colorSoft: '#EBEBF0' },
+    { id: 'app_radio_live',icon: '📡', label: '实时电波',   color: '#A32D2D', colorSoft: '#FCEBEB' },
   ];
 
   /**
-   * 构建手机外壳 DOM
+   * 构建手机外壳 DOM（整个手机的 HTML 结构）
    */
   function buildShell() {
-    //悬浮球
+    //── 悬浮球 ──
     const fab = document.createElement('div');
     fab.id = 'ft-fab';
     fab.innerHTML = `📻<span id="ft-fab-badge"></span>`;
     document.body.appendChild(fab);
 
-    // 手机外壳
+    // ── 手机外壳 ──
     const wrap = document.createElement('div');
     wrap.id = 'ft-phone-wrap';
     wrap.innerHTML = `
       <div id="ft-phone-shell">
         <div id="ft-screen">
-          <!--拖动把手 -->
+          <!--拖动把手（状态栏区域可拖动） -->
           <div id="ft-drag-handle"></div>
 
           <!-- 灵动岛 -->
@@ -1097,7 +1411,7 @@ FT.Shell = (() => {
             </span>
           </div>
 
-          <!-- 关闭按钮 -->
+          <!-- 关闭按钮（手机端必须有这个） -->
           <div id="ft-close-btn">✕</div>
 
           <!-- 通知面板（下拉） -->
@@ -1110,7 +1424,7 @@ FT.Shell = (() => {
             <div id="ft-notif-list"></div>
           </div>
 
-          <!-- 主内容区 -->
+          <!-- 主内容区（可滚动） -->
           <div id="ft-content-area">
             <!-- 主屏 -->
             <div id="ft-home-screen">
@@ -1118,7 +1432,7 @@ FT.Shell = (() => {
               <div id="ft-app-grid"></div>
             </div>
 
-            <!-- App 页面容器（各App 页面动态插入这里） -->
+            <!-- 所有 App 页面都插入到这个容器里 -->
             <div id="ft-app-pages"></div>
           </div>
 
@@ -1147,7 +1461,7 @@ FT.Shell = (() => {
     // 渲染 App 图标网格
     _renderAppGrid();
 
-    // 构建报错日志 App页面（手机内简版）
+    // 构建报错日志 App 页面（手机内简版）
     _buildErrorPage();
 
     // 更新时钟
@@ -1155,7 +1469,7 @@ FT.Shell = (() => {
   }
 
   /**
-   * 渲染主屏 App 图标
+   *渲染主屏 App 图标网格
    */
   function _renderAppGrid() {
     const grid = document.getElementById('ft-app-grid');
@@ -1254,8 +1568,6 @@ FT.Shell = (() => {
   // ── 事件绑定 ────────────────────────────────────────────
   let _fabClickHandler = null;
   let _shellClickHandler = null;
-  let _settingsClickHandler = null;
-  let _settingsChangeHandler = null;
 
   function bindEvents() {
     const fab = document.getElementById('ft-fab');
@@ -1271,7 +1583,7 @@ FT.Shell = (() => {
       fab.addEventListener('click', _fabClickHandler);
     }
 
-    // ── 手机内点击事件委托 ──
+    // ── 手机内所有点击事件（事件委托） ──
     if (wrap) {
       if (_shellClickHandler) wrap.removeEventListener('click', _shellClickHandler);
       _shellClickHandler = (e) => {
@@ -1322,7 +1634,7 @@ FT.Shell = (() => {
           return;
         }
 
-        // 卡片展开/收起
+        // 卡片展开/收起（通用，用于报错日志页面的卡片）
         const cardHeader = target.closest('.ft-card-header');
         if (cardHeader) {
           const card = cardHeader.closest('.ft-card');
@@ -1375,7 +1687,6 @@ FT.Shell = (() => {
       let newLeft = origLeft + dx;
       let newTop = origTop + dy;
 
-      // 边界限制
       const maxLeft = window.innerWidth - 60;
       const maxTop = window.innerHeight - 60;
       newLeft = Math.max(-wrap.offsetWidth + 60, Math.min(maxLeft, newLeft));
@@ -1390,12 +1701,10 @@ FT.Shell = (() => {
       wrap.classList.remove('ft-dragging');
     }
 
-    // Mouse
     handle.addEventListener('mousedown', onStart);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onEnd);
 
-    // Touch
     handle.addEventListener('touchstart', onStart, { passive: false });
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);
@@ -1425,6 +1734,11 @@ FT.Shell = (() => {
     wrap.classList.remove('ft-open');
     wrap.style.display = 'none';
     _closeNotifPanel();
+    //卸载当前 App
+    if (_currentApp) {
+      _unmountApp(_currentApp);
+      _currentApp = null;
+    }
     FT.EventBus.emit('phone:closed');
   }
 
@@ -1446,22 +1760,37 @@ FT.Shell = (() => {
     panel.classList.remove('ft-panel-open');
   }
 
+  /**
+   * 回到主屏
+   */
   function _goHome() {
     _closeNotifPanel();
-    //隐藏所有 App 页面
+
+    // 卸载当前 App
+    if (_currentApp) {
+      _unmountApp(_currentApp);}
+
+    // 隐藏所有 App 页面
     document.querySelectorAll('.ft-app-page').forEach(p => p.classList.remove('ft-active'));
     _currentApp = null;
+
     // 显示主屏
     const home = document.getElementById('ft-home-screen');
     if (home) home.style.display = '';}
 
+  /**
+   * 打开指定页面（内部方法）
+   */
   function _openPage(pageId) {
     _closeNotifPanel();
-    // 隐藏主屏
+
+    //隐藏主屏
     const home = document.getElementById('ft-home-screen');
     if (home) home.style.display = 'none';
-    // 隐藏其他页面
+
+    //隐藏其他页面
     document.querySelectorAll('.ft-app-page').forEach(p => p.classList.remove('ft-active'));
+
     // 显示目标页面
     const page = document.getElementById(pageId);
     if (page) {
@@ -1471,30 +1800,84 @@ FT.Shell = (() => {
 
     // 如果是报错页面，渲染内容
     if (pageId === 'ft-page-errors') {
-      _renderPhoneErrors();
-    }
+      _renderPhoneErrors();}
   }
 
+  /**
+   * 打开 App（用户点击 App 图标时调用）
+   *负责：卸载旧 App → 打开页面 → 挂载新 App
+   */
   function _openApp(appId) {
-    // 查找对应的 App 页面
+    // 1. 卸载之前打开的 App
+    if (_currentApp) {
+      _unmountApp(_currentApp);
+    }
+
+    // 2. 查找对应的 App 页面
     const pageId = `ft-page-${appId}`;
     const page = document.getElementById(pageId);
 
     if (page) {
+      // 页面已存在，直接打开并挂载
       _openPage(pageId);
+      _mountApp(appId);
     } else {
-      // 未实现的 App，显示占位
+      // 页面不存在，显示占位页面
       _showPlaceholder(appId);
     }
 
     FT.EventBus.emit('app:opened', { appId });
   }
 
+  /**
+   * 挂载 App（调用对应模块的 mount 方法）
+   * 每新增一个 App，在这里加一个 case
+   */
+  function _mountApp(appId) {
+    try {
+      switch (appId) {
+        case 'app_radio':
+          FT.AppRadio?.mount();
+          break;
+        //── 后续 App 在这里添加 ──
+        // case 'app_diary':
+        //   FT.AppDiary?.mount();
+        //   break;
+      }
+    } catch (e) {
+      FT.ErrorLogger.log('Shell', `挂载 App ${appId} 失败`, e);
+    }
+  }
+
+  /**
+   * 卸载 App（调用对应模块的 unmount 方法）
+   * 每新增一个 App，在这里加一个 case
+   */
+  function _unmountApp(pageId) {
+    try {
+      // 从 pageId 提取 appId，例如 'ft-page-app_radio' → 'app_radio'
+      const appId = pageId.replace('ft-page-', '');
+      switch (appId) {
+        case 'app_radio':
+          FT.AppRadio?.unmount();
+          break;
+        // ── 后续 App 在这里添加 ──
+        // case 'app_diary':
+        //   FT.AppDiary?.unmount();
+        //   break;
+      }
+    } catch (e) {
+      // 静默失败，不影响其他操作
+    }
+  }
+
+  /**
+   * 显示占位页面（App尚未实现时）
+   */
   function _showPlaceholder(appId) {
     const def = APP_DEFS.find(a => a.id === appId);
     if (!def) return;
 
-    // 动态创建占位页面
     let page = document.getElementById(`ft-page-${appId}`);
     if (!page) {
       const pages = document.getElementById('ft-app-pages');
@@ -1604,7 +1987,7 @@ FT.Settings = (() => {
           </div>
           <div class="ft-set-prompt-body">
             <div class="ft-set-prompt-body-inner">
-              <textarea class="ft-set-prompt-textarea" data-prompt-id="${app.id}"placeholder="留空使用默认提示词…"></textarea>
+              <textarea class="ft-set-prompt-textarea" data-prompt-id="${app.id}" placeholder="留空使用默认提示词…"></textarea>
               <div class="ft-set-prompt-reset" data-reset-prompt="${app.id}">↻恢复默认</div>
             </div>
           </div>
@@ -1619,7 +2002,7 @@ FT.Settings = (() => {
   async function _loadSettings() {
     try {
       // 基础设置
-      const basic = await FT.Store.get('settings', 'basic') || {};
+      const basic = await FT.Store.get('settings','basic') || {};
       _setChecked('ft-set-enabled', basic.enabled !== false);
       _setChecked('ft-set-fab', basic.fabVisible !== false);
 
@@ -1636,7 +2019,6 @@ FT.Settings = (() => {
       const freq = scheduler.interval || 0;
       const freqSelect = document.getElementById('ft-set-trigger-freq');
       if (freqSelect) {
-        // 检查是否匹配预设值
         const presets = ['0', '1800000', '3600000'];
         if (presets.includes(String(freq))) {
           freqSelect.value = String(freq);
@@ -1776,44 +2158,37 @@ FT.Settings = (() => {
     _changeHandler = async (e) => {
       const target = e.target;
 
-      // 启用插件
       if (target.id === 'ft-set-enabled') {
         await _saveBasic();
         return;
       }
 
-      // 悬浮球
       if (target.id === 'ft-set-fab') {
         await _saveBasic();
         return;
       }
 
-      // 触发频率
       if (target.id === 'ft-set-trigger-freq') {
         _showCustomFreq(target.value === 'custom');
         await _saveScheduler();
         return;
       }
 
-      // 自定义频率
       if (target.id === 'ft-set-custom-freq-val') {
         await _saveScheduler();
         return;
       }
 
-      // 静默期
       if (target.id === 'ft-set-cooldown') {
         await _saveScheduler();
         return;
       }
 
-      // 模型选择
       if (target.id === 'ft-set-model') {
         await _saveSubAPI();
         return;
       }
 
-      // 提示词
       if (target.dataset?.promptId) {
         await FT.Store.set('prompts', target.dataset.promptId, target.value);
         return;
@@ -1851,7 +2226,6 @@ FT.Settings = (() => {
     const key = document.getElementById('ft-set-api-key')?.value || '';
     const model = document.getElementById('ft-set-model')?.value || '';
 
-    // 保存当前模型列表
     const select = document.getElementById('ft-set-model');
     const models = [];
     if (select) {
@@ -1860,8 +2234,7 @@ FT.Settings = (() => {
       }
     }
 
-    await FT.Store.set('settings', 'subapi', { url, key, model, models });
-  }
+    await FT.Store.set('settings', 'subapi', { url, key, model, models });}
 
   async function _saveScheduler() {
     const freqSelect = document.getElementById('ft-set-trigger-freq');
@@ -1906,7 +2279,6 @@ FT.Settings = (() => {
         status.textContent = `✅ 获取到 ${result.models.length} 个模型`;
         status.style.color = '#2D5A0E';
       }
-      // 自动保存
       await _saveSubAPI();
     } else {
       if (status) {
@@ -1924,6 +2296,7 @@ FT.Settings = (() => {
 
 /* ═══════════════════════════════════════════════════════════
  *  block_99 — 最终初始化入口
+ *  这是整个插件的启动函数，按顺序初始化所有模块
  * ═══════════════════════════════════════════════════════════ */
 (async function FreqTerminalInit() {
   try {
@@ -1932,7 +2305,7 @@ FT.Settings = (() => {
     // 1. 打开数据库
     await FT.Store.open();
 
-    // 2. 初始化报错日志（最先初始化，后续模块可以用它记录错误）
+    // 2. 初始化报错日志（最先，后续模块可以用它记录错误）
     await FT.ErrorLogger.init();
 
     // 3. 初始化通知系统
@@ -1941,7 +2314,7 @@ FT.Settings = (() => {
     // 4. 构建手机外壳 DOM
     FT.Shell.buildShell();
 
-    // 5.绑定手机事件
+    // 5.绑定手机事件（悬浮球点击、Dock、拖动等）
     FT.Shell.bindEvents();
 
     // 6. 检查是否启用
@@ -1953,14 +2326,17 @@ FT.Settings = (() => {
       FT.Shell.hideFab();
     }
 
-    // 7. 绑定 ST 事件源
+    // 7. 绑定 ST 事件源（监听主对话新消息）
     FT.STBridge.bind();
 
-    // 8. 初始化调度器
+    // 8. 初始化调度器（定时触发副 API）
     await FT.Scheduler.init();
 
     // 9. 初始化配置面板
     FT.Settings.init();
+
+    // 10. 初始化电台归档 App
+    await FT.AppRadio.init();
 
     console.log(`[FT] Freq · Terminal v${FT.VERSION} 初始化完成✅`);
   } catch (e) {
