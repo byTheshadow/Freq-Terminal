@@ -1358,15 +1358,16 @@ FT.AppRadio = (() => {
 
   return { init, mount, unmount };
 })();
-/* ═══════════════════════════════════════════════════════════
- *  block_99 — 手机外壳 + 悬浮球 + 拖动+ App 管理
+/*═══════════════════════════════════════════════════════════
+ *block_99 — 注册 + 初始化 + 手机外壳 + 悬浮球 + 拖动
+ *             + 配置面板绑定
  * ═══════════════════════════════════════════════════════════ */
-FT.Shell = (() => {
+FT.Shell =(() => {
   let _isOpen = false;
-  let _currentApp = null;   // 当前打开的 App 页面 id，例如 'ft-page-app_radio'
+  let _currentApp = null;
   let _notifPanelOpen = false;
 
-  //── 17个 App 定义 ──────────────────────────────────────
+  //── 17个App 定义（占位，后续阶段填充功能） ──────────────
   const APP_DEFS = [
     { id: 'app_radio',icon: '📻', label: '电台归档',color: '#A32D2D', colorSoft: '#FCEBEB' },
     { id: 'app_diary',     icon: '📓', label: '日记本',     color: '#633806', colorSoft: '#FAEEDA' },
@@ -1384,26 +1385,25 @@ FT.Shell = (() => {
     { id: 'app_recipes',   icon: '🍳', label: '食谱',       color: '#72243E', colorSoft: '#FBEAF0' },
     { id: 'app_fitness',   icon: '🏃', label: '运动',       color: '#2D5A0E', colorSoft: '#EAF3DE' },
     { id: 'app_secrets',   icon: '🔒', label: '加密笔记',   color: '#2E2E3A', colorSoft: '#EBEBF0' },
-    { id: 'app_radio_live',icon: '📡', label: '实时电波',   color: '#A32D2D', colorSoft: '#FCEBEB' },
-  ];
+    { id: 'app_radio_live',icon: '📡', label: '实时电波',   color: '#A32D2D', colorSoft: '#FCEBEB' },];
 
   /**
-   * 构建手机外壳 DOM（整个手机的 HTML 结构）
+   * 构建手机外壳 DOM
    */
   function buildShell() {
-    //── 悬浮球 ──
+    //悬浮球
     const fab = document.createElement('div');
     fab.id = 'ft-fab';
     fab.innerHTML = `📻<span id="ft-fab-badge"></span>`;
     document.body.appendChild(fab);
 
-    // ── 手机外壳 ──
+    // 手机外壳
     const wrap = document.createElement('div');
     wrap.id = 'ft-phone-wrap';
     wrap.innerHTML = `
       <div id="ft-phone-shell">
         <div id="ft-screen">
-          <!--拖动把手（状态栏区域可拖动） -->
+          <!--拖动把手 -->
           <div id="ft-drag-handle"></div>
 
           <!-- 灵动岛 -->
@@ -1420,7 +1420,7 @@ FT.Shell = (() => {
             </span>
           </div>
 
-          <!-- 关闭按钮（手机端必须有这个） -->
+          <!-- 关闭按钮 -->
           <div id="ft-close-btn">✕</div>
 
           <!-- 通知面板（下拉） -->
@@ -1433,7 +1433,7 @@ FT.Shell = (() => {
             <div id="ft-notif-list"></div>
           </div>
 
-          <!-- 主内容区（可滚动） -->
+          <!-- 主内容区 -->
           <div id="ft-content-area">
             <!-- 主屏 -->
             <div id="ft-home-screen">
@@ -1441,7 +1441,7 @@ FT.Shell = (() => {
               <div id="ft-app-grid"></div>
             </div>
 
-            <!-- 所有 App 页面都插入到这个容器里 -->
+            <!-- App 页面容器（各App 页面动态插入这里） -->
             <div id="ft-app-pages"></div>
           </div>
 
@@ -1470,7 +1470,7 @@ FT.Shell = (() => {
     // 渲染 App 图标网格
     _renderAppGrid();
 
-    // 构建报错日志 App 页面（手机内简版）
+    // 构建报错日志 App页面（手机内简版）
     _buildErrorPage();
 
     // 更新时钟
@@ -1478,7 +1478,7 @@ FT.Shell = (() => {
   }
 
   /**
-   *渲染主屏 App 图标网格
+   * 渲染主屏 App 图标
    */
   function _renderAppGrid() {
     const grid = document.getElementById('ft-app-grid');
@@ -1592,7 +1592,7 @@ FT.Shell = (() => {
       fab.addEventListener('click', _fabClickHandler);
     }
 
-    // ── 手机内所有点击事件（事件委托） ──
+    // ── 手机内点击事件委托 ──
     if (wrap) {
       if (_shellClickHandler) wrap.removeEventListener('click', _shellClickHandler);
       _shellClickHandler = (e) => {
@@ -1643,11 +1643,12 @@ FT.Shell = (() => {
           return;
         }
 
-        // 卡片展开/收起（通用，用于报错日志页面的卡片）
+        // 卡片展开/收起
         const cardHeader = target.closest('.ft-card-header');
         if (cardHeader) {
           const card = cardHeader.closest('.ft-card');
-          if (card) card.classList.toggle('ft-expanded');return;
+          if (card) card.classList.toggle('ft-expanded');
+          return;
         }
       };
       wrap.addEventListener('click', _shellClickHandler);
@@ -1696,6 +1697,7 @@ FT.Shell = (() => {
       let newLeft = origLeft + dx;
       let newTop = origTop + dy;
 
+      // 边界限制
       const maxLeft = window.innerWidth - 60;
       const maxTop = window.innerHeight - 60;
       newLeft = Math.max(-wrap.offsetWidth + 60, Math.min(maxLeft, newLeft));
@@ -1710,10 +1712,12 @@ FT.Shell = (() => {
       wrap.classList.remove('ft-dragging');
     }
 
+    // Mouse
     handle.addEventListener('mousedown', onStart);
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onEnd);
 
+    // Touch
     handle.addEventListener('touchstart', onStart, { passive: false });
     document.addEventListener('touchmove', onMove, { passive: false });
     document.addEventListener('touchend', onEnd);
@@ -1743,11 +1747,6 @@ FT.Shell = (() => {
     wrap.classList.remove('ft-open');
     wrap.style.display = 'none';
     _closeNotifPanel();
-    //卸载当前 App
-    if (_currentApp) {
-      _unmountApp(_currentApp);
-      _currentApp = null;
-    }
     FT.EventBus.emit('phone:closed');
   }
 
@@ -1769,37 +1768,26 @@ FT.Shell = (() => {
     panel.classList.remove('ft-panel-open');
   }
 
-  /**
-   * 回到主屏
-   */
   function _goHome() {
     _closeNotifPanel();
-
-    // 卸载当前 App
+    //卸载当前 App
     if (_currentApp) {
-      _unmountApp(_currentApp);}
-
+      _unmountApp(_currentApp);
+    }
     // 隐藏所有 App 页面
     document.querySelectorAll('.ft-app-page').forEach(p => p.classList.remove('ft-active'));
     _currentApp = null;
-
     // 显示主屏
     const home = document.getElementById('ft-home-screen');
     if (home) home.style.display = '';}
 
-  /**
-   * 打开指定页面（内部方法）
-   */
   function _openPage(pageId) {
     _closeNotifPanel();
-
     //隐藏主屏
     const home = document.getElementById('ft-home-screen');
     if (home) home.style.display = 'none';
-
-    //隐藏其他页面
+    // 隐藏其他页面
     document.querySelectorAll('.ft-app-page').forEach(p => p.classList.remove('ft-active'));
-
     // 显示目标页面
     const page = document.getElementById(pageId);
     if (page) {
@@ -1809,29 +1797,23 @@ FT.Shell = (() => {
 
     // 如果是报错页面，渲染内容
     if (pageId === 'ft-page-errors') {
-      _renderPhoneErrors();}
+      _renderPhoneErrors();
+    }
   }
 
-  /**
-   * 打开 App（用户点击 App 图标时调用）
-   *负责：卸载旧 App → 打开页面 → 挂载新 App
-   */
   function _openApp(appId) {
-    // 1. 卸载之前打开的 App
+    // 卸载之前的 App
     if (_currentApp) {
       _unmountApp(_currentApp);
     }
 
-    // 2. 查找对应的 App 页面
     const pageId = `ft-page-${appId}`;
     const page = document.getElementById(pageId);
 
     if (page) {
-      // 页面已存在，直接打开并挂载
       _openPage(pageId);
       _mountApp(appId);
     } else {
-      // 页面不存在，显示占位页面
       _showPlaceholder(appId);
     }
 
@@ -1839,19 +1821,13 @@ FT.Shell = (() => {
   }
 
   /**
-   * 挂载 App（调用对应模块的 mount 方法）
-   * 每新增一个 App，在这里加一个 case
+   * 挂载 App（调用对应模块的 mount）
    */
   function _mountApp(appId) {
     try {
       switch (appId) {
-        case 'app_radio':
-          FT.AppRadio?.mount();
-          break;
-        //── 后续 App 在这里添加 ──
-        // case 'app_diary':
-        //   FT.AppDiary?.mount();
-        //   break;
+        case 'app_radio': FT.AppRadio?.mount(); break;
+        //后续 App 在这里添加 case
       }
     } catch (e) {
       FT.ErrorLogger.log('Shell', `挂载 App ${appId} 失败`, e);
@@ -1859,30 +1835,20 @@ FT.Shell = (() => {
   }
 
   /**
-   * 卸载 App（调用对应模块的 unmount 方法）
-   * 每新增一个 App，在这里加一个 case
+   * 卸载 App
    */
   function _unmountApp(pageId) {
     try {
-      // 从 pageId 提取 appId，例如 'ft-page-app_radio' → 'app_radio'
       const appId = pageId.replace('ft-page-', '');
       switch (appId) {
-        case 'app_radio':
-          FT.AppRadio?.unmount();
-          break;
-        // ── 后续 App 在这里添加 ──
-        // case 'app_diary':
-        //   FT.AppDiary?.unmount();
-        //   break;
+        case 'app_radio': FT.AppRadio?.unmount(); break;
+        // 后续 App 在这里添加 case
       }
     } catch (e) {
       // 静默失败，不影响其他操作
     }
   }
 
-  /**
-   * 显示占位页面（App尚未实现时）
-   */
   function _showPlaceholder(appId) {
     const def = APP_DEFS.find(a => a.id === appId);
     if (!def) return;
@@ -1933,7 +1899,7 @@ FT.Shell = (() => {
 
 
 /* ═══════════════════════════════════════════════════════════
- *  block_99— 配置面板绑定
+ *  block_99 — 配置面板绑定
  * ═══════════════════════════════════════════════════════════ */
 FT.Settings = (() => {
   //展开/收起状态存在对象里，不存DOM
@@ -1963,7 +1929,11 @@ FT.Settings = (() => {
     FT.ErrorLogger._renderSettingsErrors();
   }
 
-   function _waitForElement(selector, timeout = 10000) {
+  /**
+   * 等待元素出现（安全版，用轮询代替 MutationObserver）
+   *避免 ST 启动阶段大量 DOM 变化触发 observer卡死主线程
+   */
+  function _waitForElement(selector, timeout = 10000) {
     return new Promise((resolve) => {
       const el = document.querySelector(selector);
       if (el) { resolve(el); return; }
@@ -1978,8 +1948,7 @@ FT.Settings = (() => {
           clearInterval(timer);
           resolve(el);
           return;
-        }
-        if (elapsed >= timeout) {
+        }if (elapsed >= timeout) {
           clearInterval(timer);
           console.warn(`[FT] 等待 ${selector} 超时`);
           resolve(null);
@@ -1987,7 +1956,6 @@ FT.Settings = (() => {
       }, interval);
     });
   }
-
 
   /**
    * 渲染提示词编辑列表
@@ -2022,7 +1990,7 @@ FT.Settings = (() => {
   async function _loadSettings() {
     try {
       // 基础设置
-      const basic = await FT.Store.get('settings','basic') || {};
+      const basic = await FT.Store.get('settings', 'basic') || {};
       _setChecked('ft-set-enabled', basic.enabled !== false);
       _setChecked('ft-set-fab', basic.fabVisible !== false);
 
@@ -2066,7 +2034,8 @@ FT.Settings = (() => {
   function _applyBasicSettings(basic) {
     if (basic.enabled === false) {
       FT.Shell.hideFab();
-      FT.Shell.closePhone();} else if (basic.fabVisible === false) {
+      FT.Shell.closePhone();
+    } else if (basic.fabVisible === false) {
       FT.Shell.hideFab();
     } else {
       FT.Shell.showFab();
@@ -2178,37 +2147,44 @@ FT.Settings = (() => {
     _changeHandler = async (e) => {
       const target = e.target;
 
+      // 启用插件
       if (target.id === 'ft-set-enabled') {
         await _saveBasic();
         return;
       }
 
+      // 悬浮球
       if (target.id === 'ft-set-fab') {
         await _saveBasic();
         return;
       }
 
+      // 触发频率
       if (target.id === 'ft-set-trigger-freq') {
         _showCustomFreq(target.value === 'custom');
         await _saveScheduler();
         return;
       }
 
+      // 自定义频率
       if (target.id === 'ft-set-custom-freq-val') {
         await _saveScheduler();
         return;
       }
 
+      // 静默期
       if (target.id === 'ft-set-cooldown') {
         await _saveScheduler();
         return;
       }
 
+      // 模型选择
       if (target.id === 'ft-set-model') {
         await _saveSubAPI();
         return;
       }
 
+      // 提示词
       if (target.dataset?.promptId) {
         await FT.Store.set('prompts', target.dataset.promptId, target.value);
         return;
@@ -2238,7 +2214,8 @@ FT.Settings = (() => {
     const enabled = document.getElementById('ft-set-enabled')?.checked !== false;
     const fabVisible = document.getElementById('ft-set-fab')?.checked !== false;
     const basic = { enabled, fabVisible };
-    await FT.Store.set('settings', 'basic', basic);_applyBasicSettings(basic);
+    await FT.Store.set('settings', 'basic', basic);
+    _applyBasicSettings(basic);
   }
 
   async function _saveSubAPI() {
@@ -2254,7 +2231,8 @@ FT.Settings = (() => {
       }
     }
 
-    await FT.Store.set('settings', 'subapi', { url, key, model, models });}
+    await FT.Store.set('settings', 'subapi', { url, key, model, models });
+  }
 
   async function _saveScheduler() {
     const freqSelect = document.getElementById('ft-set-trigger-freq');
@@ -2313,15 +2291,15 @@ FT.Settings = (() => {
   return { init };
 })();
 
-/*═══════════════════════════════════════════════════════════
- *  block_99— 最终初始化入口
+
+/* ═══════════════════════════════════════════════════════════
+ *  block_99 — 最终初始化入口
  *  等待 ST 完全就绪后再启动，避免卡死页面
  * ═══════════════════════════════════════════════════════════ */
 
 /**
  * 等待 SillyTavern 就绪
- * 原理：轮询检测 eventSource 或 SillyTavern.getContext是否存在
- * 不使用 MutationObserver，避免在 ST 启动阶段卡死主线程
+ * 用轮询检测，不用 MutationObserver，避免卡死
  */
 function waitForSTReady() {
   return new Promise((resolve) => {
@@ -2331,7 +2309,6 @@ function waitForSTReady() {
     const check = () => {
       attempts++;
 
-      // 检测 ST 是否就绪的标志
       const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
       const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
       const hasJQuery = typeof jQuery !== 'undefined';
@@ -2352,11 +2329,9 @@ function waitForSTReady() {
       setTimeout(check, 500);
     };
 
-    // 如果 DOM 还没加载完，先等 DOMContentLoaded
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
     } else {
-      // DOM 已加载，但 ST 可能还在初始化，延迟 1 秒开始检测
       setTimeout(check, 1000);
     }
   });
@@ -2365,152 +2340,14 @@ function waitForSTReady() {
 /**
  * 主初始化流程
  */
-function waitForSTReady() {
-  return new Promise((resolve) => {
-    let attempts = 0;
-    const maxAttempts = 60;
-
-    const check = () => {
-      attempts++;
-
-      const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
-      const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
-      const hasJQuery = typeof jQuery !== 'undefined';
-      const bodyReady = document.getElementById('send_but') || document.getElementById('sheld');
-
-      if ((hasEventSource || hasContext) && hasJQuery && bodyReady) {
-        console.log(`[FT] ST 就绪，等待了 ${attempts * 500}ms`);
-        resolve();
-        return;
-      }
-
-      if (attempts >= maxAttempts) {
-        console.warn('[FT] 等待 ST 就绪超时，尝试强制启动');
-        resolve();
-        return;
-      }
-
-      setTimeout(check, 500);
-    };
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
-    } else {
-      setTimeout(check, 1000);
-    }
-  });
-}
-
-function waitForSTReady() {
-  return new Promise((resolve) => {
-    let attempts = 0;
-    const maxAttempts = 60;
-
-    const check = () => {
-      attempts++;
-
-      const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
-      const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
-      const hasJQuery = typeof jQuery !== 'undefined';
-      const bodyReady = document.getElementById('send_but') || document.getElementById('sheld');
-
-      if ((hasEventSource || hasContext) && hasJQuery && bodyReady) {
-        console.log(`[FT] ST 就绪，等待了 ${attempts * 500}ms`);
-        resolve();
-        return;
-      }
-
-      if (attempts >= maxAttempts) {
-        console.warn('[FT] 等待 ST 就绪超时，尝试强制启动');
-        resolve();
-        return;
-      }
-
-      setTimeout(check, 500);
-    };
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
-    } else {
-      setTimeout(check, 1000);
-    }
-  });
-}
-
-function waitForSTReady() {
-  return new Promise((resolve) => {
-    let attempts = 0;
-    const maxAttempts = 60;
-    const check = () => {
-      attempts++;
-      const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
-      const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
-      const hasJQuery = typeof jQuery !== 'undefined';
-      const bodyReady = document.getElementById('send_but') || document.getElementById('sheld');
-      if ((hasEventSource || hasContext) && hasJQuery && bodyReady) {
-        console.log(`[FT] ST 就绪，等待了 ${attempts * 500}ms`);
-        resolve();
-        return;
-      }
-      if (attempts >= maxAttempts) {
-        console.warn('[FT] 等待 ST 就绪超时，尝试强制启动');
-        resolve();
-        return;
-      }
-      setTimeout(check, 500);
-    };
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
-    } else {
-      setTimeout(check, 1000);
-    }
-  });
-}
-
-function waitForSTReady() {
-  return new Promise((resolve) => {
-    let attempts = 0;
-    const maxAttempts = 60;
-
-    const check = () => {
-      attempts++;
-
-      const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
-      const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
-      const hasJQuery = typeof jQuery !== 'undefined';
-      const bodyReady = document.getElementById('send_but') || document.getElementById('sheld');
-
-      if ((hasEventSource || hasContext) && hasJQuery && bodyReady) {
-        console.log(`[FT] ST 就绪，等待了 ${attempts * 500}ms`);
-        resolve();
-        return;
-      }
-
-      if (attempts >= maxAttempts) {
-        console.warn('[FT] 等待 ST 就绪超时，尝试强制启动');
-        resolve();
-        return;
-      }
-
-      setTimeout(check, 500);
-    };
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
-    } else {
-      setTimeout(check, 1000);
-    }
-  });
-}
-
 async function FreqTerminalInit() {
   try {
-    console.log(`[FT] Freq · Terminal v${FT.VERSION} 初始化开始`);
+    console.log(`[FT] Freq · Terminal v${FT.VERSION}初始化开始`);
 
     // 1. 打开数据库
     await FT.Store.open();
 
-    // 2. 初始化报错日志
+    // 2. 初始化报错日志（最先，后续模块可用它记录错误）
     await FT.ErrorLogger.init();
 
     // 3. 初始化通知系统
@@ -2519,7 +2356,7 @@ async function FreqTerminalInit() {
     // 4. 构建手机外壳 DOM
     FT.Shell.buildShell();
 
-    // 5. 绑定手机事件
+    // 5.绑定手机事件
     FT.Shell.bindEvents();
 
     // 6. 检查是否启用
@@ -2552,6 +2389,7 @@ async function FreqTerminalInit() {
   }
 }
 
+//── 启动 ──────────────────────────────────────────────────
 waitForSTReady().then(() => {
   FreqTerminalInit();
 });
