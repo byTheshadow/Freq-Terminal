@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════
    Freq Terminal — 手机外壳 + 全局样式
    style.css
+   iPhone 15 拟真外壳
    ═══════════════════════════════════════════════════════ */
 
 /* ── CSS 变量 ── */
@@ -11,21 +12,35 @@
   --freq-card-bg: #1a1a1a;
   --freq-text: #e0e0e0;
   --freq-text-dim: #888;
-  --freq-border: rgba(255,255,255,0.1);
-  --freq-radius: 44px;
+  --freq-border: rgba(255, 255, 255, 0.1);
+
+  /* iPhone 15 尺寸比例 — 9:19.5 */
   --freq-phone-w: 375px;
-  --freq-phone-max-h: 85vh;
-  --freq-notch-w: 126px;
-  --freq-notch-h: 34px;
-  --freq-safe-top: 54px;
+  --freq-phone-h: 812px;
+  --freq-phone-max-h: 90vh;
+  --freq-phone-radius-outer: 50px;
+  --freq-phone-radius-inner: 44px;
+  --freq-phone-bezel: 3.5px;
+
+  /* 灵动岛 */
+  --freq-di-w: 120px;
+  --freq-di-h: 36px;
+  --freq-di-top: 11px;
+  --freq-di-radius: 20px;
+
+  /* 安全区 */
+  --freq-safe-top: 59px;
   --freq-safe-bottom: 34px;
+
+  /* z-index */
   --freq-z-fab: 99990;
   --freq-z-phone: 99991;
   --freq-z-overlay: 99992;
   --freq-z-notify-toast: 99995;
 }
 
-/* ═══悬浮球 ═══ */
+/* ═══════════════════════════════════悬浮球
+   ═══════════════════════════════════ */
 #freq-fab {
   position: fixed;
   bottom: 80px;
@@ -33,7 +48,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #a32d2d 0%, #7a1f1f 100%);
+  background: linear-gradient(145deg, #c23a3a 0%, #8b2020 50%, #6b1818 100%);
   color: #fff;
   font-size: 26px;
   display: flex;
@@ -41,16 +56,22 @@
   justify-content: center;
   cursor: pointer;
   z-index: var(--freq-z-fab);
-  box-shadow: 0 4px 20px rgba(163,45,45,0.5), 0 0 0 3px rgba(163,45,45,0.15);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.4),
+    0 6px 24px rgba(163, 45, 45, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.15);
   user-select: none;
   touch-action: none;
   transition: transform 0.2s, box-shadow 0.2s;
-  /* 不截断 */
   overflow: visible;
+  line-height: 1;
 }
 #freq-fab:hover {
   transform: scale(1.08);
-  box-shadow: 0 6px 28px rgba(163,45,45,0.6), 0 0 0 5px rgba(163,45,45,0.2);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    0 8px 32px rgba(163, 45, 45, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 #freq-fab:active {
   transform: scale(0.95);
@@ -58,7 +79,8 @@
 #freq-fab.freq-fab-hidden {
   display: none !important;
 }
-/*悬浮球通知角标 */
+
+/* 悬浮球角标 */
 #freq-fab-badge {
   position: absolute;
   top: -4px;
@@ -77,150 +99,336 @@
   box-sizing: border-box;
   line-height: 20px;
   text-align: center;
+  border: 2px solid #1a1a1a;
 }
 #freq-fab-badge.freq-has-badge {
   display: flex;
 }
 
-/* ═══ 遮罩层 ═══ */
+/* ═══════════════════════════════════遮罩层
+   ═══════════════════════════════════ */
 #freq-overlay {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
-  z-index: var(--freq-z-phone);
-  align-items: center;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: var(--freq-z-overlay);align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);-webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 #freq-overlay.freq-open {
   display: flex;
 }
 
-/* ═══ 手机外壳（iPhone 15 风格） ═══ */
+/* ═══════════════════════════════════
+   iPhone 15 手机外壳
+   ═══════════════════════════════════ */
 #freq-phone {
   position: relative;
   width: var(--freq-phone-w);
+  height: var(--freq-phone-h);
   max-height: var(--freq-phone-max-h);
-  background: #000;
-  border-radius: var(--freq-radius);
-  border: 3px solid #2a2a2a;
-  box-shadow:
-    0 0 0 1px #111,
-    0 0 0 4px #1a1a1a,
-    0 20px 60px rgba(0,0,0,0.7),
-    inset 0 0 0 1px rgba(255,255,255,0.05);
+  border-radius: var(--freq-phone-radius-outer);
+  z-index: var(--freq-z-phone);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  z-index: var(--freq-z-phone);
-  /* 不截断内部内容 */
+
+  /* ── 多层边框模拟不锈钢 ── */
+  background: #000;
+  border: var(--freq-phone-bezel) solid transparent;
+  background-clip: padding-box;
+
+  box-shadow:
+    /*最外层：深色阴影 */
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    /* 外框高光（模拟不锈钢反光） */
+    0 0 0 0.5px rgba(120, 120, 130, 0.8),
+    0 0 0 var(--freq-phone-bezel) #2a2a2e,
+    0 0 0 calc(var(--freq-phone-bezel) + 0.5px) rgba(80, 80, 85, 0.6),
+    0 0 0 calc(var(--freq-phone-bezel) + 1.5px) #1a1a1e,
+    /* 内框微光 */
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
-/* ──灵动岛 ── */
+/* ── 不锈钢边框渐变覆盖层 ── */
+#freq-phone::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--freq-phone-bezel));
+  border-radius: var(--freq-phone-radius-outer);
+  background: linear-gradient(
+    145deg,
+    rgba(180, 180, 185, 0.25) 0%,
+    rgba(100, 100, 105, 0.15) 20%,
+    rgba(50, 50, 55, 0.3) 40%,
+    rgba(70, 70, 75, 0.2) 60%,
+    rgba(140, 140, 145, 0.2) 80%,
+    rgba(90, 90, 95, 0.25) 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── 侧边按键── */
+/* 右侧：电源键 */
+#freq-phone::after {
+  content: '';
+  position: absolute;
+  right: calc(-1 * var(--freq-phone-bezel) - 2.5px);
+  top: 160px;
+  width: 3px;
+  height: 65px;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(
+    180deg,
+    rgba(100, 100, 105, 0.6) 0%,
+    rgba(70, 70, 75, 0.8) 50%,
+    rgba(100, 100, 105, 0.6) 100%
+  );
+  box-shadow:
+    1px 0 2px rgba(0, 0, 0, 0.3),
+    inset 0 0 1px rgba(255, 255, 255, 0.1);z-index: 1;
+}
+
+/* 左侧按键容器 */
+#freq-phone-left-buttons {
+  position: absolute;
+  left: calc(-1 * var(--freq-phone-bezel) - 2.5px);
+  top: 0;
+  width: 3px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+/* 静音拨片 */
+#freq-phone-left-buttons::before {
+  content: '';
+  position: absolute;
+  top: 130px;
+  width: 3px;
+  height: 28px;
+  border-radius: 2px 0 0 2px;
+  background: linear-gradient(
+    180deg,
+    rgba(100, 100, 105, 0.6) 0%,
+    rgba(70, 70, 75, 0.8) 50%,
+    rgba(100, 100, 105, 0.6) 100%
+  );
+  box-shadow:
+    -1px 0 2px rgba(0, 0, 0, 0.3),
+    inset 0 0 1px rgba(255, 255, 255, 0.1);
+}
+/* 音量键 */
+#freq-phone-left-buttons::after {
+  content: '';
+  position: absolute;
+  top: 175px;
+  width: 3px;
+  height: 55px;
+  border-radius: 2px 0 0 2px;
+  background: linear-gradient(
+    180deg,
+    rgba(100, 100, 105, 0.6) 0%,
+    rgba(70, 70, 75, 0.8) 30%,
+    rgba(90, 90, 95, 0.5) 50%,
+    rgba(70, 70, 75, 0.8) 70%,
+    rgba(100, 100, 105, 0.6) 100%
+  );
+  box-shadow:
+    -1px 0 2px rgba(0, 0, 0, 0.3),
+    inset 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* ═══════════════════════════════════
+   灵动岛 Dynamic Island
+   ═══════════════════════════════════ */
 #freq-phone-notch {
   position: absolute;
-  top: 10px;
+  top: var(--freq-di-top);
   left: 50%;
   transform: translateX(-50%);
-  width: var(--freq-notch-w);
-  height: var(--freq-notch-h);
+  width: var(--freq-di-w);
+  height: var(--freq-di-h);
   background: #000;
-  border-radius: 20px;
+  border-radius: var(--freq-di-radius);
   z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  padding-right: 14px;
+  box-sizing: border-box;
+  /* 微妙的边缘 */
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.04),
+    inset 0 0 3px rgba(0, 0, 0, 0.8);
 }
+/* 前置摄像头 */
 #freq-phone-notch::before {
   content: '';
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: radial-gradient(circle, #1a1a2e 0%, #0a0a15 60%, #000 100%);
-  box-shadow: inset 0 0 2px rgba(255,255,255,0.05);
+  background: radial-gradient(
+    circle at 40% 35%,
+    rgba(30, 30, 50, 0.6) 0%,
+    #0a0a12 40%,
+    #050508 70%,
+    #000 100%
+  );
+  box-shadow:
+    inset 0 0 2px rgba(255, 255, 255, 0.06),
+    inset 0 0 4px rgba(20, 20, 40, 0.5),
+    0 0 1px rgba(0, 0, 0, 0.5);
+  /*镜头反光 */
+  position: relative;
+}
+#freq-phone-notch::after {
+  content: '';
+  position: absolute;
+  right: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(80, 100, 160, 0.3) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
-/* ── 状态栏 ── */
+/* ═══════════════════════════════════
+   状态栏
+   ═══════════════════════════════════ */
 #freq-statusbar {
   height: var(--freq-safe-top);
-  padding: 0 28px;
+  padding: 0 32px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #fff;
-  flex-shrink: 0;padding-bottom: 4px;
+  flex-shrink: 0;
+  padding-bottom: 2px;
   position: relative;
   z-index: 5;
+  letter-spacing: 0.3px;
+  font-variant-numeric: tabular-nums;cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 #freq-statusbar-left {
-  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 600;
 }
 #freq-statusbar-right {
   display: flex;
   gap: 5px;
   align-items: center;
-  font-size: 11px;
+  font-size: 13px;
 }
 
-/* ── 手机屏幕内容区 ── */
+/* ═══════════════════════════════════
+   屏幕内容区
+   ═══════════════════════════════════ */
 #freq-screen {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   background: #000;
   position: relative;
-  /* 允许内容自然展开 */
-  min-height: 300px;
+  min-height: 0;
   -webkit-overflow-scrolling: touch;
 }
-/* 自定义滚动条 */
 #freq-screen::-webkit-scrollbar {
-  width: 3px;
+  width: 2px;
 }
 #freq-screen::-webkit-scrollbar-track {
   background: transparent;
 }
 #freq-screen::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.15);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
 }
 
-/* ── 底部横条（Home Indicator） ── */
+/* ═══════════════════════════════════
+   底部 Home Indicator
+   ═══════════════════════════════════ */
 #freq-phone-home {
   height: var(--freq-safe-bottom);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   flex-shrink: 0;
+  padding-top: 8px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 #freq-phone-home-bar {
   width: 134px;
   height: 5px;
-  border-radius: 3px;
-  background: rgba(255,255,255,0.25);
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.2s;
+}
+#freq-phone-home:hover #freq-phone-home-bar {
+  background: rgba(255, 255, 255, 0.35);
 }
 
-/* ═══ 下拉通知栏 ═══ */
+/* ═══════════════════════════════════
+   关闭按钮（手机内右上角）
+   ═══════════════════════════════════ */
+#freq-phone-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 60;
+  border: none;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1;
+}
+#freq-phone-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ═══════════════════════════════════
+   下拉通知栏
+   ═══════════════════════════════════ */
 #freq-notify-drawer {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  background: rgba(20,20,20,0.97);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom-left-radius: 20px;
-  border-bottom-right-radius: 20px;
+  background: rgba(20, 20, 22, 0.97);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border-bottom-left-radius: 24px;
+  border-bottom-right-radius: 24px;
   z-index: 50;
   transform: translateY(-100%);
-  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
   padding: var(--freq-safe-top) 16px 16px 16px;
-  max-height: 70%;
+  max-height: 75%;
   overflow-y: auto;
-  /* 不截断 */
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
 }
 #freq-notify-drawer.freq-drawer-open {
   transform: translateY(0);
@@ -232,19 +440,19 @@
 }
 #freq-notify-drawer-handle-bar {
   display: inline-block;
-  width: 40px;
+  width: 36px;
   height: 4px;
-  border-radius: 2px;
-  background: rgba(255,255,255,0.3);
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.2);
 }
 .freq-notify-item {
-  background: rgba(255,255,255,0.06);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
   padding: 12px 14px;
   margin-bottom: 8px;
-  /* 确保内容不截断 */
   overflow-wrap: break-word;
   word-break: break-word;
+  backdrop-filter: blur(10px);
 }
 .freq-notify-item-header {
   display: flex;
@@ -270,8 +478,8 @@
   font-size: 13px;
   color: #ddd;
   line-height: 1.5;
-  /* 不截断 */
-  white-space: pre-wrap;overflow-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 .freq-notify-empty {
   text-align: center;
@@ -284,28 +492,29 @@
   width: 100%;
   padding: 8px;
   margin-top: 4px;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.04);
   border: none;
-  border-radius: 8px;
-  color: #666;
+  border-radius: 10px;
+  color: #555;
   font-size: 12px;
   cursor: pointer;
   transition: background 0.2s;
 }
 .freq-notify-clear-btn:hover {
-  background: rgba(255,255,255,0.1);
-  color: #999;
+  background: rgba(255, 255, 255, 0.08);color: #888;
 }
 
-/* ═══ 手机内页面：主屏幕（App网格） ═══ */
+/* ═══════════════════════════════════
+   主屏幕 App网格
+   ═══════════════════════════════════ */
 #freq-home-screen {
-  padding: 16px;
+  padding: 20px 16px;
 }
 .freq-app-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 18px 10px;
-  padding: 10px 0;
+  gap: 22px 8px;
+  padding: 8px 0;
 }
 .freq-app-icon-wrap {
   display: flex;
@@ -317,19 +526,21 @@
   -webkit-tap-highlight-color: transparent;
 }
 .freq-app-icon-wrap:active .freq-app-icon {
-  transform: scale(0.9);
+  transform: scale(0.88);
 }
 .freq-app-icon {
-  width: 58px;
-  height: 58px;
+  width: 60px;
+  height: 60px;
   border-radius: 14px;
   background: var(--freq-card-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
-  transition: transform 0.15s;position: relative;
-  border: 1px solid rgba(255,255,255,0.06);
+  font-size: 28px;
+  transition: transform 0.15s ease;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .freq-app-icon-badge {
   position: absolute;
@@ -347,22 +558,24 @@
   justify-content: center;
   padding: 0 4px;
   box-sizing: border-box;
+  border: 2px solid #000;
 }
 .freq-app-icon-badge.freq-has-badge {
   display: flex;
 }
 .freq-app-name {
   font-size: 11px;
-  color: #bbb;
+  color: rgba(255, 255, 255, 0.7);
   text-align: center;
   line-height: 1.3;
-  max-width: 70px;
-  /* 允许换行不截断 */
+  max-width: 72px;
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
-/* ═══ App 内页容器 ═══ */
+/* ═══════════════════════════════════
+   App 内页
+   ═══════════════════════════════════ */
 #freq-app-page {
   display: none;
   flex-direction: column;
@@ -371,62 +584,38 @@
 #freq-app-page.freq-page-active {
   display: flex;
 }
-/* App 内页顶栏 */
 .freq-app-topbar {
   display: flex;
   align-items: center;
   padding: 10px 16px;
   gap: 10px;
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 .freq-app-back {
-  font-size: 22px;
+  font-size: 26px;
   cursor: pointer;
   color: var(--freq-accent);
-  padding: 4px;
+  padding: 4px 8px;
   -webkit-tap-highlight-color: transparent;
+  font-weight: 300;
+  line-height: 1;
 }
 .freq-app-topbar-title {
   font-size: 17px;
   font-weight: 600;
   color: #fff;
 }
-/* App 内容区 */
 .freq-app-content {
   flex: 1;
   padding: 16px;
-  /* 不截断 */
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
-/* ═══ 手机关闭按钮 ═══ */
-#freq-phone-close {
-  position: absolute;
-  top: 12px;
-  right: 16px;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.1);
-  color: #999;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 60;
-  border: none;
-  transition: background 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-#freq-phone-close:hover {
-  background: rgba(255,255,255,0.2);
-  color: #fff;
-}
-
-/* ═══ 通知 Toast（屏幕外浮动） ═══ */
+/* ═══════════════════════════════════
+   Toast 通知
+   ═══════════════════════════════════ */
 .freq-toast-container {
   position: fixed;
   z-index: var(--freq-z-notify-toast);
@@ -436,36 +625,28 @@
   pointer-events: none;
   max-width: 340px;
 }
-.freq-toast-container.freq-pos-top-right {
-  top: 20px; right: 20px;
-}
-.freq-toast-container.freq-pos-top-left {
-  top: 20px; left: 20px;
-}
-.freq-toast-container.freq-pos-bottom-right {
-  bottom: 80px; right: 20px;
-}
-.freq-toast-container.freq-pos-bottom-left {
-  bottom: 80px; left: 20px;
-}
-.freq-toast-container.freq-pos-top-center {
-  top: 20px; left: 50%; transform: translateX(-50%);
-}
+.freq-toast-container.freq-pos-top-right{ top: 20px; right: 20px; }
+.freq-toast-container.freq-pos-top-left     { top: 20px; left: 20px; }
+.freq-toast-container.freq-pos-bottom-right { bottom: 80px; right: 20px; }
+.freq-toast-container.freq-pos-bottom-left  { bottom: 80px; left: 20px; }
+.freq-toast-container.freq-pos-top-center   { top: 20px; left: 50%; transform: translateX(-50%); }
+
 .freq-toast {
-  background: rgba(30,30,30,0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 14px;
+  background: rgba(30, 30, 32, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
   padding: 12px 16px;
   color: #ddd;
   font-size: 13px;
   line-height: 1.4;
   pointer-events: auto;
-  animation: freq-toast-in 0.35s ease;/* 不截断 */
-  overflow-wrap: break-word;
+  animation: freq-toast-in 0.35s ease;overflow-wrap: break-word;
   word-break: break-word;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2);
 }
 .freq-toast-title {
   font-weight: 600;
@@ -485,7 +666,9 @@
   to   { opacity: 0; transform: scale(0.92); }
 }
 
-/* ═══ 占位 / 空状态 ═══ */
+/* ═══════════════════════════════════
+   空状态
+   ═══════════════════════════════════ */
 .freq-empty-state {
   display: flex;
   flex-direction: column;
@@ -505,25 +688,9 @@
   line-height: 1.5;
 }
 
-/* ═══ 移动端全屏适配 ═══ */
-@media (max-width: 500px) {
-  #freq-phone {
-    width: 100vw !important;
-    max-height: 100vh !important;
-    height: 100vh !important;
-    border-radius: 0 !important;
-    border: none !important;
-    box-shadow: none !important;}
-  #freq-overlay {
-    align-items: stretch !important;
-    justify-content: stretch !important;backdrop-filter: none !important;
-  }
-  :root {
-    --freq-radius: 0px;
-  }
-}
-
-/* ═══ 加载动画 ═══ */
+/* ═══════════════════════════════════
+   加载动画
+   ═══════════════════════════════════ */
 .freq-loading {
   display: flex;
   align-items: center;
@@ -545,3 +712,31 @@
   40% { opacity: 1; transform: scale(1.1); }
 }
 
+/* ═══════════════════════════════════
+   移动端全屏
+   ═══════════════════════════════════ */
+@media (max-width: 500px) {
+  #freq-phone {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  #freq-phone::before,
+  #freq-phone::after,
+  #freq-phone-left-buttons,
+  #freq-phone-left-buttons::before,
+  #freq-phone-left-buttons::after {
+    display: none !important;
+  }
+  #freq-overlay {
+    align-items: stretch !important;
+    justify-content: stretch !important;backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #000 !important;
+  }
+  :root {
+    --freq-phone-radius-outer: 0px;
+    --freq-phone-radius-inner: 0px;}
+}
