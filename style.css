@@ -997,3 +997,354 @@
 .freq-archive-card:hover .freq-archive-toggle {
   color: var(--freq-accent);
 }
+
+/*═══════════════════════════════════════════════════════App02 · 后台录音室
+   ═══════════════════════════════════════════════════════ */
+
+/*── 模式选择器 ── */
+.freq-studio-modes {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.freq-studio-mode-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  color: var(--freq-text-dim);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.freq-studio-mode-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.freq-studio-mode-btn.freq-studio-mode-active {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 12px rgba(163, 45, 45, 0.15);
+}
+
+.freq-studio-mode-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.freq-studio-mode-label {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── 模式说明 ── */
+.freq-studio-desc {
+  font-size: 12px;
+  color: var(--freq-text-dim);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.freq-studio-desc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── 演播厅提问区 ── */
+.freq-studio-question-area {
+  margin-bottom: 12px;
+}
+
+.freq-studio-question-label {
+  font-size: 12px;
+  color: var(--freq-text-dim);
+  margin-bottom: 6px;
+}
+
+.freq-studio-question-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: var(--freq-text);
+  font-size: 13px;
+  padding: 10px 12px;
+  resize: vertical;
+  min-height: 44px;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.5;box-sizing: border-box;transition: border-color 0.2s;
+}
+
+.freq-studio-question-input:focus {
+  border-color: #f59e0b;
+}
+
+.freq-studio-question-input::placeholder {
+  color: var(--freq-text-dim);opacity: 0.6;
+}
+
+/* ── Thinking 开关 ── */
+.freq-studio-thinking-toggle {
+  margin-bottom: 12px;padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  border-radius: 10px;
+}
+
+.freq-studio-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--freq-text);cursor: pointer;
+}
+
+.freq-studio-toggle-label input[type="checkbox"] {
+  accent-color: #ef4444;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.freq-studio-thinking-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--freq-text-dim);
+  margin-top: 4px;
+  padding-left: 24px;
+}
+
+/* ── 录制按钮 ── */
+.freq-studio-record-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #c23a3a 0%, #8b2020 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.25s ease;
+  margin-bottom: 8px;
+}
+
+.freq-studio-record-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d44444 0%, #a02828 100%);
+  box-shadow: 0 4px 20px rgba(163, 45, 45, 0.4);
+  transform: translateY(-1px);
+}
+
+.freq-studio-record-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.freq-studio-record-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.freq-studio-record-btn.freq-studio-recording {
+  background: linear-gradient(135deg, #6b1818 0%, #4a1010 100%);
+  animation: freq-studio-pulse 1.5s ease-in-out infinite;
+}
+
+.freq-studio-rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff4444;
+  flex-shrink: 0;box-shadow: 0 0 6px rgba(255, 68, 68, 0.6);
+}
+
+.freq-studio-rec-dot-pulse {
+  animation: freq-studio-dot-blink 1s ease-in-out infinite;
+}
+
+@keyframes freq-studio-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(163, 45, 45, 0); }
+  50% { box-shadow: 0 0 0 8px rgba(163, 45, 45, 0.15); }
+}
+
+@keyframes freq-studio-dot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── 状态提示 ── */
+.freq-studio-status {
+  font-size: 12px;
+  color: var(--freq-text-dim);
+  text-align: center;
+  padding: 4px 08px 0;
+}
+
+/* ── 最新录音 ── */
+.freq-studio-latest {
+  margin: 12px 0;
+  padding: 14px;
+  background: var(--freq-card-bg);
+  border: 1px solid var(--freq-border);
+  border-radius: 12px;
+  border-left: 3px solid var(--freq-accent);
+}
+
+.freq-studio-latest-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--freq-text-dim);
+}
+
+.freq-studio-latest-time {
+  font-size: 11px;
+  color: #555;
+  font-weight: 400;
+}
+
+.freq-studio-latest-content {
+  font-size: 14px;
+  color: var(--freq-text);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;word-break: break-word;
+}
+
+/* ── 历史记录 ── */
+.freq-studio-history {
+  margin-top: 16px;
+}
+
+.freq-studio-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--freq-text-dim);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.freq-studio-history-count {
+  font-size: 11px;
+  font-weight: 400;
+  color: #555;
+}
+
+.freq-studio-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── 历史卡片 ── */
+.freq-studio-hcard {
+  background: var(--freq-card-bg);
+  border: 1px solid var(--freq-border);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, background0.2s;
+}
+
+.freq-studio-hcard:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.freq-studio-hcard.freq-studio-hcard-expanded {
+  border-color: var(--freq-accent);
+  background: rgba(163, 45, 45, 0.04);
+}
+
+.freq-studio-hcard-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.freq-studio-hcard-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.freq-studio-hcard-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--freq-text-dim);
+}
+
+.freq-studio-hcard-char {
+  font-size: 11px;
+  color: var(--freq-accent);
+  padding: 1px 6px;
+  background: rgba(163, 45, 45, 0.1);
+  border-radius: 4px;
+}
+
+.freq-studio-hcard-time {
+  font-size: 11px;
+  color: #555;
+  margin-left: auto;
+}
+
+.freq-studio-hcard-preview {
+  font-size: 13px;
+  color: var(--freq-text-dim);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.freq-studio-hcard-full {
+  font-size: 13px;
+  color: var(--freq-text);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.freq-studio-hcard-toggle {
+  text-align: center;
+  font-size: 11px;
+  color: var(--freq-text-dim);
+  padding-top: 6px;
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.freq-studio-hcard:hover .freq-studio-hcard-toggle {
+  color: var(--freq-accent);
+}
+
+/* 展开后隐藏预览 */
+.freq-studio-hcard-expanded .freq-studio-hcard-preview {
+  display: none;
+}
