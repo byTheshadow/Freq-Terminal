@@ -2034,3 +2034,298 @@
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+/* ============================================================
+   App04 · 信号气象站  fwx-
+   主题色 #085041
+   ============================================================ */
+
+.fwx-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--freq-bg);
+  color: var(--freq-text);
+  padding-bottom: 72px; /* 底部栏高度留白 */
+}
+
+/* ── Hero 天气主视图 ── */
+.fwx-hero {
+  position: relative;
+  padding: 28px 20px 20px;
+  background: linear-gradient(160deg, #062e25 0%, #041a14 60%, #0a0a0a 100%);
+  border-bottom: 1px solid rgba(8,80,65,0.4);
+  text-align: center;
+  overflow: hidden;
+}
+
+/* 背景噪点纹理 */
+.fwx-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.fwx-hero-city {
+  font-size: 15px;
+  color: rgba(255,255,255,0.55);
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.fwx-hero-temp {
+  font-size: 80px;
+  font-weight: 200;
+  line-height: 1;
+  color: #fff;
+  letter-spacing: -4px;
+  margin: 4px 0;
+}
+
+.fwx-hero-unit {
+  font-size: 40px;
+  font-weight: 200;
+  vertical-align: super;
+  letter-spacing: 0;
+}
+
+.fwx-hero-desc {
+  font-size: 18px;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 4px;
+}
+
+.fwx-hero-feels {
+  font-size: 13px;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 16px;
+}
+
+/* 数据卡片行 */
+.fwx-detail-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.fwx-detail-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(8,80,65,0.35);
+  border-radius: 12px;
+  padding: 10px 6px;
+  text-align: center;
+  backdrop-filter: blur(4px);
+}
+
+.fwx-detail-label {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 5px;
+}
+
+.fwx-detail-val {
+  font-size: 13px;
+  color: rgba(255,255,255,0.85);
+  font-weight: 500;
+}
+
+/* ── 关心语区域 ── */
+.fwx-section-title {
+  font-size: 12px;
+  color: #085041;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 14px 16px 6px;
+  border-bottom: 1px solid rgba(8,80,65,0.2);
+}
+
+.fwx-history {
+  flex: 1;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 气泡 */
+.fwx-care-bubble {
+  position: relative;
+  background: rgba(8,80,65,0.12);
+  border: 1px solid rgba(8,80,65,0.3);
+  border-radius: 14px;
+  padding: 12px 14px;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.fwx-care-bubble--new {
+  border-color: rgba(8,80,65,0.7);
+  box-shadow: 0 0 12px rgba(8,80,65,0.25);
+}
+
+.fwx-care-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.fwx-care-char {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2aad8a;
+}
+
+.fwx-care-meta {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  flex: 1;
+}
+
+.fwx-care-time {
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+  white-space: nowrap;
+}
+
+/* 关心语正文 + 噪点叠加 */
+.fwx-care-text {
+  position: relative;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: rgba(255,255,255,0.82);
+  z-index: 1;
+}
+
+/* 噪点/扫描线质感 */
+.fwx-noise-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.04) 2px,
+      rgba(0,0,0,0.04) 4px
+    );
+  mix-blend-mode: overlay;
+  opacity: 0.5;
+}
+
+/* 偶发性信号抖动动画（最新一条气泡） */
+.fwx-care-bubble--new .fwx-care-text {
+  animation: fwx-glitch-in 0.6s ease-out forwards;
+}
+
+@keyframes fwx-glitch-in {
+  0%   { opacity: 0; transform: translateX(-2px); filter: blur(1px); }
+  20%  { opacity: 0.7; transform: translateX(2px); filter: blur(0.5px); }
+  40%  { opacity: 0.5; transform: translateX(-1px); }
+  60%  { opacity: 0.9; transform: translateX(1px); filter: blur(0.2px); }
+  80%  { opacity: 1; transform: translateX(0); filter: blur(0); }
+  100% { opacity: 1; transform: translateX(0); filter: blur(0); }
+}
+
+/* ── 空状态 ── */
+.fwx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 8px;
+}
+
+.fwx-empty-icon {
+  font-size: 36px;
+  opacity: 0.4;
+}
+
+.fwx-empty-text {
+  font-size: 14px;
+  color: rgba(255,255,255,0.35);
+}
+
+.fwx-empty-hint {
+  font-size: 12px;
+  color: rgba(255,255,255,0.2);
+}
+
+/* ── 状态栏 ── */
+.fwx-status-bar {
+  margin: 0 14px 8px;
+  padding: 7px 12px;
+  background: rgba(8,80,65,0.15);
+  border: 1px solid rgba(8,80,65,0.3);
+  border-radius: 8px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+/* ── 底部操作栏 ── */
+.fwx-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 16px 14px;
+  background: linear-gradient(to top, #0a0a0a 70%, transparent);
+  display: flex;
+  justify-content: center;
+}
+
+.fwx-btn-receive {
+  width: 100%;
+  max-width: 280px;
+  padding: 11px 0;
+  background: linear-gradient(135deg, #085041 0%, #0a6b55 100%);
+  border: 1px solid rgba(8,80,65,0.6);
+  border-radius: 22px;
+  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.fwx-btn-receive:hover:not(:disabled) {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.fwx-btn-receive:active:not(:disabled) {
+  transform: translateY(0);
+  opacity: 0.7;
+}
+
+.fwx-btn-receive:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── settings.html 免责声明样式 ── */
+.freq-sp-disclaimer {
+  background: rgba(8,80,65,0.1);
+  border: 1px solid rgba(8,80,65,0.25);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  line-height: 1.6;
+  margin-top: 6px;
+}
+
+/* ============================================================ end App04 · 信号气象站 fwx- */
+
