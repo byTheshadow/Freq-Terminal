@@ -23,6 +23,10 @@ const FREQ_DEFAULTS = {
   apiModelList: [],
   triggerInterval: 3600000,
   customIntervalMin: 60,
+  hefengApiKey: '',
+  app04AutoPush: true,
+  app04LocationEnabled: false,
+
 
   prompts: {
     system: `你是 [{char_name}]，现在是 {real_datetime}，不在正式广播中。
@@ -3634,7 +3638,7 @@ const FreqTerminal = (() => {
       'freq-sp-prompt-app02-interview': 'app02_interview',
       'freq-sp-prompt-app02-private': 'app02_private',
       'freq-sp-prompt-app03': 'app03',
-      'freq-sp-prompt-app04': 'app04',
+      'freq-sp-prompt-app04': 'app04_care',
       'freq-sp-prompt-app05': 'app05',
       'freq-sp-prompt-app06': 'app06',
       'freq-sp-prompt-app07': 'app07',
@@ -3721,6 +3725,19 @@ const FreqTerminal = (() => {
 
     // 通知位置
     $('#freq-sp-notify-pos').val(_settings.notifyPosition ||'top-right');
+     // App04 · 信号气象站
+    $(document).on('input', '#freq-sp-hefeng-key', function () {
+      _settings.hefengApiKey = this.value.trim();
+      _saveSettings();
+    });
+    $(document).on('change', '#freq-sp-app04-auto-push', function () {
+      _settings.app04AutoPush = this.checked;
+      _saveSettings();
+    });
+    $(document).on('change', '#freq-sp-app04-location-enabled', function () {
+      _settings.app04LocationEnabled = this.checked;
+      _saveSettings();
+    });
 
     // 提示词
     const prompts = _settings.prompts || {};
@@ -3731,7 +3748,10 @@ const FreqTerminal = (() => {
     $('#freq-sp-prompt-app02-interview').val(prompts.app02_interview || defaults.app02_interview);
     $('#freq-sp-prompt-app02-private').val(prompts.app02_private || defaults.app02_private);
     $('#freq-sp-prompt-app03').val(prompts.app03 || defaults.app03);
-    $('#freq-sp-prompt-app04').val(prompts.app04 || defaults.app04);
+    $('#freq-sp-hefeng-key').val(_settings.hefengApiKey || '');
+    $('#freq-sp-app04-auto-push').prop('checked', _settings.app04AutoPush !== false);
+    $('#freq-sp-app04-location-enabled').prop('checked', !!_settings.app04LocationEnabled);
+    $('#freq-sp-prompt-app04').val(prompts.app04_care || defaults.app04_care || '');
     $('#freq-sp-prompt-app05').val(prompts.app05 || defaults.app05);
     $('#freq-sp-prompt-app06').val(prompts.app06 || defaults.app06);
     $('#freq-sp-prompt-app07').val(prompts.app07 || defaults.app07);
