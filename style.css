@@ -1348,3 +1348,689 @@
 .freq-studio-hcard-expanded .freq-studio-hcard-preview {
   display: none;
 }
+/* ═══════════════════════════════════════════════════════ App03 · 朋友圈·电波
+   IG 风格深色社交流 */
+
+/* ── 整体容器 ── */
+.fmom-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0a0a0a;
+  overflow: hidden;
+}
+
+/* ── 顶栏 ── */
+.fmom-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+
+.fmom-header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+  font-family: -apple-system, 'SF Pro Display', sans-serif;
+}
+
+.fmom-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.fmom-icon-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(255,255,255,0.07);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.fmom-icon-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.14);
+}
+
+.fmom-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fmom-back-btn {
+  background: none;
+  border: none;
+  color: #c8a96e;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  font-weight: 300;
+}
+
+.fmom-publish-btn {
+  background: none;
+  border: none;
+  color: #c8a96e;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.fmom-publish-btn:hover {
+  background: rgba(200,169,110,0.12);
+}
+
+/* ── 状态条 ── */
+.fmom-status-bar {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+
+/* ── Feed 滚动区 ── */
+.fmom-feed {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+.fmom-feed::-webkit-scrollbar { width: 3px; }
+.fmom-feed::-webkit-scrollbar-track { background: transparent; }
+.fmom-feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+/* ── 空状态 ── */
+.fmom-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 12px;
+}
+
+.fmom-empty-icon {
+  font-size: 40px;
+  opacity: 0.4;
+}
+
+.fmom-empty-text {
+  font-size: 13px;
+  color: #555;
+  text-align: center;
+  line-height: 1.8;
+}
+
+.fmom-empty-text span {
+  font-size: 11px;
+  color: #444;
+}
+
+/* ── 动态卡片 ── */
+.fmom-post {
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  transition: background 0.15s;
+}
+
+.fmom-post:active {
+  background: rgba(255,255,255,0.02);
+}
+
+/* ── 头像 ── */
+.fmom-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1.5px solid rgba(255,255,255,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.fmom-avatar-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+}
+
+.fmom-avatar-user {
+  border-color: #c8a96e;
+  background: rgba(200,169,110,0.1);
+}
+
+/* ── 帖子头部 ── */
+.fmom-post-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.fmom-post-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fmom-post-author {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.fmom-author-user {
+  color: #c8a96e;
+}
+
+.fmom-post-time {
+  font-size: 11px;
+  color: #555;
+}
+
+/* ── 正文 ── */
+.fmom-post-content {
+  font-size: 14px;
+  color: #d0d0d0;
+  line-height: 1.65;
+  margin-bottom: 10px;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* ── 图片 chip ── */
+.fmom-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.fmom-image-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: rgba(200,169,110,0.08);
+  border: 1px solid rgba(200,169,110,0.2);
+  border-radius: 20px;
+  color: #c8a96e;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.fmom-image-chip:hover {
+  background: rgba(200,169,110,0.15);
+  border-color: rgba(200,169,110,0.4);
+}
+
+.fmom-image-icon {
+  font-size: 13px;
+}
+
+.fmom-image-label {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 底部操作栏 ── */
+.fmom-post-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.fmom-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.2s;
+}
+
+.fmom-action-btn:hover {
+  color: #aaa;
+}
+
+.fmom-like-btn.fmom-liked {
+  color: #e05c7a;
+}
+
+.fmom-action-count {
+  font-size: 12px;
+  color: #666;
+}
+
+.fmom-liked .fmom-action-count {
+  color: #e05c7a;
+}
+
+/* ── 评论预览 ── */
+.fmom-comment-preview {
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fmom-comment-line {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #888;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fmom-comment-author {
+  font-weight: 600;
+  color: #aaa;
+  margin-right: 4px;
+}
+
+.fmom-comment-text {
+  color: #777;
+}
+
+.fmom-comment-more {
+  font-size: 11px;
+  color: #555;
+  cursor: pointer;
+  padding-top: 2px;
+  transition: color 0.2s;
+}
+
+.fmom-comment-more:hover {
+  color: #888;
+}
+
+/* ── 发帖页 ── */
+.fmom-compose-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fmom-compose-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fmom-compose-username {
+  font-size: 14px;
+  font-weight: 600;
+  color: #c8a96e;
+}
+
+.fmom-compose-input {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  color: #e0e0e0;
+  font-size: 14px;
+  padding: 12px;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.6;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.fmom-compose-input:focus {
+  border-color: rgba(200,169,110,0.4);
+}
+
+.fmom-compose-input::placeholder {
+  color: #444;
+}
+
+.fmom-compose-images {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fmom-compose-image-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.fmom-compose-image-input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #d0d0d0;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+}
+
+.fmom-compose-image-input::placeholder {
+  color: #444;
+}
+
+.fmom-compose-image-del {
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.2s;
+}
+
+.fmom-compose-image-del:hover {
+  color: #e05c7a;
+}
+
+.fmom-add-image-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 10px;
+  color: #666;
+  font-size: 13px;
+  padding: 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.fmom-add-image-btn:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(200,169,110,0.3);
+  color: #c8a96e;
+}
+
+/* ── 评论页 ── */
+.fmom-comments-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.fmom-comment-origin {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  flex-shrink: 0;
+}
+
+.fmom-comment-origin-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fmom-comment-origin-text {
+  font-size: 13px;
+  color: #888;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.fmom-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+
+.fmom-comment-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fmom-comment-list::-webkit-scrollbar { width: 3px; }
+.fmom-comment-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+.fmom-empty-comments {
+  font-size: 13px;
+  color: #444;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.fmom-comment-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.fmom-comment-item-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fmom-comment-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fmom-comment-item-time {
+  font-size: 11px;
+  color: #444;
+}
+
+.fmom-comment-item-text {
+  font-size: 13px;
+  color: #c0c0c0;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+/* ── 触发角色评论 ── */
+.fmom-trigger-comment-wrap {
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+
+.fmom-trigger-comment-btn {
+  width: 100%;
+  padding: 10px;
+  background: rgba(200,169,110,0.07);
+  border: 1px dashed rgba(200,169,110,0.25);
+  border-radius: 10px;
+  color: #c8a96e;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.fmom-trigger-comment-btn:hover {
+  background: rgba(200,169,110,0.13);
+  border-color: rgba(200,169,110,0.45);
+}
+
+.fmom-trigger-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+  padding: 10px;
+}
+
+/* ── 评论输入栏 ── */
+.fmom-comment-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+  background: #0a0a0a;
+}
+
+.fmom-comment-input {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  color: #e0e0e0;
+  font-size: 13px;
+  padding: 7px 14px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.fmom-comment-input:focus {
+  border-color: rgba(200,169,110,0.4);
+}
+
+.fmom-comment-input::placeholder {
+  color: #444;
+}
+
+.fmom-comment-send-btn {
+  background: #c8a96e;
+  border: none;
+  border-radius: 16px;
+  color: #0a0a0a;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.fmom-comment-send-btn:hover {
+  background: #d4b87a;
+}
+
+/* ── 图片详情页 ── */
+.fmom-image-detail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fmom-image-frame {
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.fmom-image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.fmom-image-big-icon {
+  font-size: 48px;
+  opacity: 0.4;
+}
+
+.fmom-image-frame-label {
+  font-size: 13px;
+  color: #555;
+  text-align: center;
+  padding: 0 20px;
+}
+
+.fmom-image-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fmom-image-desc-wrap {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.fmom-image-desc {
+  font-size: 14px;
+  color: #c0c0c0;
+  line-height: 1.75;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.fmom-image-desc-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #555;
+  padding: 10px 0;
+}
+
+/* ── 旋转动画 ── */
+.fmom-spin {
+  display: inline-block;
+  animation: fmom-rotate 1s linear infinite;
+}
+
+@keyframes fmom-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
