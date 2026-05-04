@@ -1,194 +1,187 @@
-<!-- Freq Terminal 配置面板 -->
+<!-- Freq Terminal配置面板 -->
 <div id="freq-settings-panel" class="freq-sp">
-  <link rel="stylesheet" href="/scripts/extensions/third-party/freq-terminal/settings.css" />
 
-  <!--═══ 总控区 ═══ -->
-  <div class="freq-sp-section">
-    <div class="freq-sp-title">⚙️ 总控</div>
-    <label class="freq-sp-row">
-      <span>启用插件</span>
-      <input type="checkbox" id="freq-sp-enabled" />
-    </label>
-    <label class="freq-sp-row">
-      <span>启用悬浮球</span>
-      <input type="checkbox" id="freq-sp-fab-enabled" />
-    </label>
-    <div class="freq-sp-row">
-      <button id="freq-sp-open-phone" class="freq-sp-btn">📱 打开手机面板</button>
-    </div></div>
-
-  <!-- ═══ 副API配置 ═══ -->
-  <div class="freq-sp-section">
-    <div class="freq-sp-title">🔌 副 API 配置</div>
-    <label class="freq-sp-row freq-sp-col">
-      <span>API 地址</span>
-      <input type="text" id="freq-sp-api-url" placeholder="https://api.example.com/v1" class="freq-sp-input" />
-    </label>
-    <label class="freq-sp-row freq-sp-col">
-      <span>API 密钥</span>
-      <input type="password" id="freq-sp-api-key" placeholder="sk-..." class="freq-sp-input" />
-    </label>
-    <div class="freq-sp-row">
-      <button id="freq-sp-fetch-models" class="freq-sp-btn">🔍 获取可用模型</button>
-      <span id="freq-sp-model-status" class="freq-sp-hint"></span>
-    </div><label class="freq-sp-row freq-sp-col">
-      <span>选择模型</span>
-      <select id="freq-sp-model-select" class="freq-sp-input">
-        <option value="">-- 请先获取模型列表 --</option>
-      </select>
-    </label>
-    <label class="freq-sp-row freq-sp-col">
-      <span>后台触发频率</span>
-      <select id="freq-sp-trigger-interval" class="freq-sp-input">
-        <option value="1800000">30 分钟</option>
-        <option value="3600000">1 小时</option>
-        <option value="custom">自定义</option>
-      </select>
-    </label>
-    <label class="freq-sp-row freq-sp-col" id="freq-sp-custom-interval-row" style="display:none;">
-      <span>自定义间隔（分钟）</span>
-      <input type="number" id="freq-sp-custom-interval" placeholder="60" min="5" class="freq-sp-input" />
-    </label>
-    <div class="freq-sp-hint">触发一次后进入 3 小时静默期，之后重新计时。</div>
+  <!-- ═══ 总折叠头 ═══ -->
+  <div class="freq-sp-master-toggle">
+    <span class="freq-sp-master-title">📻 Freq · Terminal<span class="freq-sp-master-ver">v1.0.0</span>
+    </span>
+    <span class="freq-sp-master-arrow">▶</span>
   </div>
 
-  <!-- ═══ 通知设置 ═══ -->
-  <div class="freq-sp-section">
-    <div class="freq-sp-title">🔔 通知设置</div>
-    <label class="freq-sp-row freq-sp-col">
-      <span>通知位置</span>
-      <select id="freq-sp-notify-pos" class="freq-sp-input">
-        <option value="top-right">右上角</option>
-        <option value="top-left">左上角</option>
-        <option value="bottom-right">右下角</option>
-        <option value="bottom-left">左下角</option>
-        <option value="top-center">顶部居中</option>
-      </select>
-    </label></div>
+  <!-- ═══ 总折叠体 ═══ -->
+  <div class="freq-sp-master-body">
 
-  <!-- ═══ 提示词编辑 ═══ -->
-  <div class="freq-sp-section">
-    <div class="freq-sp-title freq-sp-collapsible" data-target="freq-sp-prompts-body">
-      📝 提示词编辑<span class="freq-sp-arrow">▶</span>
-    </div>
-    <div id="freq-sp-prompts-body" class="freq-sp-collapse-body">
-      <!-- 通用系统提示词 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">通用系统提示词（所有App共享前缀）</label>
-        <textarea id="freq-sp-prompt-system" class="freq-sp-textarea" rows="5"></textarea>
-      </div>
-      <!-- App01 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App01· 电台归档</label>
-        <textarea id="freq-sp-prompt-app01" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 02 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App02 · 后台录音室— 失真独白</label>
-        <textarea id="freq-sp-prompt-app02-monologue" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App02 · 后台录音室 — 演播厅采访</label>
-        <textarea id="freq-sp-prompt-app02-interview" class="freq-sp-textarea" rows="3"></textarea>
-      </div><div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App02 · 后台录音室 — 角色私录</label>
-        <textarea id="freq-sp-prompt-app02-private" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 03 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App03 · 朋友圈·电波</label>
-        <textarea id="freq-sp-prompt-app03" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 04 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App04 · 信号气象站</label>
-        <textarea id="freq-sp-prompt-app04" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 05 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App05 · 弦外之音·扫频</label>
-        <textarea id="freq-sp-prompt-app05" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 06 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App06 · 宇宙频率·感知</label>
-        <textarea id="freq-sp-prompt-app06" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 07 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App07 · 打卡·连线日志</label>
-        <textarea id="freq-sp-prompt-app07" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 08 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App08 · 日程表·双线轨道</label>
-        <textarea id="freq-sp-prompt-app08" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 09 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App09 · 小说软件·频道文库</label>
-        <textarea id="freq-sp-prompt-app09" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 10 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App10 · 地图·异界探索</label>
-        <textarea id="freq-sp-prompt-app10" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 11 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App11 · 外卖·跨次元配送</label>
-        <textarea id="freq-sp-prompt-app11" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 12 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App12 · 论坛·频道留言板</label>
-        <textarea id="freq-sp-prompt-app12" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 13 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App13 · 时光胶囊·留声机</label>
-        <textarea id="freq-sp-prompt-app13" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 14 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App14 · 梦境记录仪</label>
-        <textarea id="freq-sp-prompt-app14" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 15 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App15 · 情绪电波仪</label>
-        <textarea id="freq-sp-prompt-app15" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 16 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App16 · 黑匣子·禁区档案</label>
-        <textarea id="freq-sp-prompt-app16" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-      <!-- App 17 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">App17 · 信号翻译器</label>
-        <textarea id="freq-sp-prompt-app17" class="freq-sp-textarea" rows="3"></textarea>
-      </div><!-- 后台主动消息 -->
-      <div class="freq-sp-prompt-block">
-        <label class="freq-sp-prompt-label">后台主动消息（副API定时触发）</label>
-        <textarea id="freq-sp-prompt-bg" class="freq-sp-textarea" rows="3"></textarea>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ 报错日志 ═══ -->
-  <div class="freq-sp-section">
-    <div class="freq-sp-title freq-sp-collapsible" data-target="freq-sp-log-body">
-      🐛 报错日志 <span class="freq-sp-arrow">▶</span>
-    </div>
-    <div id="freq-sp-log-body" class="freq-sp-collapse-body">
+    <!-- ── 总控── -->
+    <div class="freq-sp-section">
+      <div class="freq-sp-title">⚙️ 总控</div>
+      <label class="freq-sp-row">
+        <span>启用插件</span>
+        <input type="checkbox" id="freq-sp-enabled" />
+      </label>
+      <label class="freq-sp-row">
+        <span>启用悬浮球</span>
+        <input type="checkbox" id="freq-sp-fab-enabled" />
+      </label>
       <div class="freq-sp-row">
-        <button id="freq-sp-log-clear" class="freq-sp-btn freq-sp-btn-danger">🗑️ 清空日志</button>
-        <span id="freq-sp-log-count" class="freq-sp-hint">0条</span>
-      </div>
-      <div id="freq-sp-log-list" class="freq-sp-log-list"><div class="freq-sp-log-empty">暂无日志</div>
+        <button id="freq-sp-open-phone" class="freq-sp-btn">📱 打开手机面板</button>
       </div>
     </div>
-  </div>
 
+    <!-- ── 副API 配置 ── -->
+    <div class="freq-sp-section">
+      <div class="freq-sp-title">🔌 副 API 配置</div>
+      <label class="freq-sp-row freq-sp-col">
+        <span>API 地址</span>
+        <input type="text" id="freq-sp-api-url" placeholder="https://api.example.com/v1" class="freq-sp-input" />
+      </label>
+      <label class="freq-sp-row freq-sp-col">
+        <span>API 密钥</span>
+        <input type="password" id="freq-sp-api-key" placeholder="sk-..." class="freq-sp-input" />
+      </label>
+      <div class="freq-sp-row">
+        <button id="freq-sp-fetch-models" class="freq-sp-btn">🔍 获取可用模型</button>
+        <span id="freq-sp-model-status" class="freq-sp-hint"></span>
+      </div><label class="freq-sp-row freq-sp-col">
+        <span>选择模型</span>
+        <select id="freq-sp-model-select" class="freq-sp-input">
+          <option value="">-- 请先获取模型列表 --</option>
+        </select>
+      </label><label class="freq-sp-row freq-sp-col">
+        <span>后台触发频率</span>
+        <select id="freq-sp-trigger-interval" class="freq-sp-input">
+          <option value="1800000">30 分钟</option>
+          <option value="3600000">1 小时</option>
+          <option value="custom">自定义</option>
+        </select>
+      </label>
+      <label class="freq-sp-row freq-sp-col" id="freq-sp-custom-interval-row" style="display:none;">
+        <span>自定义间隔（分钟）</span>
+        <input type="number" id="freq-sp-custom-interval" placeholder="60" min="5" class="freq-sp-input" />
+      </label>
+      <div class="freq-sp-hint">触发一次后进入 3 小时静默期，之后重新计时。</div>
+    </div>
+
+    <!-- ── 通知设置 ── -->
+    <div class="freq-sp-section">
+      <div class="freq-sp-title">🔔 通知设置</div>
+      <label class="freq-sp-row freq-sp-col">
+        <span>通知位置</span>
+        <select id="freq-sp-notify-pos" class="freq-sp-input">
+          <option value="top-right">右上角</option>
+          <option value="top-left">左上角</option>
+          <option value="bottom-right">右下角</option>
+          <option value="bottom-left">左下角</option>
+          <option value="top-center">顶部居中</option>
+        </select>
+      </label></div>
+
+    <!-- ── 提示词编辑 ── -->
+    <div class="freq-sp-section">
+      <div class="freq-sp-title freq-sp-collapsible" data-target="freq-sp-prompts-body">
+        📝 提示词编辑<span class="freq-sp-arrow">▶</span>
+      </div>
+      <div id="freq-sp-prompts-body" class="freq-sp-collapse-body">
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">通用系统提示词（所有 App 共享前缀）</label>
+          <textarea id="freq-sp-prompt-system" class="freq-sp-textarea" rows="5"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App01 · 电台归档</label>
+          <textarea id="freq-sp-prompt-app01" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App02 · 后台录音室— 失真独白</label>
+          <textarea id="freq-sp-prompt-app02-monologue" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App02 · 后台录音室 — 演播厅采访</label>
+          <textarea id="freq-sp-prompt-app02-interview" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App02 · 后台录音室 — 角色私录</label>
+          <textarea id="freq-sp-prompt-app02-private" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App03 · 朋友圈·电波</label>
+          <textarea id="freq-sp-prompt-app03" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App04 · 信号气象站</label>
+          <textarea id="freq-sp-prompt-app04" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App05 · 弦外之音·扫频</label>
+          <textarea id="freq-sp-prompt-app05" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App06 · 宇宙频率·感知</label>
+          <textarea id="freq-sp-prompt-app06" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App07 · 打卡·连线日志</label>
+          <textarea id="freq-sp-prompt-app07" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App08 · 日程表·双线轨道</label>
+          <textarea id="freq-sp-prompt-app08" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App09 · 小说软件·频道文库</label>
+          <textarea id="freq-sp-prompt-app09" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App10 · 地图·异界探索</label>
+          <textarea id="freq-sp-prompt-app10" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App11 · 外卖·跨次元配送</label>
+          <textarea id="freq-sp-prompt-app11" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App12 · 论坛·频道留言板</label>
+          <textarea id="freq-sp-prompt-app12" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App13 · 时光胶囊·留声机</label>
+          <textarea id="freq-sp-prompt-app13" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App14 · 梦境记录仪</label>
+          <textarea id="freq-sp-prompt-app14" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App15 · 情绪电波仪</label>
+          <textarea id="freq-sp-prompt-app15" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App16 · 黑匣子·禁区档案</label>
+          <textarea id="freq-sp-prompt-app16" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">App17 · 信号翻译器</label>
+          <textarea id="freq-sp-prompt-app17" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+        <div class="freq-sp-prompt-block">
+          <label class="freq-sp-prompt-label">后台主动消息（副 API 定时触发）</label>
+          <textarea id="freq-sp-prompt-bg" class="freq-sp-textarea" rows="3"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 报错日志 ── -->
+    <div class="freq-sp-section">
+      <div class="freq-sp-title freq-sp-collapsible" data-target="freq-sp-log-body">
+        🐛 报错日志 <span class="freq-sp-arrow">▶</span>
+      </div>
+      <div id="freq-sp-log-body" class="freq-sp-collapse-body">
+        <div class="freq-sp-row">
+          <button id="freq-sp-log-clear" class="freq-sp-btn freq-sp-btn-danger">🗑️ 清空日志</button>
+          <span id="freq-sp-log-count" class="freq-sp-hint">0 条</span>
+        </div>
+        <div id="freq-sp-log-list" class="freq-sp-log-list"><div class="freq-sp-log-empty">暂无日志</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /master-body -->
 </div>
