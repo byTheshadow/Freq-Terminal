@@ -2328,4 +2328,299 @@
 }
 
 /* ============================================================ end App04 · 信号气象站 fwx- */
+/* ============================================================
+   App05 · 弦外之音·扫频  f05-
+   主题色 #8B0000 / #1a0000
+   ============================================================ */
+
+/* ── 整体容器 ── */
+.f05-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0d0000;
+  color: #e8c8c8;
+  font-family: 'Courier New', Courier, monospace;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── 扫描仪头部 ── */
+.f05-scanner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  background: #1a0000;
+  border-bottom: 1px solid #5c0000;
+  flex-shrink: 0;
+}
+
+.f05-scanner-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #ff4444;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.f05-title-icon {
+  font-size: 14px;
+}
+
+/* 频率数字显示屏 */
+.f05-freq-display {
+  font-size: 15px;
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  color: #ff2222;
+  text-shadow: 0 0 8px #ff000088, 0 0 16px #ff000044;
+  background: #0a0000;
+  border: 1px solid #5c0000;
+  border-radius: 4px;
+  padding: 3px 10px;
+  min-width: 110px;
+  text-align: center;
+}
+
+.f05-freq-idle {
+  color: #661111;
+  text-shadow: none;
+}
+
+.f05-freq-scanning {
+  color: #ff4444;
+  animation: f05-blink 0.5s step-end infinite;
+}
+
+@keyframes f05-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+
+/* ── 扫描线动画 ── */
+.f05-scanline-wrap {
+  position: relative;
+  height: 3px;
+  background: #1a0000;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.f05-scanline {
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, #ff2222cc, #ff4444, #ff2222cc, transparent);
+  animation: f05-scan 1.2s linear infinite;
+  box-shadow: 0 0 10px #ff000099;
+}
+
+@keyframes f05-scan {
+  0%   { left: -40%; }
+  100% { left: 140%; }
+}
+
+/* ── 历史记录列表 ── */
+.f05-history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 60px;
+}
+
+.f05-history::-webkit-scrollbar {
+  width: 3px;
+}
+.f05-history::-webkit-scrollbar-track {
+  background: #0d0000;
+}
+.f05-history::-webkit-scrollbar-thumb {
+  background: #5c0000;
+  border-radius: 2px;
+}
+
+/* ── 单条截获卡片 ── */
+.f05-card {
+  background: #150000;
+  border: 1px solid #3d0000;
+  border-left: 3px solid #8b0000;
+  border-radius: 6px;
+  padding: 8px 10px;
+  animation: f05-card-in 0.3s ease;
+}
+
+@keyframes f05-card-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.f05-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+/* NPC 代号标签 */
+.f05-npc-tag {
+  font-size: 11px;
+  font-weight: bold;
+  color: #ff6666;
+  background: #2a0000;
+  border: 1px solid #5c0000;
+  border-radius: 3px;
+  padding: 1px 6px;
+  letter-spacing: 0.05em;
+}
+
+/* 频率徽章 */
+.f05-freq-badge {
+  font-size: 10px;
+  color: #cc3333;
+  background: #0d0000;
+  border: 1px solid #3d0000;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.08em;
+}
+
+/* 时间戳 */
+.f05-time {
+  font-size: 10px;
+  color: #551111;
+  margin-left: auto;
+  font-family: 'Courier New', monospace;
+}
+
+/* 独白正文 */
+.f05-card-body {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #d4a0a0;
+  word-break: break-all;
+}
+
+/* 噪点字符 */
+.f05-noise {
+  color: #661111;
+  opacity: 0.6;
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+/* ── 空状态 ── */
+.f05-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #441111;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  padding: 40px 0;
+}
+
+.f05-empty-icon {
+  font-size: 32px;
+  opacity: 0.4;
+  filter: grayscale(0.5);
+}
+
+/* ── 状态文字 ── */
+.f05-status {
+  text-align: center;
+  font-size: 11px;
+  color: #cc4444;
+  padding: 4px 12px;
+  flex-shrink: 0;
+}
+
+/* ── 底部操作栏 ── */
+.f05-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(to top, #0d0000 70%, transparent);
+  border-top: 1px solid #2a0000;
+}
+
+/* 扫频主按钮 */
+.f05-btn-scan {
+  flex: 1;
+  background: linear-gradient(135deg, #6b0000, #8b0000);
+  color: #ffcccc;
+  border: 1px solid #cc2222;
+  border-radius: 6px;
+  padding: 9px 0;
+  font-size: 13px;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-shadow: 0 0 8px #ff000066;
+  box-shadow: 0 0 12px #8b000044, inset 0 1px 0 #cc222244;
+}
+
+.f05-btn-scan:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8b0000, #aa0000);
+  box-shadow: 0 0 18px #8b000088, inset 0 1px 0 #cc222244;
+  color: #ffffff;
+}
+
+.f05-btn-scan:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: 0 0 6px #8b000066;
+}
+
+.f05-btn-scan:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* 清除按钮 */
+.f05-btn-clear {
+  background: transparent;
+  color: #661111;
+  border: 1px solid #3d0000;
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.f05-btn-clear:hover:not(:disabled) {
+  color: #cc3333;
+  border-color: #661111;
+  background: #1a0000;
+}
+
+.f05-btn-clear:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ============================================================ end App05 */
 
