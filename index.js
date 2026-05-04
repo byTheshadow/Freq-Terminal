@@ -2177,6 +2177,7 @@ const FreqTerminal = (() => {
   // 先注册有实现的 App（覆盖空壳）
   const implementations = [
     App01Archive,
+    App02Studio,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
   ];
   for (const app of implementations) {
