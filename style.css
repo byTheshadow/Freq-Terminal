@@ -2510,6 +2510,30 @@
   color: #d4a0a0;
   word-break: break-all;
 }
+/* 折叠状态：最多显示 3 行 */
+.f05-card-body.f05-collapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 展开按钮 */
+.f05-expand-btn {
+  font-size: 10px;
+  color: #661111;
+  cursor: pointer;
+  text-align: right;
+  padding: 2px 0 0;
+  letter-spacing: 0.05em;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.f05-expand-btn:hover {
+  color: #cc3333;
+}
+
 
 /* 噪点字符 */
 .f05-noise {
