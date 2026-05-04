@@ -1795,12 +1795,23 @@ const FreqTerminal = (() => {
     }}
 
   function _registerAllApps() {
-    for (const def of FREQ_APP_DEFS) {
-      if (!_appRegistry[def.id]) {
-        registerApp({ id: def.id, name: def.name, icon: def.icon });
-      }
+  // 先注册有实现的 App（覆盖空壳）
+  const implementations = [
+    App01Archive,
+    // 后续 App 在这里追加：App02Studio, App03Moments, ...
+  ];
+  for (const app of implementations) {
+    registerApp(app);
+  }
+
+  // 其余没有实现的 App 注册空壳
+  for (const def of FREQ_APP_DEFS) {
+    if (!_appRegistry[def.id]) {
+      registerApp({ id: def.id, name: def.name, icon: def.icon });
     }
   }
+}
+
 
   // ── 监听 ST 事件 ──
   function _listenSTEvents() {
