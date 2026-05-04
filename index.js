@@ -296,23 +296,50 @@ const FreqStore = (() => {
 
   function open() {
     return new Promise((resolve, reject) => {
-      if (_db) { resolve(_db); return; }
+      // ── 核心修复：检查缓存的 _db 是否还活着 ──
+      if (_db) {
+        try {
+          // 用一个只读事务探测连接是否还有效
+          _db.transaction(STORE_NAME, 'readonly');
+          resolve(_db);
+          return;
+        } catch (e) {
+          // 连接已失效，清掉缓存，重新打开
+          FreqLog.warn('store', 'IndexedDB 连接已失效，重新打开');
+          _db = null;
+        }
+      }
+
       try {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
           if (!db.objectStoreNames.contains(STORE_NAME)) {
             db.createObjectStore(STORE_NAME);
+            FreqLog.info('store', `已创建 object store: ${STORE_NAME}`);
           }
         };
         req.onsuccess = (e) => {
           _db = e.target.result;
+
+          // ── 监听连接被意外关闭的事件 ──
+          _db.onclose = () => {
+            FreqLog.warn('store', 'IndexedDB 连接被关闭，下次操作时重连');
+            _db = null;
+          };
+          _db.onerror = (ev) => {
+            FreqLog.error('store', 'IndexedDB 错误', ev.target.error);
+          };
+
           FreqLog.info('store', 'IndexedDB 已连接');
           resolve(_db);
         };
         req.onerror = (e) => {
           FreqLog.error('store', 'IndexedDB 打开失败', e.target.error);
           reject(e.target.error);
+        };
+        req.onblocked = () => {
+          FreqLog.warn('store', 'IndexedDB 被阻塞，等待其他标签页关闭');
         };
       } catch (err) {
         FreqLog.error('store', 'IndexedDB 异常', err);
@@ -321,6 +348,7 @@ const FreqStore = (() => {
     });
   }
 
+  // ── _tx 不变，但 open() 现在会自动处理失效重连 ──
   async function _tx(mode) {
     const db = await open();
     return db.transaction(STORE_NAME, mode).objectStore(STORE_NAME);
@@ -367,35 +395,37 @@ const FreqStore = (() => {
   }
 
   async function getAll() {
-    try {
-      const store = await _tx('readonly');
-      return new Promise((resolve, reject) => {
-        const req = store.getAll();
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    } catch (err) {
-      FreqLog.error('store', 'getAll 异常', err);
-      return [];
-    }
-  }
-
-  async function keys() {
-    try {
-      const store = await _tx('readonly');
-      return new Promise((resolve, reject) => {
-        const req = store.getAllKeys();
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    } catch (err) {
-      FreqLog.error('store', 'keys 异常', err);
-      return [];
-    }
-  }
-
-  return { open, get, set, del, getAll, keys };
-})();
+ async function name(params) {
+     try {
+       const store = await _tx('readonly');
+       return new Promise((resolve, reject) => {
+         const req = store.getAll();
+         req.onsuccess = () => resolve(req.result);
+         req.onerror = () => reject(req.error);
+       });
+     } catch (err) {
+       FreqLog.error('store', 'getAll 异常', err);
+       return [];
+     }
+   }
+ 
+   async function keys() {
+     try {
+       const store = await _tx('readonly');
+       return new Promise((resolve, reject) => {
+         const req = store.getAllKeys();
+         req.onsuccess = () => resolve(req.result);
+         req.onerror = () => reject(req.error);
+       });
+     } catch (err) {
+       FreqLog.error('store', 'keys 异常', err);
+       return [];
+     }
+   }
+ 
+   return { open, get, set, del, getAll, keys };
+ })();
+ }
 
 
 // ============================================================
