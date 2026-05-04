@@ -311,10 +311,11 @@ const FreqStore = (() => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
         req.onupgradeneeded = (e) => {
           const db = e.target.result;
-          if (!db.objectStoreNames.contains(STORE_NAME)) {
-            db.createObjectStore(STORE_NAME);
-            FreqLog.info('store', `已创建 object store: ${STORE_NAME}`);
+          if (db.objectStoreNames.contains(STORE_NAME)) {
+            db.deleteObjectStore(STORE_NAME);
           }
+          db.createObjectStore(STORE_NAME);
+          FreqLog.info('store', `已创建 object store: ${STORE_NAME}`);
         };
         req.onsuccess = (e) => {
           _db = e.target.result;
@@ -417,7 +418,6 @@ const FreqStore = (() => {
 
   return { open, get, set, del, getAll, keys };
 })();
-
 // ============================================================
 //  block_04  —  事件总线
 // ============================================================
