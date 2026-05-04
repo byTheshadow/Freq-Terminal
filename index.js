@@ -296,15 +296,12 @@ const FreqStore = (() => {
 
   function open() {
     return new Promise((resolve, reject) => {
-      // ── 核心修复：检查缓存的 _db 是否还活着 ──
       if (_db) {
         try {
-          // 用一个只读事务探测连接是否还有效
           _db.transaction(STORE_NAME, 'readonly');
           resolve(_db);
           return;
         } catch (e) {
-          // 连接已失效，清掉缓存，重新打开
           FreqLog.warn('store', 'IndexedDB 连接已失效，重新打开');
           _db = null;
         }
@@ -321,8 +318,6 @@ const FreqStore = (() => {
         };
         req.onsuccess = (e) => {
           _db = e.target.result;
-
-          // ── 监听连接被意外关闭的事件 ──
           _db.onclose = () => {
             FreqLog.warn('store', 'IndexedDB 连接被关闭，下次操作时重连');
             _db = null;
@@ -330,7 +325,6 @@ const FreqStore = (() => {
           _db.onerror = (ev) => {
             FreqLog.error('store', 'IndexedDB 错误', ev.target.error);
           };
-
           FreqLog.info('store', 'IndexedDB 已连接');
           resolve(_db);
         };
@@ -348,7 +342,6 @@ const FreqStore = (() => {
     });
   }
 
-  // ── _tx 不变，但 open() 现在会自动处理失效重连 ──
   async function _tx(mode) {
     const db = await open();
     return db.transaction(STORE_NAME, mode).objectStore(STORE_NAME);
@@ -395,38 +388,35 @@ const FreqStore = (() => {
   }
 
   async function getAll() {
- async function name(params) {
-     try {
-       const store = await _tx('readonly');
-       return new Promise((resolve, reject) => {
-         const req = store.getAll();
-         req.onsuccess = () => resolve(req.result);
-         req.onerror = () => reject(req.error);
-       });
-     } catch (err) {
-       FreqLog.error('store', 'getAll 异常', err);
-       return [];
-     }
-   }
- 
-   async function keys() {
-     try {
-       const store = await _tx('readonly');
-       return new Promise((resolve, reject) => {
-         const req = store.getAllKeys();
-         req.onsuccess = () => resolve(req.result);
-         req.onerror = () => reject(req.error);
-       });
-     } catch (err) {
-       FreqLog.error('store', 'keys 异常', err);
-       return [];
-     }
-   }
- 
-   return { open, get, set, del, getAll, keys };
- })();
- }
+    try {
+      const store = await _tx('readonly');
+      return new Promise((resolve, reject) => {
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (err) {
+      FreqLog.error('store', 'getAll 异常', err);
+      return [];
+    }
+  }
 
+  async function keys() {
+    try {
+      const store = await _tx('readonly');
+      return new Promise((resolve, reject) => {
+        const req = store.getAllKeys();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (err) {
+      FreqLog.error('store', 'keys 异常', err);
+      return [];
+    }
+  }
+
+  return { open, get, set, del, getAll, keys };
+})();
 
 // ============================================================
 //  block_04  —  事件总线
