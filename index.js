@@ -157,88 +157,92 @@
   // ── BLOCK_01 END ──────────────────────────────────────
 
 
-  // ┌──────────────────────────────────────────────────────┐
-  // │ BLOCK_02  ST Bridge — 读取 SillyTavern 数据           │
-  // └──────────────────────────────────────────────────────┘
+ // ┌──────────────────────────────────────────────────────┐
+// │ BLOCK_02  ST Bridge — 读取 SillyTavern 数据           │
+// └──────────────────────────────────────────────────────┘
 
-  const STBridge = {
-    getContext() {
-      try {
-        if (window.SillyTavern && window.SillyTavern.getContext) {
-          return window.SillyTavern.getContext();
-        }} catch (e) {
-        console.error('[FREQ] STBridge.getContext error:', e);
+const STBridge = {
+  getContext() {
+    try {
+      if (window.SillyTavern && window.SillyTavern.getContext) {
+        return window.SillyTavern.getContext();
       }
-      return null;
-    },
-
-    getChatMessages() {
-      const ctx = this.getContext();
-      return ctx && ctx.chat ? ctx.chat : [];
-    },
-
-    getCharName() {
-      const ctx = this.getContext();
-      return ctx ? ctx.name2 || '未知角色' : '未知角色';
-    },
-
-    getUserName() {
-      const ctx = this.getContext();
-      return ctx ? ctx.name1 || 'User' : 'User';
-    },
-
-    getCharacters() {
-      const ctx = this.getContext();
-      return ctx && ctx.characters ? ctx.characters : [];
-    },
-
-    getRecentMessages(n = 10) {
-      const msgs = this.getChatMessages();
-      const recent = msgs.slice(-n);
-      return recent.map((m) => {
-        const who = m.is_user ? this.getUserName() : this.getCharName();
-        return `${who}: ${m.mes || ''}`;
-      }).join('\n');
-    },
-
-    
-getSettings() {
-  if (!window.extension_settings) window.extension_settings = {};
-  if (!window.extension_settings[EXTENSION_NAME]) {
-    window.extension_settings[EXTENSION_NAME] = deepClone(DEFAULT_SETTINGS);
-  }
-  const s = window.extension_settings[EXTENSION_NAME];
-  // 只补全缺失的 key，不覆盖已有数据（原逻辑已正确，保持不变）
-  for (const key in DEFAULT_SETTINGS) {
-    if (!(key in s)) {
-      s[key] = deepClone(DEFAULT_SETTINGS[key]);
+    } catch (e) {
+      console.error('[FREQ] STBridge.getContext error:', e);
     }
-  }
-  // appData 也做深层补全，防止子 key 丢失
-  if (typeof s.appData !== 'object' || s.appData === null) {
-    s.appData = {};
-  }
-  return s;
-},
+    return null;
+  },
 
+  getChatMessages() {
+    const ctx = this.getContext();
+    return ctx && ctx.chat ? ctx.chat : [];
+  },
+
+  getCharName() {
+    const ctx = this.getContext();
+    return ctx ? ctx.name2 || '未知角色' : '未知角色';
+  },
+
+  getUserName() {
+    const ctx = this.getContext();
+    return ctx ? ctx.name1 || 'User' : 'User';
+  },
+
+  getCharacters() {
+    const ctx = this.getContext();
+    return ctx && ctx.characters ? ctx.characters : [];
+  },
+
+  getRecentMessages(n = 10) {
+    const msgs = this.getChatMessages();
+    const recent = msgs.slice(-n);
+    return recent.map((m) => {
+      const who = m.is_user ? this.getUserName() : this.getCharName();
+      return `${who}: ${m.mes || ''}`;
+    }).join('\n');
+  },
+
+  getSettings() {
+    if (!window.extension_settings) window.extension_settings = {};
+
+    if (!window.extension_settings[EXTENSION_NAME] ||
+        typeof window.extension_settings[EXTENSION_NAME] !== 'object') {
+      window.extension_settings[EXTENSION_NAME] = {};
+    }
+
+    const s = window.extension_settings[EXTENSION_NAME];
+
+    for (const key in DEFAULT_SETTINGS) {
+      if (!(key in s)) {
+        s[key] = deepClone(DEFAULT_SETTINGS[key]);
+      }
+    }
+
+    if (typeof s.appData !== 'object' || s.appData === null) {
+      s.appData = {};
+    }
+
+    return s;
+  },
 
   saveSettings() {
-      try {
-        if (typeof window.saveSettingsDebounced === 'function') {
-          window.saveSettingsDebounced();
-        } else {
-          // ST 未就绪，延迟重试一次
-          setTimeout(() => {
-            if (typeof window.saveSettingsDebounced === 'function') {
-              window.saveSettingsDebounced();
-            }
-          }, 1000);
-        }
-      } catch (e) {
-        console.error('[FREQ] saveSettings error:', e);
+    try {
+      if (typeof window.saveSettingsDebounced === 'function') {
+        window.saveSettingsDebounced();
+      } else {
+        setTimeout(() => {
+          if (typeof window.saveSettingsDebounced === 'function') {
+            window.saveSettingsDebounced();
+          }
+        }, 1000);
       }
-    },
-  };
+    } catch (e) {
+      console.error('[FREQ] saveSettings error:', e);
+    }
+  },
+};
+
+// ── BLOCK_02 END ──────────────────────────────────────
 
   // ── BLOCK_02 END ──────────────────────────────────────
 
@@ -2099,8 +2103,7 @@ registerApp(BackstageStudioApp);
 
   // jQuery 入口
   if (typeof jQuery !== 'undefined') {
-    jQuery(async () => {
-      const maxWait = 10000;
+         const maxWait = 10000;
       const start = Date.now();
 
       // 等待 SillyTavern.getContext 可用
@@ -2141,6 +2144,7 @@ registerApp(BackstageStudioApp);
       freqInit();
     }
   }
+
 
 
 
