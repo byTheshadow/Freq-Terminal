@@ -1326,9 +1326,6 @@ const App01Archive = (() => {
   };
 })();
 
-// 注册（覆盖空壳）
-FreqTerminal.registerApp(App01Archive);
-
 
 // ============================================================
 //  block_99  —  App 注册 & UI 渲染 & 初始化
