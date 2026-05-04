@@ -1217,47 +1217,50 @@ getSettings() {
     },
 
     _bindSettingsEvents() {
-      const saveDebounced = debounce(() => {
-        const settings = STBridge.getSettings();
-        settings.enabled = this._getVal('#freq-enabled');
-        settings.floatEnabled = this._getVal('#freq-float-enabled');
-        settings.subApiUrl = this._getVal('#freq-sub-api-url');
-        settings.subApiKey = this._getVal('#freq-sub-api-key');
-        settings.subApiMaxTokens = this._getVal('#freq-sub-api-max-tokens');
-        settings.weatherKey = this._getVal('#freq-weather-key');
-        settings.weatherCity = this._getVal('#freq-weather-city');
-        settings.bgTriggerEnabled = this._getVal('#freq-bg-trigger-enabled');
-        settings.bgTriggerCustom = this._getVal('#freq-bg-trigger-custom');
+  // 防止重复绑定
+  const panel = document.querySelector('#freq-settings-panel');
+  if (!panel || panel.dataset.freqBound === '1') return;
+  panel.dataset.freqBound = '1';
 
-        const modelSelect = document.querySelector('#freq-sub-api-model');
-        if (modelSelect) settings.subApiModel = modelSelect.value;
+  const saveDebounced = debounce(() => {
+    const settings = STBridge.getSettings();
+    settings.enabled = this._getVal('#freq-enabled');
+    settings.floatEnabled = this._getVal('#freq-float-enabled');
+    settings.subApiUrl = this._getVal('#freq-sub-api-url');
+    settings.subApiKey = this._getVal('#freq-sub-api-key');
+    settings.subApiMaxTokens = this._getVal('#freq-sub-api-max-tokens');
+    settings.weatherKey = this._getVal('#freq-weather-key');
+    settings.weatherCity = this._getVal('#freq-weather-city');
+    settings.bgTriggerEnabled = this._getVal('#freq-bg-trigger-enabled');
+    settings.bgTriggerCustom = this._getVal('#freq-bg-trigger-custom');
 
-        const intervalSelect = document.querySelector('#freq-bg-trigger-interval');
-        if (intervalSelect) {
-          if (intervalSelect.value === 'custom') {
-            settings.bgTriggerInterval = (settings.bgTriggerCustom || 60) * 60000;
-          } else {
-            settings.bgTriggerInterval = parseInt(intervalSelect.value, 10);
-          }
-        }
+    const modelSelect = document.querySelector('#freq-sub-api-model');
+    if (modelSelect) settings.subApiModel = modelSelect.value;
 
-        this._savePrompts();
-        STBridge.saveSettings();
-
-        PhoneShell.setFloatVisible(settings.enabled && settings.floatEnabled);
-
-        if (settings.bgTriggerEnabled) {
-          this._startBgTrigger();
-        } else {
-          this._stopBgTrigger();
-        }
-      }, 500);
-
-      const panel = document.querySelector('#freq-settings-panel');
-      if (panel) {
-        panel.addEventListener('input', saveDebounced);
-        panel.addEventListener('change', saveDebounced);
+    const intervalSelect = document.querySelector('#freq-bg-trigger-interval');
+    if (intervalSelect) {
+      if (intervalSelect.value === 'custom') {
+        settings.bgTriggerInterval = (settings.bgTriggerCustom || 60) * 60000;
+      } else {
+        settings.bgTriggerInterval = parseInt(intervalSelect.value, 10);
       }
+    }
+
+    this._savePrompts();
+    STBridge.saveSettings();
+
+    PhoneShell.setFloatVisible(settings.enabled && settings.floatEnabled);
+
+    if (settings.bgTriggerEnabled) {
+      this._startBgTrigger();
+    } else {
+      this._stopBgTrigger();
+    }
+  }, 500);
+
+  panel.addEventListener('input', saveDebounced);
+  panel.addEventListener('change', saveDebounced);
+
 
       // 触发间隔切换
       const intervalSelect = document.querySelector('#freq-bg-trigger-interval');
