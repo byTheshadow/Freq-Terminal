@@ -740,3 +740,260 @@
     --freq-phone-radius-outer: 0px;
     --freq-phone-radius-inner: 0px;}
 }
+/* ═══════════════════════════════════════════════════════
+   App 01 · 电台归档
+   ═══════════════════════════════════════════════════════ */
+
+/* ── 工具栏 ── */
+.freq-archive-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.freq-archive-search-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0 10px;
+  height: 36px;
+}
+
+.freq-archive-search-icon {
+  font-size: 14px;
+  margin-right: 6px;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.freq-archive-search {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--freq-text);
+  font-size: 13px;
+  height: 100%;
+  min-width: 0;
+}
+
+.freq-archive-search::placeholder {
+  color: var(--freq-text-dim);
+}
+
+.freq-archive-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.freq-archive-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--freq-text);
+  font-size: 12px;
+  padding: 0 10px;
+  height: 36px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background0.2s;
+}
+
+.freq-archive-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.freq-archive-btn:active {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ── 计数 ── */
+.freq-archive-count {
+  font-size: 12px;
+  color: var(--freq-text-dim);
+  margin-bottom: 12px;
+  padding-left: 2px;
+}
+
+/* ── 卡片列表 ── */
+.freq-archive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── 卡片 ── */
+.freq-archive-card {
+  background: var(--freq-card-bg);
+  border: 1px solid var(--freq-border);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s, background0.2s;
+}
+
+.freq-archive-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.freq-archive-card.freq-archive-card-expanded {
+  border-color: var(--freq-accent);
+  background: rgba(163, 45, 45, 0.05);
+}
+
+/* ── 卡片头部 ── */
+.freq-archive-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.freq-archive-serial {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--freq-accent);
+  flex-shrink: 0;
+}
+
+.freq-archive-time {
+  font-size: 12px;
+  color: var(--freq-text-dim);
+  word-break: break-word;
+}
+
+/* ── 场景 ── */
+.freq-archive-scene {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--freq-text);
+  margin-bottom: 6px;padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+
+.freq-archive-scene-icon {
+  flex-shrink: 0;
+}
+
+/* ── 剧情预览（折叠态）── */
+.freq-archive-plot-preview {
+  font-size: 13px;
+  color: var(--freq-text-dim);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/*展开后隐藏预览 */
+.freq-archive-card-expanded .freq-archive-plot-preview {
+  display: none;
+}
+
+/* ── 展开体 ── */
+.freq-archive-expanded-body {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.freq-archive-field {
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  border-left: 3px solid rgba(255, 255, 255, 0.1);
+}
+
+.freq-archive-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--freq-text-dim);
+  margin-bottom: 4px;text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.freq-archive-field-value {
+  font-size: 13px;
+  color: var(--freq-text);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Seeds 特殊样式 */
+.freq-archive-seeds {
+  border-left-color: #2D5A0E;
+  background: rgba(45, 90, 14, 0.08);
+}
+
+.freq-archive-seeds .freq-archive-field-label {
+  color: #6abf40;
+}
+
+/* ── 原始数据折叠 ── */
+.freq-archive-raw-details {
+  margin-top: 4px;
+}
+
+.freq-archive-raw-summary {
+  font-size: 11px;
+  color: var(--freq-text-dim);
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.freq-archive-raw-summary:hover {
+  color: var(--freq-text);
+}
+
+.freq-archive-raw-content {
+  font-size: 11px;
+  color: var(--freq-text-dim);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;background: rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.freq-archive-raw-content::-webkit-scrollbar {
+  width: 3px;
+}
+
+.freq-archive-raw-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+/* ── 展开/收起按钮 ── */
+.freq-archive-toggle {
+  text-align: center;
+  font-size: 12px;
+  color: var(--freq-text-dim);
+  padding-top: 8px;
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.freq-archive-card:hover .freq-archive-toggle {
+  color: var(--freq-accent);
+}
