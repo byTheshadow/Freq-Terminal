@@ -3108,20 +3108,22 @@ const App05Scanner = (() => {
     if (!_container) return;
 
     const historyHtml = _history.length === 0
-      ? `<div class="freq-empty-state f05-empty">
-           <div class="f05-empty-icon">📶</div>
-           <div>按下扫频，截获信号</div>
-         </div>`
-      : _history.map(item => `
-          <div class="f05-card" data-id="${item.id}">
-            <div class="f05-card-header">
-              <span class="f05-npc-tag">${_escHtml(item.npcName)}</span>
-              <span class="f05-freq-badge">${_escHtml(item.freq)}</span>
-              <span class="f05-time">${_escHtml(item.time)}</span>
-            </div>
-            <div class="f05-card-body">${_distort(_escHtml(item.content))}</div>
-          </div>`
-        ).join('');
+  ? `<div class="freq-empty-state f05-empty">
+       <div class="f05-empty-icon">📶</div>
+       <div>按下扫频，截获信号</div>
+     </div>`
+  : _history.map(item => `
+      <div class="f05-card" data-id="${item.id}">
+        <div class="f05-card-header">
+          <span class="f05-npc-tag">${_escHtml(item.npcName)}</span>
+          <span class="f05-freq-badge">${_escHtml(item.freq)}</span>
+          <span class="f05-time">${_escHtml(item.time)}</span>
+        </div>
+        <div class="f05-card-body f05-collapsed" data-id="${item.id}">${_distort(_escHtml(item.content))}</div>
+        <div class="f05-expand-btn" data-id="${item.id}">展开 ▾</div>
+      </div>`
+    ).join('');
+
 
     _container.innerHTML = `
       <div class="f05-wrap">
@@ -3213,13 +3215,29 @@ const App05Scanner = (() => {
         if (!_container) return;
         _render(); _bindEvents(_container);
 
-        // 3 秒后清除状态文字
+                // 3 秒后清除状态文字
         setTimeout(() => {
           if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
             _statusText = '';
             if (_container) { _render(); _bindEvents(_container); }
           }
         }, 3000);
+      }  
+
+      // 展开/收起卡片正文
+      const expandBtn = e.target.closest('.f05-expand-btn');
+      if (expandBtn) {
+        const id = expandBtn.dataset.id;
+        const body = _container.querySelector(`.f05-card-body[data-id="${id}"]`);
+        if (!body) return;
+        const isCollapsed = body.classList.contains('f05-collapsed');
+        if (isCollapsed) {
+          body.classList.remove('f05-collapsed');
+          expandBtn.textContent = '收起 ▴';
+        } else {
+          body.classList.add('f05-collapsed');
+          expandBtn.textContent = '展开 ▾';
+        }
       }
 
       // 清除历史
@@ -3229,7 +3247,8 @@ const App05Scanner = (() => {
         _statusText = '';
         _render(); _bindEvents(_container);
       }
-    };
+    };  
+
     container.addEventListener('click', _clickHandler);
   }
 
