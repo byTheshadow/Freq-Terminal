@@ -2510,12 +2510,18 @@
   color: #d4a0a0;
   word-break: break-all;
 }
-/* 折叠状态：最多显示 3 行 */
-.f05-card-body.f05-collapsed {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+.f05-card-body {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #d4a0a0;
+  word-break: break-all;
+  max-height: 1000px;          /* 展开状态：足够高 */
   overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.f05-card-body.f05-collapsed {
+  max-height: 62px;            /* 折叠状态：约 3 行（12.5px × 1.7 × 3 ≈ 63px） */
 }
 
 /* 展开按钮 */
