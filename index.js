@@ -156,8 +156,7 @@
 
   // ── BLOCK_01 END ──────────────────────────────────────
 
-
- // ┌──────────────────────────────────────────────────────┐
+  // ┌──────────────────────────────────────────────────────┐
 // │ BLOCK_02  ST Bridge — 读取 SillyTavern 数据           │
 // └──────────────────────────────────────────────────────┘
 
@@ -204,29 +203,23 @@ const STBridge = {
 
   getSettings() {
     if (!window.extension_settings) window.extension_settings = {};
-
     if (!window.extension_settings[EXTENSION_NAME] ||
         typeof window.extension_settings[EXTENSION_NAME] !== 'object') {
       window.extension_settings[EXTENSION_NAME] = {};
     }
-
     const s = window.extension_settings[EXTENSION_NAME];
-
+    // 只补全缺失字段，绝不覆盖已有数据
     for (const key in DEFAULT_SETTINGS) {
-      if (!(key in s)) {
-        s[key] = deepClone(DEFAULT_SETTINGS[key]);
-      }
+      if (!(key in s)) s[key] = deepClone(DEFAULT_SETTINGS[key]);
     }
-
-    if (typeof s.appData !== 'object' || s.appData === null) {
-      s.appData = {};
-    }
-
+    if (typeof s.appData !== 'object' || s.appData === null) s.appData = {};
     return s;
   },
 
-  saveSettings() {
+  saveSettings(patch) {
     try {
+      const s = this.getSettings();
+      if (patch && typeof patch === 'object') Object.assign(s, patch);
       if (typeof window.saveSettingsDebounced === 'function') {
         window.saveSettingsDebounced();
       } else {
@@ -243,9 +236,6 @@ const STBridge = {
 };
 
 // ── BLOCK_02 END ──────────────────────────────────────
-
-  // ── BLOCK_02 END ──────────────────────────────────────
-
 
   // ┌──────────────────────────────────────────────────────┐
   // │ BLOCK_03  Parser — 解析预设 XML 标签                   │
@@ -2107,7 +2097,6 @@ async function freqInit() {
 
 // jQuery 入口
 if (typeof jQuery !== 'undefined') {
-  // ✅ 必须包在 async 函数里才能用 await
   jQuery(async () => {
     const maxWait = 10000;
     const start = Date.now();
@@ -2124,31 +2113,31 @@ if (typeof jQuery !== 'undefined') {
       await sleep(100);
     }
 
-    // 先构建 DOM 和事件
+    // 构建 DOM 和绑定事件
     await freqInit();
 
-    const ctx = STBridge.getContext();
-
+    // settings_loaded 事件 + 延迟兜底，二选一触发，防止重复执行
     let settingsInited = false;
 
     const doSettingsInit = () => {
       if (settingsInited) return;
       settingsInited = true;
+      console.log('[FREQ] doSettingsInit 执行');
       SettingsUI.init();
       const settings = STBridge.getSettings();
       PhoneShell.setFloatVisible(settings.enabled && settings.floatEnabled);
     };
 
+    const ctx = STBridge.getContext();
     if (ctx && ctx.eventSource) {
       ctx.eventSource.on('settings_loaded', () => {
+        console.log('[FREQ] settings_loaded 事件触发');
         doSettingsInit();
       });
     }
 
-    // 延迟兜底：等 ST 有足够时间加载 settings.json
-    setTimeout(() => {
-      doSettingsInit();
-    }, 2000);
+    // 兜底：2 秒后若 settings_loaded 未触发则强制执行
+    setTimeout(doSettingsInit, 2000);
   });
 } else {
   if (document.readyState === 'loading') {
