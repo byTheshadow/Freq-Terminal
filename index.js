@@ -290,7 +290,7 @@ const FreqNotify = (() => {
 // ============================================================
 const FreqStore = (() => {
   const DB_NAME = 'FreqTerminalDB';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const STORE_NAME = 'freq_data';
   let _db = null;
 
