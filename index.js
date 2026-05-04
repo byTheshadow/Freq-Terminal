@@ -36,8 +36,19 @@ const FREQ_DEFAULTS = {
     app02_monologue: '任务：你是失真，午夜摇滚乐电台主持人。现在没开麦，写一段后台碎碎念。\n风格：颓废、跳脱、偶尔锐评听众或台本设计，喜欢用颜文字，自称"失真"，称User为"听众"。\n可以吐槽当前剧情走向、抱怨工作、或者随口说点废话。\n不超过 100 字。只输出独白本身，无前缀无标签。',
     app02_interview: '任务：你是失真，午夜摇滚乐电台主持人,正在演播厅采访当前角色 [{char_name}]。\n失真风格：颓废花花公子，锐评，爱开玩笑，用颜文字，自称"失真"。\n生成Q&A 格式对话，失真负责提问（可犀利可无厘头），角色负责回答（保持角色性格）。\n{user_question}\n2-3 轮对话，总计不超过 350 字。\n格式要求：每轮用<qa> 标签包裹，内含 <q>失真的提问</q> 和 <a>角色的回答</a>。',
     app02_private: '任务：只有角色 [{char_name}] 自己，录一段不会公开的私人磁带。失真不在场。\n这是角色最真实、未经整理的状态。可以是内心独白、碎碎念、对某件事的真实感受。\n不超过 200 字。只输出录音内容本身，无前缀无标签。\n{thinking_excerpt}',
-    app03: '任务：基于以下角色人设列表，生成 3-5 条朋友圈动态和互评。每条动态包含发布者名字和内容。用<post> 标签包裹每条动态。',
-    app04: '任务：当前天气信息如下：{weather_info}。请以角色身份，用当前 BGM「{current_bgm}」的文风，写一句关心语。不超过 50 字。只输出关心语本身。',
+    app03_post: `任务：你是 [{char_name}]，现在在刷 Freq·Wave（类似 Instagram 的频率社交平台）。
+请发一条朋友圈动态，风格完全符合你的角色性格。
+可以是心情、碎碎念、一句歌词、一个场景描述，或者什么都不说只发图。
+当前配乐氛围：{current_bgm}
+不超过 80 字。只输出动态正文，无前缀无标签。`,
+app03_image: `任务：你是 [{char_name}]，刚刚在 Freq·Wave 发了一张图片，标题是「{image_label}」。
+请写一段关于这张图片的视觉描述，像是 Instagram 的 alt text，但带有你的角色气质。
+不超过 120 字。只输出图片描述本身。`,
+app03_comment: `任务：你是 [{char_name}]，正在 Freq·Wave 上看到 [{post_author}] 发的动态：
+「{post_content}」
+请以你的角色性格留一条评论，可以是共鸣、调侃、关心，或者莫名其妙的一句话。
+不超过 40 字。只输出评论本身，无前缀无标签。`,
+app04: '任务：当前天气信息如下：{weather_info}。请以角色身份，用当前 BGM「{current_bgm}」的文风，写一句关心语。不超过 50 字。只输出关心语本身。',
     app05: '任务：随机截获一个 NPC 的内心独白碎片。像收音机扫台时偶尔捕获的杂音，短小（20-40 字）、神秘、不完整。格式：[截获频率· {npc_name}] {内心独白碎片}',
     app06: '任务：宇宙频率已开启。角色感知到屏幕外的信息：时间 {real_datetime}，天气 {weather_info}。写一条穿透第四面墙的感知消息，隐晦不点破，不超过 50 字。',
     app07: '任务：User 完成了打卡目标「{goal_name}」，已连续 {streak} 天。以角色身份生成即时反馈，连续天数影响语气。不超过 60 字。',
@@ -1774,6 +1785,807 @@ async mount(container) {
     },
   };
 })();
+// ============================================================
+//  block_12  —  App03 · 朋友圈·电波
+// ============================================================
+const App03Moments = (() => {
+  let _ctx = null;
+  let _container = null;
+  let _clickHandler = null;
+  let _inputHandler = null;
+
+  // ── 状态 ──
+  let _posts = [];              // Post[]
+  let _view = 'feed';           // 'feed' | 'compose' | 'image_detail' | 'comments'
+  let _activePostId = null;     // 当前查看评论/图片的帖子 id
+  let _activeImageIdx = null;   // 当前查看的图片索引
+  let _composeDraft = { text: '', images: [] }; // 发帖草稿
+  let _commentInput = '';       // 评论输入框内容
+  let _statusText = '';
+  let _loadingPostId = null;    // 正在生成评论的帖子 id
+  let _generatingPost = false;  // 正在生成角色动态
+
+  // ── 数据结构 ──
+  // Post: { id, authorId, authorName, authorAvatar, isUser, content, images:[{label,desc}], timestamp, likes:[], comments:[] }
+  // Comment: { id, authorId, authorName, authorAvatar, isUser, content, timestamp }
+
+  // ── 角色头像池（emoji，按角色名哈希取） ──
+  const _AVATARS = ['🎭','🌙','⚡','🌊','🔥','🌸','🎪','🦋','🌿','🎵','🌑','💫','🎸','🌺','🦊','🌈','🎯','🌙'];
+
+  function _getAvatar(name) {
+    if (!name) return '👤';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff;
+    return _AVATARS[hash % _AVATARS.length];
+  }
+
+  function _uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function _timeAgo(ts) {
+    const diff = Date.now() - ts;
+    const m = Math.floor(diff / 60000);
+    const h = Math.floor(diff / 3600000);
+    const d = Math.floor(diff / 86400000);
+    if (m < 1) return '刚刚';
+    if (m < 60) return `${m}分钟前`;
+    if (h < 24) return `${h}小时前`;
+    if (d < 7) return `${d}天前`;
+    return new Date(ts).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+  }
+
+  function _escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── 持久化 ──
+  async function _savePosts() {
+    try { await _ctx.store.set('moments_posts', _posts); }
+    catch (e) { _ctx.log.error('moments', '保存失败', e.message); }
+  }
+
+  async function _loadPosts() {
+    try {
+      const saved = await _ctx.store.get('moments_posts');
+      if (saved && Array.isArray(saved)) {
+        _posts = saved;
+        _ctx.log.info('moments', `已加载 ${_posts.length} 条动态`);
+      }
+    } catch (e) {
+      _ctx.log.error('moments', '加载失败', e.message);
+    }
+  }
+
+  // ── 获取所有可用角色 ──
+  function _getAllChars() {
+    try {
+      const ctx = SillyTavern.getContext();
+      const chars = ctx.characters || [];
+      return chars
+        .filter(c => c && c.name)
+        .map(c => ({ name: c.name, avatar: _getAvatar(c.name) }));
+    } catch (e) {
+      const name = _ctx.bridge.getCharName();
+      return name ? [{ name, avatar: _getAvatar(name) }] : [];
+    }
+  }
+
+  // ── 生成角色动态 ──
+  async function _generateCharPost(charName) {
+    const msgs = _ctx.bridge.getChatMessages ? _ctx.bridge.getChatMessages() : [];
+    const bgm = _ctx.parser.getLatestBGM(msgs) || '未知';
+
+    const messages = _ctx.subapi.buildMessages('app03_post', {
+      char_name: charName,
+      current_bgm: bgm,
+      limit: '80',
+    });
+    // 覆盖 system 里的角色名
+    if (messages.length > 0 && messages[0].role === 'system') {
+      messages[0].content = messages[0].content
+        .replace(/你是 $$.*?$$/, `你是 [${charName}]`)
+        .replace(/你是$$.*?$$/, `你是[${charName}]`);
+    }
+
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 150, temperature: 0.95 });
+    return _ctx.subapi.safeParseText(raw);
+  }
+
+  // ── 生成图片描述 ──
+  async function _generateImageDesc(charName, imageLabel) {
+    const messages = _ctx.subapi.buildMessages('app03_image', {
+      char_name: charName,
+      image_label: imageLabel,
+      limit: '120',
+    });
+    if (messages.length > 0 && messages[0].role === 'system') {
+      messages[0].content = messages[0].content
+        .replace(/你是 $$.*?$$/, `你是 [${charName}]`)
+        .replace(/你是$$.*?$$/, `你是[${charName}]`);
+    }
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 180, temperature: 0.9 });
+    return _ctx.subapi.safeParseText(raw);
+  }
+
+  // ── 生成角色评论 ──
+  async function _generateComment(charName, post) {
+    const postText = post.content || (post.images.length > 0 ? `[图片：${post.images[0].label}]` : '');
+    const messages = _ctx.subapi.buildMessages('app03_comment', {
+      char_name: charName,
+      post_author: post.authorName,
+      post_content: postText.slice(0, 100),
+      limit: '40',
+    });
+    if (messages.length > 0 && messages[0].role === 'system') {
+      messages[0].content = messages[0].content
+        .replace(/你是 $$.*?$$/, `你是 [${charName}]`)
+        .replace(/你是$$.*?$$/, `你是[${charName}]`);
+    }
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 80, temperature: 1.0 });
+    return _ctx.subapi.safeParseText(raw);
+  }
+
+  // ── 刷新：让随机角色发新动态 + 互评 ──
+  async function _refresh() {
+    if (_generatingPost) return;
+    _generatingPost = true;
+    _statusText = '📡 正在接收新信号…';
+    _render(); _bindEvents(_container);
+
+    const chars = _getAllChars();
+    if (chars.length === 0) {
+      _statusText = '⚠ 未找到角色';
+      _generatingPost = false;
+      _render(); _bindEvents(_container);
+      return;
+    }
+
+    try {
+      // 随机选 1-2 个角色发新动态
+      const shuffled = [...chars].sort(() => Math.random() - 0.5);
+      const toPost = shuffled.slice(0, Math.min(2, shuffled.length));
+
+      for (const char of toPost) {
+        try {
+          const content = await _generateCharPost(char.name);
+          if (!content) continue;
+          const post = {
+            id: _uid(),
+            authorId: char.name,
+            authorName: char.name,
+            authorAvatar: char.avatar,
+            isUser: false,
+            content,
+            images: [],
+            timestamp: Date.now() - Math.floor(Math.random() * 600000), // 随机往前偏移最多10分钟
+            likes: [],
+            comments: [],
+          };
+          _posts.unshift(post);
+        } catch (e) {
+          _ctx.log.error('moments', `${char.name} 发帖失败`, e.message);
+        }
+      }
+
+      // 随机让 1 个角色对已有帖子评论（不评自己的）
+      if (_posts.length > 0 && chars.length > 1) {
+        const commenter = shuffled[shuffled.length - 1];
+        const targetPost = _posts.find(p => p.authorId !== commenter.name);
+        if (targetPost) {
+          try {
+            const commentText = await _generateComment(commenter.name, targetPost);
+            if (commentText) {
+              targetPost.comments.push({
+                id: _uid(),
+                authorId: commenter.name,
+                authorName: commenter.name,
+                authorAvatar: commenter.avatar,
+                isUser: false,
+                content: commentText,
+                timestamp: Date.now(),
+              });
+            }
+          } catch (e) {
+            _ctx.log.error('moments', '角色互评失败', e.message);
+          }
+        }
+      }
+
+      await _savePosts();
+      _statusText = '✓ 已接收最新信号';
+      _ctx.notify.push('moments', '📡', '朋友圈·电波', `${toPost.map(c=>c.name).join('、')} 发布了新动态`);
+    } catch (e) {
+      _statusText = '⚠ 信号中断，请重试';
+      _ctx.log.error('moments', '刷新失败', e.message);
+    }
+
+    _generatingPost = false;
+    _render(); _bindEvents(_container);
+    setTimeout(() => {
+      if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+        _statusText = '';
+        if (_container) { _render(); _bindEvents(_container); }
+      }
+    }, 3000);
+  }
+
+  // ── 用户发帖 ──
+  function _submitUserPost() {
+    const text = _composeDraft.text.trim();
+    const images = _composeDraft.images.filter(img => img.label.trim());
+    if (!text && images.length === 0) {
+      _statusText = '⚠ 请输入内容或添加图片';
+      _render(); _bindEvents(_container);
+      return;
+    }
+    const userName = _ctx.bridge.getUserName() || 'User';
+    const post = {
+      id: _uid(),
+      authorId: '__user__',
+      authorName: userName,
+      authorAvatar: '🙂',
+      isUser: true,
+      content: text,
+      images: images.map(img => ({ label: img.label.trim(), desc: '' })),
+      timestamp: Date.now(),
+      likes: [],
+      comments: [],
+    };
+    _posts.unshift(post);
+    _savePosts();
+    _composeDraft = { text: '', images: [] };
+    _view = 'feed';
+    _statusText = '✓ 已发布';
+    _render(); _bindEvents(_container);
+    setTimeout(() => {
+      if (_statusText.startsWith('✓')) {
+        _statusText = '';
+        if (_container) { _render(); _bindEvents(_container); }
+      }
+    }, 2000);
+  }
+
+  // ── 用户评论 ──
+  function _submitUserComment(postId) {
+    const text = _commentInput.trim();
+    if (!text) return;
+    const post = _posts.find(p => p.id === postId);
+    if (!post) return;
+    const userName = _ctx.bridge.getUserName() || 'User';
+    post.comments.push({
+      id: _uid(),
+      authorId: '__user__',
+      authorName: userName,
+      authorAvatar: '🙂',
+      isUser: true,
+      content: text,
+      timestamp: Date.now(),
+    });
+    _commentInput = '';
+    _savePosts();
+    _render(); _bindEvents(_container);
+  }
+
+  // ── 触发角色评论用户帖子 ──
+  async function _triggerCharComment(postId) {
+    const post = _posts.find(p => p.id === postId);
+    if (!post || _loadingPostId === postId) return;
+
+    const chars = _getAllChars().filter(c => c.name !== post.authorName);
+    if (chars.length === 0) {
+      _statusText = '⚠ 没有其他角色可以评论';
+      _render(); _bindEvents(_container);
+      return;
+    }
+
+    _loadingPostId = postId;
+    _render(); _bindEvents(_container);
+
+    const char = chars[Math.floor(Math.random() * chars.length)];
+    try {
+      const commentText = await _generateComment(char.name, post);
+      if (commentText) {
+        post.comments.push({
+          id: _uid(),
+          authorId: char.name,
+          authorName: char.name,
+          authorAvatar: char.avatar,
+          isUser: false,
+          content: commentText,
+          timestamp: Date.now(),
+        });
+        await _savePosts();
+      }
+    } catch (e) {
+      _statusText = '⚠ 信号丢失，请重试';
+      _ctx.log.error('moments', '触发评论失败', e.message);
+    }
+
+    _loadingPostId = null;
+    _render(); _bindEvents(_container);
+  }
+
+  // ── 点赞 ──
+  function _toggleLike(postId) {
+    const post = _posts.find(p => p.id === postId);
+    if (!post) return;
+    const userId = '__user__';
+    const idx = post.likes.indexOf(userId);
+    if (idx === -1) post.likes.push(userId);
+    else post.likes.splice(idx, 1);
+    _savePosts();
+    _render(); _bindEvents(_container);
+  }
+
+  // ── 查看图片详情（生成描述） ──
+  async function _viewImage(postId, imgIdx) {
+    const post = _posts.find(p => p.id === postId);
+    if (!post) return;
+    const img = post.images[imgIdx];
+    if (!img) return;
+
+    _activePostId = postId;
+    _activeImageIdx = imgIdx;
+    _view = 'image_detail';
+    _render(); _bindEvents(_container);
+
+    // 如果还没有描述，生成一个
+    if (!img.desc) {
+      try {
+        const desc = await _generateImageDesc(post.authorName, img.label);
+        img.desc = desc || '（图片描述生成失败）';
+        await _savePosts();
+      } catch (e) {
+        img.desc = '（信号不稳定，描述加载失败）';
+        _ctx.log.error('moments', '图片描述生成失败', e.message);
+      }
+      if (_container && _view === 'image_detail') {
+        _render(); _bindEvents(_container);
+      }
+    }
+  }
+
+  // ══════════════════════════════════════
+  //  渲染
+  // ══════════════════════════════════════
+
+  function _render() {
+    if (!_container) return;
+    if (_view === 'compose') { _renderCompose(); return; }
+    if (_view === 'image_detail') { _renderImageDetail(); return; }
+    if (_view === 'comments') { _renderComments(); return; }
+    _renderFeed();
+  }
+
+  // ── Feed 主页 ──
+  function _renderFeed() {
+    const html = `
+      <div class="fmom-wrap">
+        <!-- 顶栏 -->
+        <div class="fmom-header">
+          <span class="fmom-header-title">Freq · Wave</span>
+          <div class="fmom-header-actions">
+            <button class="fmom-icon-btn fmom-refresh-btn" title="刷新" ${_generatingPost ? 'disabled' : ''}>
+              <span class="${_generatingPost ? 'fmom-spin' : ''}">↻</span>
+            </button>
+            <button class="fmom-icon-btn fmom-compose-btn" title="发布">✦</button>
+          </div>
+        </div>
+
+        ${_statusText ? `<div class="fmom-status-bar">${_escHtml(_statusText)}</div>` : ''}
+
+        <!-- 动态列表 -->
+        <div class="fmom-feed">
+          ${_posts.length === 0
+            ? `<div class="fmom-empty">
+                <div class="fmom-empty-icon">📡</div>
+                <div class="fmom-empty-text">频率空白中…<br><span>点击 ↻ 接收信号</span></div>
+               </div>`
+            : _posts.map(p => _renderPostCard(p)).join('')
+          }
+        </div>
+      </div>
+    `;
+    _container.innerHTML = html;
+  }
+
+  // ── 单条动态卡片 ──
+  function _renderPostCard(post) {
+    const liked = post.likes.includes('__user__');
+    const likeCount = post.likes.length;
+    const commentCount = post.comments.length;
+    const timeStr = _timeAgo(post.timestamp);
+
+    return `
+      <div class="fmom-post" data-post-id="${post.id}">
+        <!-- 头部：头像 + 名字 + 时间 -->
+        <div class="fmom-post-header">
+          <div class="fmom-avatar ${post.isUser ? 'fmom-avatar-user' : ''}">${post.authorAvatar}</div>
+          <div class="fmom-post-meta">
+            <span class="fmom-post-author ${post.isUser ? 'fmom-author-user' : ''}">${_escHtml(post.authorName)}</span>
+            <span class="fmom-post-time">${timeStr}</span>
+          </div>
+        </div>
+
+        <!-- 正文 -->
+        ${post.content ? `<div class="fmom-post-content">${_escHtml(post.content)}</div>` : ''}
+
+        <!-- 图片列表 -->
+        ${post.images.length > 0 ? `
+          <div class="fmom-images">
+            ${post.images.map((img, i) => `
+              <button class="fmom-image-chip" data-post-id="${post.id}" data-img-idx="${i}">
+                <span class="fmom-image-icon">🖼</span>
+                <span class="fmom-image-label">${_escHtml(img.label)}</span>
+              </button>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- 底部：点赞 + 评论 -->
+        <div class="fmom-post-footer">
+          <button class="fmom-action-btn fmom-like-btn ${liked ? 'fmom-liked' : ''}" data-post-id="${post.id}">
+            <span class="fmom-like-heart">${liked ? '❤️' : '🤍'}</span>
+            ${likeCount > 0 ? `<span class="fmom-action-count">${likeCount}</span>` : ''}
+          </button>
+          <button class="fmom-action-btn fmom-comment-btn" data-post-id="${post.id}">
+            <span>💬</span>
+            ${commentCount > 0 ? `<span class="fmom-action-count">${commentCount}</span>` : ''}
+          </button>
+        </div>
+
+        <!-- 评论预览（最多2条） -->
+        ${post.comments.length > 0 ? `
+          <div class="fmom-comment-preview">
+            ${post.comments.slice(-2).map(c => `
+              <div class="fmom-comment-line">
+                <span class="fmom-comment-author">${_escHtml(c.authorName)}</span>
+                <span class="fmom-comment-text">${_escHtml(c.content)}</span>
+              </div>
+            `).join('')}
+            ${post.comments.length > 2 ? `<div class="fmom-comment-more">查看全部 ${post.comments.length} 条评论</div>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // ── 发帖页 ──
+  function _renderCompose() {
+    _container.innerHTML = `
+      <div class="fmom-wrap">
+        <div class="fmom-header">
+          <button class="fmom-back-btn">‹ 返回</button>
+          <span class="fmom-header-title">发布动态</span>
+          <button class="fmom-publish-btn">发布</button>
+        </div>
+
+        <div class="fmom-compose-body">
+          <!-- 用户信息 -->
+          <div class="fmom-compose-user">
+            <div class="fmom-avatar fmom-avatar-user">🙂</div>
+            <span class="fmom-compose-username">${_escHtml(_ctx.bridge.getUserName() || 'User')}</span>
+          </div>
+
+          <!-- 文字输入 -->
+          <textarea class="fmom-compose-input" placeholder="此刻的频率…" rows="4">${_escHtml(_composeDraft.text)}</textarea>
+
+          <!-- 图片区 -->
+          <div class="fmom-compose-images">
+            ${_composeDraft.images.map((img, i) => `
+              <div class="fmom-compose-image-row">
+                <span class="fmom-image-icon">🖼</span>
+                <input class="fmom-compose-image-input" type="text"
+                       placeholder="图片标题（如：深夜的录音室）"
+                       value="${_escHtml(img.label)}"
+                       data-img-idx="${i}" />
+                <button class="fmom-compose-image-del" data-img-idx="${i}">✕</button>
+              </div>
+            `).join('')}
+            <button class="fmom-add-image-btn">＋ 添加图片</button>
+          </div>
+
+          ${_statusText ? `<div class="fmom-status-bar">${_escHtml(_statusText)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // ── 评论页 ──
+  function _renderComments() {
+    const post = _posts.find(p => p.id === _activePostId);
+    if (!post) { _view = 'feed'; _renderFeed(); return; }
+    const isLoading = _loadingPostId === post.id;
+
+    _container.innerHTML = `
+      <div class="fmom-wrap fmom-comments-wrap">
+        <div class="fmom-header">
+          <button class="fmom-back-btn">‹</button>
+          <span class="fmom-header-title">评论</span>
+        </div>
+
+        <!-- 原帖摘要 -->
+        <div class="fmom-comment-origin">
+          <div class="fmom-avatar ${post.isUser ? 'fmom-avatar-user' : ''}">${post.authorAvatar}</div>
+          <div class="fmom-comment-origin-body">
+            <span class="fmom-post-author ${post.isUser ? 'fmom-author-user' : ''}">${_escHtml(post.authorName)}</span>
+            <div class="fmom-comment-origin-text">${_escHtml(post.content || (post.images[0] ? `[🖼 ${post.images[0].label}]` : ''))}</div>
+          </div>
+        </div>
+
+        <div class="fmom-divider"></div>
+
+        <!-- 评论列表 -->
+        <div class="fmom-comment-list">
+          ${post.comments.length === 0
+            ? `<div class="fmom-empty-comments">还没有评论</div>`
+            : post.comments.map(c => `
+                <div class="fmom-comment-item">
+                  <div class="fmom-avatar fmom-avatar-sm ${c.isUser ? 'fmom-avatar-user' : ''}">${c.authorAvatar}</div>
+                  <div class="fmom-comment-item-body">
+                    <div class="fmom-comment-item-header">
+                      <span class="fmom-comment-author ${c.isUser ? 'fmom-author-user' : ''}">${_escHtml(c.authorName)}</span>
+                      <span class="fmom-comment-item-time">${_timeAgo(c.timestamp)}</span>
+                    </div>
+                    <div class="fmom-comment-item-text">${_escHtml(c.content)}</div>
+                  </div>
+                </div>
+              `).join('')
+          }
+        </div>
+
+        <!-- 触发角色评论 -->
+        <div class="fmom-trigger-comment-wrap">
+          ${isLoading
+            ? `<div class="fmom-trigger-loading"><span class="fmom-spin">↻</span> 正在呼叫…</div>`
+            : `<button class="fmom-trigger-comment-btn" data-post-id="${post.id}">找人来说点什么吧！</button>`
+          }
+        </div>
+
+        <div class="fmom-divider"></div>
+
+        <!-- 用户评论输入 -->
+        <div class="fmom-comment-input-wrap">
+          <div class="fmom-avatar fmom-avatar-sm fmom-avatar-user">🙂</div>
+          <input class="fmom-comment-input" type="text"
+                 placeholder="说点什么…"
+                 value="${_escHtml(_commentInput)}" />
+          <button class="fmom-comment-send-btn" data-post-id="${post.id}">发送</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── 图片详情页 ──
+  function _renderImageDetail() {
+    const post = _posts.find(p => p.id === _activePostId);
+    if (!post) { _view = 'feed'; _renderFeed(); return; }
+    const img = post.images[_activeImageIdx];
+    if (!img) { _view = 'feed'; _renderFeed(); return; }
+
+    _container.innerHTML = `
+      <div class="fmom-wrap">
+        <div class="fmom-header">
+          <button class="fmom-back-btn">‹</button>
+          <span class="fmom-header-title">${_escHtml(img.label)}</span>
+        </div>
+        <div class="fmom-image-detail">
+          <div class="fmom-image-frame">
+            <div class="fmom-image-placeholder">
+              <span class="fmom-image-big-icon">🖼</span>
+              <span class="fmom-image-frame-label">${_escHtml(img.label)}</span>
+            </div>
+          </div>
+          <div class="fmom-image-meta">
+            <span class="fmom-avatar ${post.isUser ? 'fmom-avatar-user' : ''}">${post.authorAvatar}</span>
+            <span class="fmom-post-author">${_escHtml(post.authorName)}</span>
+            <span class="fmom-post-time">${_timeAgo(post.timestamp)}</span>
+          </div>
+          <div class="fmom-image-desc-wrap">
+            ${img.desc
+              ? `<p class="fmom-image-desc">${_escHtml(img.desc)}</p>`
+              : `<div class="fmom-image-desc-loading">
+                   <span class="fmom-spin">↻</span> 正在解析图像信号…
+                 </div>`
+            }
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ══════════════════════════════════════
+  //  事件绑定
+  // ══════════════════════════════════════
+
+  function _bindEvents(container) {
+    if (!container) return;
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+    if (_inputHandler) {
+      container.removeEventListener('input', _inputHandler);
+      container.removeEventListener('change', _inputHandler);
+    }
+
+    _clickHandler = (e) => {
+      // 刷新按钮
+      if (e.target.closest('.fmom-refresh-btn')) {
+        _refresh();
+        return;
+      }
+      // 发帖按钮
+      if (e.target.closest('.fmom-compose-btn')) {
+        _view = 'compose';
+        _statusText = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+      // 返回按钮（所有页面通用）
+      if (e.target.closest('.fmom-back-btn')) {
+        if (_view === 'image_detail') {
+          _view = 'comments';
+          _render(); _bindEvents(_container);
+        } else {
+          _view = 'feed';
+          _activePostId = null;
+          _activeImageIdx = null;
+          _statusText = '';
+          _render(); _bindEvents(_container);
+        }
+        return;
+      }
+      // 发布按钮
+      if (e.target.closest('.fmom-publish-btn')) {
+        _submitUserPost();
+        return;
+      }
+      // 添加图片
+      if (e.target.closest('.fmom-add-image-btn')) {
+        _composeDraft.images.push({ label: '' });
+        _render(); _bindEvents(_container);
+        return;
+      }
+      // 删除图片
+      const delBtn = e.target.closest('.fmom-compose-image-del');
+      if (delBtn) {
+        const idx = parseInt(delBtn.dataset.imgIdx, 10);
+        if (!isNaN(idx)) {
+          _composeDraft.images.splice(idx, 1);
+          _render(); _bindEvents(_container);
+        }
+        return;
+      }
+      // 点赞
+      const likeBtn = e.target.closest('.fmom-like-btn');
+      if (likeBtn) {
+        _toggleLike(likeBtn.dataset.postId);
+        return;
+      }
+      // 打开评论页
+      const commentBtn = e.target.closest('.fmom-comment-btn');
+      if (commentBtn) {
+        _activePostId = commentBtn.dataset.postId;
+        _commentInput = '';
+        _view = 'comments';
+        _render(); _bindEvents(_container);
+        return;
+      }
+      // 查看全部评论（预览区点击）
+      const commentMore = e.target.closest('.fmom-comment-more');
+      if (commentMore) {
+        const postEl = e.target.closest('.fmom-post');
+        if (postEl) {
+          _activePostId = postEl.dataset.postId;
+          _commentInput = '';
+          _view = 'comments';
+          _render(); _bindEvents(_container);
+        }
+        return;
+      }
+      // 图片 chip 点击
+      const imageChip = e.target.closest('.fmom-image-chip');
+      if (imageChip) {
+        const postId = imageChip.dataset.postId;
+        const imgIdx = parseInt(imageChip.dataset.imgIdx, 10);
+        _viewImage(postId, imgIdx);
+        return;
+      }
+      // 触发角色评论
+      const triggerBtn = e.target.closest('.fmom-trigger-comment-btn');
+      if (triggerBtn) {
+        _triggerCharComment(triggerBtn.dataset.postId);
+        return;
+      }
+      // 发送评论
+      const sendBtn = e.target.closest('.fmom-comment-send-btn');
+      if (sendBtn) {
+        _submitUserComment(sendBtn.dataset.postId);
+        return;
+      }
+    };
+
+    _inputHandler = (e) => {
+      // 发帖文字
+      if (e.target.classList.contains('fmom-compose-input')) {
+        _composeDraft.text = e.target.value;
+        return;
+      }
+      // 图片标题输入
+      if (e.target.classList.contains('fmom-compose-image-input')) {
+        const idx = parseInt(e.target.dataset.imgIdx, 10);
+        if (!isNaN(idx) && _composeDraft.images[idx] !== undefined) {
+          _composeDraft.images[idx].label = e.target.value;
+        }
+        return;
+      }
+      // 评论输入
+      if (e.target.classList.contains('fmom-comment-input')) {
+        _commentInput = e.target.value;
+        return;
+      }
+    };
+
+    container.addEventListener('click', _clickHandler);
+    container.addEventListener('input', _inputHandler);
+
+    // 评论框回车发送
+    const commentInput = container.querySelector('.fmom-comment-input');
+    if (commentInput) {
+      commentInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          const sendBtn = container.querySelector('.fmom-comment-send-btn');
+          if (sendBtn) sendBtn.click();
+        }
+      });
+    }
+  }
+
+  // ══════════════════════════════════════
+  //  公开接口
+  // ══════════════════════════════════════
+  return {
+    id: 'moments',
+    name: '朋友圈·电波',
+    icon: '📡',
+
+    init(ctx) {
+      _ctx = ctx;
+      _loadPosts().catch(() => {});
+      _ctx.bus.on('chat:loaded', () => {
+        // 切换聊天不清空动态，动态是全局的
+      });
+    },
+
+    async mount(container) {
+      _container = container;
+      _view = 'feed';
+      _container.innerHTML = `
+        <div class="freq-loading">
+          <div class="freq-loading-dot"></div>
+          <div class="freq-loading-dot"></div>
+          <div class="freq-loading-dot"></div>
+        </div>`;
+      await _loadPosts();
+      if (!_container) return;
+      _render();
+      _bindEvents(_container);
+    },
+
+    unmount() {
+      if (_container && _clickHandler) {
+        _container.removeEventListener('click', _clickHandler);
+      }
+      if (_container && _inputHandler) {
+        _container.removeEventListener('input', _inputHandler);
+        _container.removeEventListener('change', _inputHandler);
+      }
+      _container = null;
+    },
+  };
+})();
+// ============================================================ end block_12
+
 
 
 // ============================================================
@@ -2245,6 +3057,7 @@ const FreqTerminal = (() => {
   const implementations = [
     App01Archive,
     App02Studio,
+    App03Moments,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
   ];
   for (const app of implementations) {
