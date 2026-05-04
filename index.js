@@ -4371,7 +4371,7 @@ const FreqTerminal = (() => {
       'freq-sp-prompt-app10': 'app10',
       'freq-sp-prompt-app11': 'app11',
       'freq-sp-prompt-app12': 'app12',
-      'freq-sp-prompt-app13': 'app13',
+      'freq-sp-prompt-app13': 'app13_reply',
       'freq-sp-prompt-app14': 'app14',
       'freq-sp-prompt-app15': 'app15',
       'freq-sp-prompt-app16': 'app16',
@@ -4484,7 +4484,7 @@ const FreqTerminal = (() => {
     $('#freq-sp-prompt-app10').val(prompts.app10 || defaults.app10);
     $('#freq-sp-prompt-app11').val(prompts.app11 || defaults.app11);
     $('#freq-sp-prompt-app12').val(prompts.app12 || defaults.app12);
-    $('#freq-sp-prompt-app13').val(prompts.app13 || defaults.app13);
+    $('#freq-sp-prompt-app13').val(prompts.app13_reply || defaults.app13_reply);
     $('#freq-sp-prompt-app14').val(prompts.app14 || defaults.app14);
     $('#freq-sp-prompt-app15').val(prompts.app15 || defaults.app15);
     $('#freq-sp-prompt-app16').val(prompts.app16 || defaults.app16);
