@@ -406,26 +406,3 @@ select.freq-sp-input {
   background: linear-gradient(to bottom, #085041, rgba(8,80,65,0.3));
   border-radius: 8px 0 0 8px;
 }
-/* ── App13 · 时光胶囊 专属 ── */
-
-/* section 整体用深蓝主题 */
-.freq-sp-section:has(#freq-sp-prompt-app13) {
-  border-color: rgba(44, 74, 110, 0.3);
-  background: linear-gradient(160deg, rgba(44,74,110,0.07) 0%, var(--freq-surface) 100%);
-}
-.freq-sp-section:has(#freq-sp-prompt-app13):hover {
-  border-color: rgba(44, 74, 110, 0.45);
-}
-
-/* section 标题用蓝色 */
-.freq-sp-section:has(#freq-sp-prompt-app13) .freq-sp-section-title {
-  color: #7eb8e8;
-  border-bottom-color: rgba(44, 74, 110, 0.25);
-}
-
-/* textarea focus 用蓝色 */
-#freq-sp-prompt-app13:focus {
-  border-color: rgba(44, 74, 110, 0.65);
-  box-shadow: 0 0 0 3px rgba(44, 74, 110, 0.13);
-}
-
