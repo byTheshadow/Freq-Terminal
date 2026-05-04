@@ -2467,19 +2467,61 @@ function waitForSTReady() {
   });
 }
 
+function waitForSTReady() {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    const check = () => {
+      attempts++;
+
+      const hasEventSource = typeof window.eventSource !== 'undefined' && window.eventSource;
+      const hasContext = typeof SillyTavern !== 'undefined' && SillyTavern.getContext;
+      const hasJQuery = typeof jQuery !== 'undefined';
+      const bodyReady = document.getElementById('send_but') || document.getElementById('sheld');
+
+      if ((hasEventSource || hasContext) && hasJQuery && bodyReady) {
+        console.log(`[FT] ST 就绪，等待了 ${attempts * 500}ms`);
+        resolve();
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        console.warn('[FT] 等待 ST 就绪超时，尝试强制启动');
+        resolve();
+        return;
+      }
+
+      setTimeout(check, 500);
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => setTimeout(check, 1000));
+    } else {
+      setTimeout(check, 1000);
+    }
+  });
+}
+
 async function FreqTerminalInit() {
   try {
     console.log(`[FT] Freq · Terminal v${FT.VERSION} 初始化开始`);
+
     // 1. 打开数据库
     await FT.Store.open();
+
     // 2. 初始化报错日志
     await FT.ErrorLogger.init();
+
     // 3. 初始化通知系统
     await FT.NotificationSystem.init();
+
     // 4. 构建手机外壳 DOM
     FT.Shell.buildShell();
+
     // 5. 绑定手机事件
     FT.Shell.bindEvents();
+
     // 6. 检查是否启用
     const basic = await FT.Store.get('settings', 'basic') || {};
     if (basic.enabled === false) {
@@ -2488,23 +2530,28 @@ async function FreqTerminalInit() {
     } else if (basic.fabVisible === false) {
       FT.Shell.hideFab();
     }
+
     // 7. 绑定 ST 事件源
     FT.STBridge.bind();
+
     // 8. 初始化调度器
     await FT.Scheduler.init();
+
     // 9. 初始化配置面板（延迟，不阻塞）
     setTimeout(() => {
       FT.Settings.init();
     }, 500);
+
     // 10. 初始化电台归档App
     await FT.AppRadio.init();
+
     console.log(`[FT] Freq · Terminal v${FT.VERSION} 初始化完成✅`);
   } catch (e) {
     console.error('[FT] 初始化失败', e);
     FT.ErrorLogger?.log('Init', '插件初始化失败', e);
   }
 }
+
 waitForSTReady().then(() => {
   FreqTerminalInit();
 });
-
