@@ -952,3 +952,82 @@ body[data-theme="dark"] #ft-home-title {
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
   }
 }
+/*── 电台归档 App ─────────────────────────────────────────── */
+.ft-radio-card {
+  border-left: 3px solid var(--ft-accent);
+}
+.ft-radio-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ft-radio-serial {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ft-accent);
+  font-family: 'Courier New', monospace;white-space: nowrap;
+  flex-shrink: 0;
+}
+.ft-radio-meta {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.ft-radio-time {
+  font-size: 11px;
+  color: var(--ft-light);
+  font-family: -apple-system, Arial, sans-serif;
+  background: var(--ft-accent-soft);
+  padding: 2px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.ft-radio-scene {
+  font-size: 11px;
+  color: var(--ft-teal);
+  font-family: -apple-system, Arial, sans-serif;
+  background: var(--ft-teal-soft);
+  padding: 2px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.ft-radio-preview {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--ft-mid);
+  font-family: -apple-system, Arial, sans-serif;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ft-radio-full-content {
+  font-size: 14px;
+  color: var(--ft-dark);
+  font-family: -apple-system, Arial, sans-serif;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ft-radio-character {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ft-light);
+  font-style: italic;
+  text-align: right;
+}
+
+/* 暗色模式 */
+body.dark .ft-radio-time,
+body[data-theme="dark"] .ft-radio-time {
+  background: rgba(163,45,45,0.15);
+  color: #E5A0A0;
+}
+body.dark .ft-radio-scene,
+body[data-theme="dark"] .ft-radio-scene {
+  background: rgba(8,80,65,0.15);
+  color: #7ECDB8;
+}
+
