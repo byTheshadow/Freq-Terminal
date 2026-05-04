@@ -3329,7 +3329,7 @@ const App13Capsule = (() => {
   let _draftMsg = '';
   let _draftDelay = '3600';  // 默认1小时，单位秒
 
-  const STORE_KEY = 'app13_capsules';
+  const STORE_KEY = 'capsule_capsules';
   const MAX_CAPSULES = 20;
 
   const DELAY_OPTIONS = [
@@ -3413,7 +3413,7 @@ const App13Capsule = (() => {
         await _save();
 
         _ctx.notify.push(
-          'app13',
+          'capsule',
           '💌',
           `${charName} 回信了`,
           reply.slice(0, 40) + (reply.length > 40 ? '…' : '')
@@ -3692,7 +3692,7 @@ const App13Capsule = (() => {
 
   // ── 公开接口 ──
   return {
-    id: 'app13',
+    id: 'capsule',
     name: '时光胶囊',
     icon: '💌',
 
