@@ -2653,4 +2653,383 @@
 }
 
 /* ============================================================ end App05 */
+/* ============================================================ App13 · 时光胶囊  f13-
+   主题色 #2C4A6E
+   ============================================================ */
+
+.f13-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #0d1a2a;
+  color: #c8d8e8;
+  font-family: inherit;
+  position: relative;
+}
+
+/* ── Tabs ── */
+.f13-tabs {
+  display: flex;
+  border-bottom: 1px solid #1e3550;
+  flex-shrink: 0;
+  background: #0d1a2a;
+}
+
+.f13-tab {
+  flex: 1;
+  padding: 9px 4px;
+  background: none;
+  border: none;
+  color: #5a7a9a;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.2s, border-bottom 0.2s;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.f13-tab:hover { color: #8aaac8; }
+
+.f13-tab-active {
+  color: #7eb8e8;
+  border-bottom: 2px solid #2C4A6E;
+}
+
+.f13-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #2C4A6E;
+  color: #c8d8e8;
+  border-radius: 8px;
+  font-size: 9px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  line-height: 1;
+}
+
+.f13-badge-new {
+  background: #7eb8e8;
+  color: #0d1a2a;
+}
+
+/* ── Body ── */
+.f13-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 12px 60px;
+}
+
+.f13-body::-webkit-scrollbar { width: 3px; }
+.f13-body::-webkit-scrollbar-track { background: transparent; }
+.f13-body::-webkit-scrollbar-thumb { background: #1e3550; border-radius: 2px; }
+
+/* ── 状态栏 ── */
+.f13-status {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 14px;
+  background: #0d1a2a;
+  border-top: 1px solid #1e3550;
+  font-size: 11px;
+  color: #7eb8e8;
+  text-align: center;
+}
+
+/* ── 写信页 ── */
+.f13-write {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.f13-full-tip {
+  background: #1a2a1a;
+  border: 1px solid #2a4a2a;
+  color: #7aaa7a;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  text-align: center;
+}
+
+.f13-write-label {
+  font-size: 10px;
+  color: #5a7a9a;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.f13-textarea {
+  width: 100%;
+  min-height: 110px;
+  background: #111e2e;
+  border: 1px solid #1e3550;
+  border-radius: 8px;
+  color: #c8d8e8;
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 10px;
+  resize: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.f13-textarea:focus {
+  outline: none;
+  border-color: #2C4A6E;
+}
+
+.f13-textarea::placeholder { color: #3a5a7a; }
+
+.f13-textarea:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 延迟选项 ── */
+.f13-delay-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.f13-delay-btn {
+  padding: 5px 10px;
+  background: #111e2e;
+  border: 1px solid #1e3550;
+  border-radius: 14px;
+  color: #5a7a9a;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.f13-delay-btn:hover { border-color: #2C4A6E; color: #8aaac8; }
+
+.f13-delay-active {
+  background: #162840;
+  border-color: #2C4A6E;
+  color: #7eb8e8;
+}
+
+.f13-delay-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 自定义小时输入 ── */
+.f13-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.f13-custom-input {
+  width: 80px;
+  background: #111e2e;
+  border: 1px solid #2C4A6E;
+  border-radius: 6px;
+  color: #c8d8e8;
+  font-size: 12px;
+  padding: 5px 8px;
+  text-align: center;
+}
+
+.f13-custom-input:focus { outline: none; border-color: #7eb8e8; }
+
+.f13-custom-unit {
+  font-size: 11px;
+  color: #5a7a9a;
+}
+
+/* ── 封存按钮 ── */
+.f13-send-btn {
+  width: 100%;
+  padding: 10px;
+  background: linear-gradient(135deg, #162840, #2C4A6E);
+  border: 1px solid #2C4A6E;
+  border-radius: 8px;
+  color: #7eb8e8;
+  font-size: 13px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.f13-send-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1e3a54, #3a5e8a);
+  color: #aad4f8;
+}
+
+.f13-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 列表 ── */
+.f13-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── 胶囊卡片 ── */
+.f13-card {
+  background: #111e2e;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid #1e3550;
+}
+
+.f13-card-pending {
+  border-left: 3px solid #2C4A6E;
+}
+
+.f13-card-replied {
+  border-left: 3px solid #7eb8e8;
+}
+
+.f13-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.f13-card-time {
+  font-size: 10px;
+  color: #3a5a7a;
+}
+
+.f13-card-countdown {
+  font-size: 10px;
+  color: #5a8aaa;
+  background: #0d1a2a;
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid #1e3550;
+}
+
+.f13-card-waited {
+  font-size: 10px;
+  color: #7eb8e8;
+  background: #0d1a2a;
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid #2C4A6E;
+}
+
+.f13-card-preview {
+  font-size: 12px;
+  color: #8aaac8;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+.f13-card-sendat {
+  font-size: 10px;
+  color: #3a5a7a;
+}
+
+.f13-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+
+/* ── 信件展示 ── */
+.f13-letter-block {
+  background: #0d1a2a;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 6px 0;
+  border: 1px solid #1e3550;
+}
+
+.f13-letter-section { margin-bottom: 8px; }
+
+.f13-letter-tag {
+  font-size: 9px;
+  color: #3a5a7a;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+.f13-letter-section.f13-letter-user .f13-letter-tag { color: #5a7a9a; }
+.f13-letter-section.f13-letter-char .f13-letter-tag { color: #7eb8e8; }
+
+.f13-letter-text {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #c8d8e8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.f13-letter-section.f13-letter-user .f13-letter-text { color: #8aaac8; }
+
+.f13-letter-divider {
+  text-align: center;
+  color: #1e3550;
+  font-size: 12px;
+  letter-spacing: 4px;
+  margin: 8px 0;
+}
+
+/* ── 展开/删除按钮 ── */
+/* ── 展开/删除按钮 ── */
+.f13-expand-btn {
+  background: none;
+  border: 1px solid #1e3550;
+  border-radius: 10px;
+  color: #5a7a9a;
+  font-size: 10px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.f13-expand-btn:hover {
+  border-color: #2C4A6E;
+  color: #7eb8e8;
+}
+
+.f13-del-btn {
+  background: none;
+  border: none;
+  color: #2a4a6a;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.f13-del-btn:hover { color: #c05050; }
+
+/* ── 空状态补充 ── */
+.f13-empty-sub {
+  display: block;
+  font-size: 10px;
+  color: #3a5a7a;
+  margin-top: 6px;
+}
+
+/*============================================================ end App13 */
+
 
