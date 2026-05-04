@@ -1352,57 +1352,88 @@ const App02Studio = (() => {
   };
 
   // ── 生成录音 ──
-  async function _generate() {
-    if (_loading) return;
-    _loading = true;
-    _statusText = '📡 信号连接中…';
-    _render();
+async function _generate() {
+  if (_loading) return;
+  _loading = true;
+  _statusText = '📡 信号连接中…';
+  _render();
 
-    const modeDef = _MODES[_mode];
-    const charName = _ctx.bridge.getCharName();
+  const modeDef = _MODES[_mode];
+  const charName = _ctx.bridge.getCharName();
+  const userName = _ctx.bridge.getUserName();
 
-    try {
-      // 构建额外变量
-      const extraVars = {};
+  try {
+    const extraVars = {};
 
-      // 演播厅采访：注入用户问题
-      if (_mode === 'interview' && _userQuestion.trim()) {
-        extraVars.user_question = `听众提出了一个问题，请失真在采访中自然地问出来：「${_userQuestion.trim()}」`;
-      } else {
-        extraVars.user_question = '';
-      }
+    // ── 核心修复：提取近期对话内容注入上下文 ──
+    const recentMsgs = _ctx.bridge.getRecentMessages(12);
+    const dialogLines = [];
+    for (const m of recentMsgs) {
+      const text = (m.mes || '').trim();
+      if (!text) continue;
+      // 过滤掉纯标签内容（meow_FM / radio_show 等）
+      const cleaned = text
+        .replace(/<meow_FM>[\s\S]*?<\/meow_FM>/gi, '')
+        .replace(/<radio_show>[\s\S]*?<\/radio_show>/gi, '')
+        .replace(/<branches>[\s\S]*?<\/branches>/gi, '')
+        .replace(/<snow>[\s\S]*?<\/snow>/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+      if (!cleaned) continue;
+      const speaker = m.is_user ? userName : charName;
+      // 每条截取前 120 字，避免 token 爆炸
+      const preview = cleaned.length > 120 ? cleaned.slice(0, 120) + '…' : cleaned;
+      dialogLines.push(`${speaker}：${preview}`);
+    }
+    const recentDialog = dialogLines.length > 0
+      ? dialogLines.join('\n')
+      : '（暂无近期对话记录）';
 
-      // 角色私录：注入 Thinking
-      if (_mode === 'private') {
-        if (_useThinking) {
-          const thinking = _ctx.bridge.extractThinking(8);
-          if (thinking && thinking.trim()) {
-            extraVars.thinking_excerpt = `\n以下是角色的真实思绪片段，请以此为素材保留未经整理的真实感：\n---\n${thinking.slice(0, 600)}\n---`;_ctx.log.info('studio', `已提取 Thinking 素材 (${thinking.length} 字)`);
-          } else {
-            extraVars.thinking_excerpt = '\n（未检测到角色思绪片段，请自由发挥角色最真实的内心状态。）';
-            _ctx.log.info('studio', '未找到 Thinking 内容，使用自由发挥模式');
-          }
+    // 演播厅采访：用户自定义问题
+    if (_mode === 'interview' && _userQuestion.trim()) {
+      extraVars.user_question = `听众提出了一个问题，请失真在采访中自然地问出来：「${_userQuestion.trim()}」`;
+    } else {
+      extraVars.user_question = '';
+    }
+
+    // 角色私录：注入 Thinking
+    if (_mode === 'private') {
+      if (_useThinking) {
+        const thinking = _ctx.bridge.extractThinking(8);
+        if (thinking && thinking.trim()) {
+          extraVars.thinking_excerpt = `\n以下是角色的真实思绪片段，请以此为素材保留未经整理的真实感：\n---\n${thinking.slice(0, 600)}\n---`;
+          _ctx.log.info('studio', `已提取 Thinking 素材 (${thinking.length} 字)`);
         } else {
-          extraVars.thinking_excerpt = '';
+          extraVars.thinking_excerpt = '\n（未检测到角色思绪片段，请自由发挥角色最真实的内心状态。）';
+          _ctx.log.info('studio', '未找到 Thinking 内容，使用自由发挥模式');
         }
+      } else {
+        extraVars.thinking_excerpt = '';
       }
+    }
 
-      // 构建消息
-      const messages = _ctx.subapi.buildMessages(modeDef.promptKey, extraVars);
+    // 构建消息
+    const messages = _ctx.subapi.buildMessages(modeDef.promptKey, extraVars);
 
-      // 失真独白模式：覆盖 system prompt中的角色身份
-      if (_mode === 'monologue') {
-        if (messages.length > 0 && messages[0].role === 'system') {
-          messages[0].content = messages[0].content
-            .replace(/你是 \[.*?\]/, '你是 [失真]')
-            .replace(/你是\[.*?\]/, '你是[失真]');
-        }
+    // ── 核心修复：把近期对话注入到 system prompt 末尾 ──
+    if (messages.length > 0 && messages[0].role === 'system') {
+      messages[0].content += `\n\n【主聊天窗近期对话（仅供参考，不得影响主线剧情）】\n${recentDialog}`;
+    }
+
+    // 失真独白模式：覆盖 system prompt 中的角色身份
+    if (_mode === 'monologue') {
+      if (messages.length > 0 && messages[0].role === 'system') {
+        messages[0].content = messages[0].content
+          .replace(/你是 \[.*?\]/, '你是 [失真]')
+          .replace(/你是\[.*?\]/, '你是[失真]');
       }
+    }
 
-      const raw = await _ctx.subapi.call(messages, {
-        maxTokens: _mode === 'interview' ? 500 : 300,
-        temperature: 0.9,
-      });
+    const raw = await _ctx.subapi.call(messages, {
+      maxTokens: _mode === 'interview' ? 500 : 300,
+      temperature: 0.9,
+    });
+
 
       let content = '';
 
