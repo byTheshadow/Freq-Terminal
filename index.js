@@ -947,6 +947,387 @@ const FreqSubAPI = (() => {
     parseResponse, safeParseText,startBackgroundTimer, stopBackgroundTimer,
   };
 })();
+//============================================================
+//  block_10  —  App 01 · 电台归档
+// ============================================================
+const App01Archive = (() => {
+  let _ctx = null;       // { settings, bus, store, bridge, parser, notify, log }
+  let _container = null;
+  let _clickHandler = null;
+  let _inputHandler = null;
+
+  // ── 状态（存对象，不存DOM）──
+  let _records = [];// 解析后的归档记录数组
+  let _expandedIndex = null; // 当前展开的卡片索引（null = 全部折叠）
+  let _searchQuery = '';     // 搜索关键词
+  let _sortAsc = false;      // false = 倒序（最新在上），true = 正序
+
+  // ── 中文字段别名映射（兼容格式3）──
+  const _FIELD_ALIASES = {
+    serial: ['serial', '序号', '编号', 'no'],
+    time:   ['time', '时间','date', '日期'],
+    scene:  ['scene', '场景', '地点', '地方'],
+    plot:   ['plot', '剧情', '摘要', '概要', '记录'],
+    seeds:  ['seeds', '伏笔', '种子','seed'],
+    event:  ['event', '事件', '活动'],
+    cycle:  ['cycle', '周期', '循环'],
+    todo:   ['todo', '待办', '任务'],
+    cash:   ['cash', '资金', '金钱', '金额'],
+    temp:   ['temp', '温度', '气温','temperature'],
+    signal: ['signal', '信号'],
+    diary:  ['diary', '日记', '记录仪'],
+    history:['history', '历史', '历史事件'],
+    hidden: ['隐秘的真实', 'hidden', 'nsfw'],
+    weather:['weather', '天气', '天气状况'],
+  };
+
+  // ── 增强解析：对单条raw 文本做多别名 + 多行提取 ──
+  function _enhancedParse(rawText) {
+    const result = {};
+    for (const [field, aliases] of Object.entries(_FIELD_ALIASES)) {
+      for (const alias of aliases) {
+        //尝试多行匹配：从"Key：" 开始，到下一个已知 Key 或文本末尾
+        const escapedAlias = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const multiLineReg = new RegExp(
+          `(?:^|\\n)\\s*${escapedAlias}\\s*[：:=]\\s*([\\s\\S]*?)(?=\\n\\s*(?:${_getAllAliasPattern()})|$)`,
+          'i'
+        );
+        const match = rawText.match(multiLineReg);
+        if (match && match[1].trim()) {
+          result[field] = match[1].trim();break;
+        }
+      }
+    }
+    return result;
+  }
+
+  // 生成所有别名的正则交替模式（用于多行匹配的终止符）
+  let _aliasPatternCache = null;
+  function _getAllAliasPattern() {
+    if (_aliasPatternCache) return _aliasPatternCache;
+    const allAliases = [];
+    for (const aliases of Object.values(_FIELD_ALIASES)) {
+      for (const a of aliases) {
+        allAliases.push(a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      }
+    }
+    _aliasPatternCache = allAliases.join('|');
+    return _aliasPatternCache;
+  }
+
+  // ── 从对话中提取所有 meow_FM 记录 ──
+  function _parseAllRecords() {
+    try {
+      const messages = _ctx.bridge.getChatMessages();
+      if (!messages || messages.length === 0) {
+        _records = [];
+        return;
+      }
+
+      // 第一层：用FreqParser 提取基础结果
+      const baseResults = _ctx.parser.parseMeowFM(messages);
+
+      // 第二层：增强解析，补充缺失字段
+      _records = baseResults.map((item, idx) => {
+        const enhanced = _enhancedParse(item.raw || '');
+        return {
+          index: idx,
+          serial:  item.serial || enhanced.serial || _extractSerial(item.raw) || `#${String(idx + 1).padStart(3, '0')}`,
+          time:    item.time   || enhanced.time   || '',
+          scene:   item.scene  || enhanced.scene  || '',
+          plot:    item.plot   || enhanced.plot   || '',
+          seeds:   item.seeds  || enhanced.seeds  || '',
+          event:   item.event  || enhanced.event  || '',
+          cycle:   item.cycle  || enhanced.cycle  || '',
+          todo:    item.todo   || enhanced.todo   || '',
+          cash:    item.cash   || enhanced.cash   || '',
+          temp:    enhanced.temp    || '',
+          signal:  enhanced.signal  || '',
+          diary:   enhanced.diary   || '',
+          history: enhanced.history || '',
+          hidden:  enhanced.hidden  || '',
+          weather: enhanced.weather || '',
+          raw:     item.raw    || '',
+        };
+      });
+
+      _ctx.log.info('archive', `解析完成，共 ${_records.length} 条归档记录`);
+    } catch (err) {
+      _ctx.log.error('archive', '解析 meow_FM 失败', err.message);
+      _records = [];
+    }
+  }
+
+  // 从 raw 文本中提取序号（兼容 "serial:🩻No.001" 格式）
+  function _extractSerial(raw) {
+    if (!raw) return '';
+    const m = raw.match(/(?:serial|序号|编号)\s*[：:=]?\s*(.*?)(?:\n|$)/i);
+    if (m) return m[1].trim();
+    const noMatch = raw.match(/No\.?\s*(\d+)/i);
+    if (noMatch) return `No.${noMatch[1]}`;
+    return '';
+  }
+
+  // ── 过滤 & 排序 ──
+  function _getFilteredRecords() {
+    let list = [..._records];
+
+    // 搜索过滤
+    if (_searchQuery.trim()) {
+      const q = _searchQuery.trim().toLowerCase();
+      list = list.filter(r => {
+        const searchable = [
+          r.serial, r.time, r.scene, r.plot, r.seeds,
+          r.event, r.cycle, r.todo, r.cash, r.temp,
+          r.signal, r.diary, r.history, r.hidden,
+          r.weather, r.raw,
+        ].join(' ').toLowerCase();
+        return searchable.includes(q);
+      });
+    }
+
+    // 排序
+    if (_sortAsc) {
+      list.sort((a, b) => a.index - b.index);
+    } else {
+      list.sort((a, b) => b.index - a.index);
+    }
+
+    return list;
+  }
+
+  // ── 渲染 ──
+  function _render() {
+    if (!_container) return;
+
+    const filtered = _getFilteredRecords();
+
+    _container.innerHTML = `
+      <div class="freq-archive">
+        <div class="freq-archive-toolbar">
+          <div class="freq-archive-search-wrap">
+            <span class="freq-archive-search-icon">🔍</span>
+            <input type="text" class="freq-archive-search"
+                   placeholder="搜索关键词..."
+                   value="${_escHtml(_searchQuery)}" />
+          </div>
+          <div class="freq-archive-actions">
+            <button class="freq-archive-btn freq-archive-sort-btn"
+                    title="${_sortAsc ? '当前：正序（最早在上）' : '当前：倒序（最新在上）'}">
+              ${_sortAsc ? '↑ 正序' : '↓ 倒序'}
+            </button>
+            <button class="freq-archive-btn freq-archive-refresh-btn" title="重新获取">
+              🔄
+            </button>
+          </div>
+        </div>
+        <div class="freq-archive-count">
+          共 ${_records.length} 条记录${_searchQuery.trim() ? `，匹配 ${filtered.length} 条` : ''}
+        </div>
+        <div class="freq-archive-list">
+          ${filtered.length === 0
+            ? `<div class="freq-empty-state">
+                 <div class="freq-empty-state-icon">📻</div>
+                 <div class="freq-empty-state-text">${_searchQuery.trim() ? '未找到匹配的记录' : '尚未接收到电台信号…'}</div>
+               </div>`
+            : filtered.map(r => _renderCard(r)).join('')
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  function _renderCard(record) {
+    const isExpanded = _expandedIndex === record.index;
+    const expandedClass = isExpanded ? 'freq-archive-card-expanded' : '';
+
+    // 折叠态：显示 plot 前60 字符
+    const plotPreview = record.plot
+      ? (record.plot.length > 60 ? record.plot.substring(0, 60) + '…' : record.plot)
+      : '';
+
+    // 收集所有有内容的额外字段
+    const extraFields = [];
+    if (record.event)extraFields.push({ label: '事件', value: record.event });
+    if (record.cycle)   extraFields.push({ label: '周期', value: record.cycle });
+    if (record.todo)    extraFields.push({ label: '待办', value: record.todo });
+    if (record.cash)    extraFields.push({ label: '资金', value: record.cash });
+    if (record.temp)    extraFields.push({ label: '温度', value: record.temp });
+    if (record.weather) extraFields.push({ label: '天气', value: record.weather });
+    if (record.signal)  extraFields.push({ label: '信号', value: record.signal });
+    if (record.diary)   extraFields.push({ label: '日记', value: record.diary });
+    if (record.history) extraFields.push({ label: '历史', value: record.history });
+    if (record.hidden)  extraFields.push({ label: '隐秘的真实', value: record.hidden });
+
+    // 判断是否有可展开的内容
+    const hasExpandable = record.plot.length > 60
+      || record.seeds
+      || extraFields.length > 0;
+
+    return `
+      <div class="freq-archive-card ${expandedClass}" data-record-index="${record.index}">
+        <div class="freq-archive-card-header">
+          <span class="freq-archive-serial">${_escHtml(record.serial)}</span>
+          ${record.time ? `<span class="freq-archive-time">${_escHtml(record.time)}</span>` : ''}</div>
+        ${record.scene ? `
+          <div class="freq-archive-scene">
+            <span class="freq-archive-scene-icon">📍</span>
+            <span>${_escHtml(record.scene)}</span>
+          </div>
+        ` : ''}
+        ${record.plot ? `
+          <div class="freq-archive-plot-preview">${_escHtml(plotPreview)}</div>
+        ` : ''}
+        ${isExpanded ? `
+          <div class="freq-archive-expanded-body">
+            ${record.plot ? `
+              <div class="freq-archive-field">
+                <div class="freq-archive-field-label">📝 剧情</div>
+                <div class="freq-archive-field-value">${_escHtml(record.plot)}</div>
+              </div>
+            ` : ''}
+            ${record.seeds ? `
+              <div class="freq-archive-field freq-archive-seeds">
+                <div class="freq-archive-field-label">🌱 Seeds</div>
+                <div class="freq-archive-field-value">${_escHtml(record.seeds)}</div>
+              </div>
+            ` : ''}
+            ${extraFields.map(f => `
+              <div class="freq-archive-field">
+                <div class="freq-archive-field-label">${_escHtml(f.label)}</div>
+                <div class="freq-archive-field-value">${_escHtml(f.value)}</div>
+              </div>
+            `).join('')}
+            ${record.raw ? `
+              <details class="freq-archive-raw-details">
+                <summary class="freq-archive-raw-summary">📄 原始数据</summary>
+                <pre class="freq-archive-raw-content">${_escHtml(record.raw)}</pre>
+              </details>
+            ` : ''}
+          </div>
+        ` : ''}
+        ${hasExpandable ? `
+          <div class="freq-archive-toggle">
+            ${isExpanded ? '▲ 收起' : '▼ 展开'}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // ── 事件绑定 ──
+  function _bindEvents(container) {
+    // 移除旧监听器
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+    if (_inputHandler) container.removeEventListener('input', _inputHandler);
+
+    // 点击事件（展开/收起 + 排序 + 刷新）
+    _clickHandler = (e) => {
+      // 排序按钮
+      if (e.target.closest('.freq-archive-sort-btn')) {
+        _sortAsc = !_sortAsc;
+        _render();
+        _bindEvents(_container);
+        return;
+      }
+
+      // 刷新按钮
+      if (e.target.closest('.freq-archive-refresh-btn')) {
+        _expandedIndex = null;
+        _parseAllRecords();
+        _render();
+        _bindEvents(_container);
+        _ctx.log.info('archive', '手动刷新归档');
+        return;
+      }
+
+      // 卡片展开/收起
+      const card = e.target.closest('.freq-archive-card');
+      if (card) {
+        // 不要在点击原始数据的details/summary 时触发展开
+        if (e.target.closest('.freq-archive-raw-details')) return;
+
+        const idx = parseInt(card.dataset.recordIndex, 10);
+        if (!isNaN(idx)) {
+          _expandedIndex = (_expandedIndex === idx) ? null : idx;
+          _render();
+          _bindEvents(_container);}
+      }
+    };container.addEventListener('click', _clickHandler);
+
+    // 搜索输入
+    _inputHandler = (e) => {
+      if (e.target.classList.contains('freq-archive-search')) {
+        _searchQuery = e.target.value;
+        _expandedIndex = null; // 搜索时重置展开状态
+        _render();
+        _bindEvents(_container);
+
+        // 恢复光标位置
+        const input = _container.querySelector('.freq-archive-search');
+        if (input) {
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      }
+    };
+    container.addEventListener('input', _inputHandler);
+  }
+
+  // ── HTML 转义 ──
+  function _escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ══════════════════════════════════════
+  //  公开接口
+  // ══════════════════════════════════════
+  return {
+    id: 'archive',
+    name: '电台归档',
+    icon: '📻',
+
+    init(ctx) {
+      _ctx = ctx;
+      // 监听聊天切换 → 重新解析
+      _ctx.bus.on('chat:loaded', () => {
+        _records = [];
+        _expandedIndex = null;
+        _searchQuery = '';
+        _parseAllRecords();
+      });// 监听新消息 → 增量更新
+      _ctx.bus.on('meow_fm:updated', () => {
+        _parseAllRecords();
+        // 如果 App 当前打开着，刷新视图
+        if (_container) {
+          _render();
+          _bindEvents(_container);
+        }
+      });
+    },
+
+    mount(container) {
+      _container = container;
+      _parseAllRecords();
+      _render();
+      _bindEvents(container);
+    },
+
+    unmount() {
+      if (_container && _clickHandler) {
+        _container.removeEventListener('click', _clickHandler);
+      }
+      if (_container && _inputHandler) {
+        _container.removeEventListener('input', _inputHandler);
+      }
+      _container = null;
+    },
+  };
+})();
+
+// 注册（覆盖空壳）
+FreqTerminal.registerApp(App01Archive);
 
 
 // ============================================================
