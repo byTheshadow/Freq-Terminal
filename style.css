@@ -4043,7 +4043,8 @@
 }
 
 /* ============================================================ end App08 */
-/* ============================================================ App10 ·异界探索  f10- 主题色#633806============================================================ */
+
+/* ============================================================ App10 · 异界探索  f10- 主题色#633806 ============================================================ */
 
 .f10-wrap {
   position: relative;
@@ -4055,469 +4056,138 @@
   overflow: hidden;
 }
 
-/* ── 地图视口 ── */
-.f10-map-viewport {
-  position: relative;
+/* ── Canvas── */
+.f10-canvas {
+  display: block;
+  width: 100%;
   flex: 1;
-  overflow: hidden;
-  cursor: grab;
   background: #050508;
+  cursor: grab;
+  touch-action: none;
 }
-.f10-map-viewport:active {
-  cursor: grabbing;
-}
-
-#f10-canvas {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  margin-top: -300px;
-  margin-left: -400px;
-  transform-origin: center center;
-  image-rendering: pixelated;
-  will-change: transform;
-}
-
-#f10-svg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 800px;
-  height: 600px;
-  margin-top: -300px;
-  margin-left: -400px;
-  transform-origin: center center;
-  pointer-events: all;
-  will-change: transform;
-  overflow: visible;
-}
-
-/* ── 扫描线覆盖 ── */
-.f10-scan-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(99,56,6,0.015) 2px,
-    rgba(99,56,6,0.015) 4px
-  );
-  z-index: 5;
-}
-
-.f10-scan-line {
-  stroke: rgba(99,56,6,0.35);
-  stroke-width: 1.5;
-  filter: drop-shadow(0 0 6px rgba(99,56,6,0.5));
-  opacity: 0.7;
-}
-
-/* ── 信号覆盖区域 ── */
-.f10-coverage-area {
-  fill: rgba(99,56,6,0.05);
-  stroke: rgba(99,56,6,0.12);
-  stroke-width: 0.5;
-  stroke-dasharray: 33;
-  animation: f10-coverage-pulse 4s ease-in-out infinite;
-}
-
-@keyframes f10-coverage-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.7; }
-}
-
-/* ── 信号环 ── */
-.f10-signal-ring {
-  fill: none;
-  stroke: rgba(99,56,6,0.25);
-  stroke-width: 1;
-  animation: f10-ring-pulse 3s ease-in-out infinite;
-}
-
-@keyframes f10-ring-pulse {
-  0%, 100% { r: 20; opacity: 0.3; }
-  50% { r: 28; opacity: 0.6; }
-}
-
-/* ── 地标标记 ── */
-.f10-marker-group {
-  transition: opacity 0.3s;
-}
-.f10-marker-group:hover .f10-marker-glow {
-  r: 12;
-  opacity: 1;
-}
-
-.f10-marker-glow {
-  fill: rgba(99,56,6,0.3);
-  stroke: rgba(99,56,6,0.6);
-  stroke-width: 1;
-  filter: drop-shadow(0 0 6px rgba(99,56,6,0.8));
-  animation: f10-glow-breathe 2.5s ease-in-out infinite;
-  transition: r 0.3s, opacity 0.3s;
-}
-
-@keyframes f10-glow-breathe {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
-}
-
-.f10-marker-core {
-  fill: #c47a1a;
-  stroke: #ffd080;
-  stroke-width: 0.8;
-  filter: drop-shadow(0 0 3px #c47a1a);
-}
-
-.f10-marker-selected .f10-marker-core {
-  fill: #ffd080;
-  stroke: #fff;
-  stroke-width: 1.2;
-  filter: drop-shadow(0 0 8px #ffd080);
-  animation: f10-selected-pulse 1s ease-in-out infinite;
-}
-
-@keyframes f10-selected-pulse {
-  0%, 100% { r: 4; }
-  50% { r: 6; }
-}
-
-.f10-marker-selected .f10-marker-glow {
-  fill: rgba(255,208,128,0.2);
-  stroke: rgba(255,208,128,0.7);
-  r: 12;
-}
-
-.f10-marker-label {
-  fill: rgba(200,180,140,0.85);
-  font-size: 8px;
-  font-family: 'Courier New', monospace;
-  text-anchor: middle;
-  pointer-events: none;
-  filter: drop-shadow(0 0 2px rgba(0,0,0,0.8));
-  letter-spacing: 0.5px;
-}
-
-/* ── 地标 glitch 效果 ── */
-.f10-marker-group:nth-child(3n) .f10-marker-label {
-  animation: f10-glitch-text 8s ease-in-out infinite;
-}
-
-@keyframes f10-glitch-text {
-  0%, 95%, 100% { opacity: 0.85; transform: translate(0,0); }
-  96% { opacity: 0.4; transform: translate(1px, -1px); }
-  97% { opacity: 0.9; transform: translate(-1px, 0); }
-  98% { opacity: 0.3; transform: translate(0, 1px); }
-}
+.f10-canvas:active { cursor: grabbing; }
 
 /* ── 详情面板 ── */
-.f10-detail-panel {
+.f10-detail {
   position: absolute;
-  bottom: 52px;
-  left: 8px;
-  right: 8px;
+  bottom: 48px;
+  left: 6px; right: 6px;
   background: rgba(10,10,15,0.95);
-  border: 1px solid rgba(99,56,6,0.4);
+  border: 1px solid rgba(99,56,6,0.35);
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px 12px;
   z-index: 20;
   backdrop-filter: blur(8px);
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(99,56,6,0.15);
-  max-height: 200px;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(99,56,6,0.12);
+  max-height: 180px;
   overflow-y: auto;
-  animation: f10-panel-slide-up 0.25s ease-out;
+  animation: f10-slide0.2s ease-out;
+}
+@keyframes f10-slide {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }
 
-@keyframes f10-panel-slide-up {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+.f10-d-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.f10-d-icon { color: #c47a1a; font-size: 15px; filter: drop-shadow(0 0 4px rgba(196,122,26,0.5)); }
+.f10-d-name { flex: 1; color: #e8d5b0; font-size: 13px; font-weight: 600; font-family: 'Courier New', monospace; }
+.f10-d-close {
+  background: none; border: 1px solid rgba(99,56,6,0.25); color: rgba(200,180,140,0.5);
+  width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s;
 }
+.f10-d-close:hover { color: #ffd080; border-color: rgba(99,56,6,0.5); background: rgba(99,56,6,0.12); }
 
-.f10-detail-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.f10-detail-icon {
-  color: #c47a1a;
-  font-size: 16px;
-  filter: drop-shadow(0 0 4px rgba(196,122,26,0.6));
-}
-
-.f10-detail-name {
-  flex: 1;
-  color: #e8d5b0;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: 'Courier New', monospace;
-  letter-spacing: 0.5px;
-}
-
-.f10-detail-close {
-  background: none;
-  border: 1px solid rgba(99,56,6,0.3);
-  color: rgba(200,180,140,0.6);
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-.f10-detail-close:hover {
-  color: #ffd080;
-  border-color: rgba(99,56,6,0.6);
-  background: rgba(99,56,6,0.15);
-}
-
-.f10-detail-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 10px;
-  color: rgba(200,180,140,0.45);
-  font-family: 'Courier New', monospace;
-  margin-bottom: 6px;
-}
-
-.f10-detail-char {
-  font-size: 10px;
-  color: rgba(196,122,26,0.6);
-  margin-bottom: 8px;
-  font-family: 'Courier New', monospace;
-}
-
-.f10-detail-desc {
-  color: rgba(200,180,140,0.75);
-  font-size: 12px;
-  line-height: 1.6;
-  margin-bottom: 6px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.f10-detail-time {
-  font-size: 9px;
-  color: rgba(200,180,140,0.3);
-  font-family: 'Courier New', monospace;
-  margin-bottom: 8px;
-}
-
-.f10-ellipsis {
-  color: rgba(196,122,26,0.6);
-}
+.f10-d-meta { display: flex; gap: 10px; font-size: 9px; color: rgba(200,180,140,0.4); font-family: 'Courier New', monospace; margin-bottom: 4px; }
+.f10-d-char { font-size: 9px; color: rgba(196,122,26,0.55); margin-bottom: 6px; font-family: 'Courier New', monospace; }
+.f10-d-desc { color: rgba(200,180,140,0.72); font-size: 11px; line-height: 1.55; margin-bottom: 4px; white-space: pre-wrap; word-break: break-word; }
+.f10-d-time { font-size: 8px; color: rgba(200,180,140,0.25); font-family: 'Courier New', monospace; margin-bottom: 6px; }
+.f10-ell { color: rgba(196,122,26,0.55); }
 
 .f10-expand-btn {
-  font-size: 10px;
-  color: rgba(196,122,26,0.7);
-  cursor: pointer;
-  text-align: center;
-  padding: 2px 0;
-  transition: color 0.2s;
-  font-family: 'Courier New', monospace;
+  font-size: 9px; color: rgba(196,122,26,0.65); cursor: pointer; text-align: center;
+  padding: 2px 0; transition: color 0.2s; font-family: 'Courier New', monospace;
 }
-.f10-expand-btn:hover {
-  color: #ffd080;
-}
+.f10-expand-btn:hover { color: #ffd080; }
 
-/* ── 手动添加表单 ── */
-.f10-add-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(5,5,8,0.85);
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(4px);
-  animation: f10-fade-in 0.2s ease-out;
-}
+.f10-detail::-webkit-scrollbar { width: 3px; }
+.f10-detail::-webkit-scrollbar-track { background: transparent; }
+.f10-detail::-webkit-scrollbar-thumb { background: rgba(99,56,6,0.25); border-radius: 3px; }
 
-@keyframes f10-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* ── 添加表单 ── */
+.f10-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(5,5,8,0.85); z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px); animation: f10-fi 0.2s ease-out;
 }
+@keyframes f10-fi { from { opacity: 0; } to { opacity: 1; } }
 
-.f10-add-form {
-  background: rgba(15,15,20,0.98);
-  border: 1px solid rgba(99,56,6,0.35);
-  border-radius: 10px;
-  padding: 20px;
-  width: 85%;
-  max-width: 300px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(99,56,6,0.1);
+.f10-form {
+  background: rgba(15,15,20,0.98); border: 1px solid rgba(99,56,6,0.3);
+  border-radius: 10px; padding: 18px; width: 85%; max-width: 280px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(99,56,6,0.08);
 }
+.f10-form-title {
+  color: #e8d5b0; font-size: 14px; font-weight: 600; margin-bottom: 12px;
+  text-align: center; font-family: 'Courier New', monospace; letter-spacing: 1px;
+}
+.f10-label { display: block; color: rgba(200,180,140,0.5); font-size: 9px; margin-bottom: 3px; font-family: 'Courier New', monospace; }
 
-.f10-add-title {
-  color: #e8d5b0;
-  font-size: 15px;
-  font-weight: 600;
-  margin-bottom: 14px;
-  text-align: center;
-  font-family: 'Courier New', monospace;
-  letter-spacing: 1px;
+.f10-inp, .f10-ta {
+  width: 100%; background: rgba(20,20,28,0.9); border: 1px solid rgba(99,56,6,0.2);
+  border-radius: 6px; color: #e8d5b0; font-size: 12px; padding: 7px 9px; margin-bottom: 8px;
+  font-family: 'Courier New', monospace; outline: none; transition: border-color 0.2s;
+  box-sizing: border-box; resize: none;
 }
+.f10-inp:focus, .f10-ta:focus { border-color: rgba(99,56,6,0.5); box-shadow: 0 0 8px rgba(99,56,6,0.12); }
+.f10-inp::placeholder, .f10-ta::placeholder { color: rgba(200,180,140,0.2); }
 
-.f10-add-label {
-  display: block;
-  color: rgba(200,180,140,0.6);
-  font-size: 10px;
-  margin-bottom: 4px;
-  font-family: 'Courier New', monospace;
-  letter-spacing: 0.5px;
-}
-
-.f10-add-input,
-.f10-add-textarea {
-  width: 100%;
-  background: rgba(20,20,28,0.9);
-  border: 1px solid rgba(99,56,6,0.25);
-  border-radius: 6px;
-  color: #e8d5b0;
-  font-size: 13px;
-  padding: 8px 10px;
-  margin-bottom: 10px;
-  font-family: 'Courier New', monospace;
-  outline: none;
-  transition: border-color 0.2s;box-sizing: border-box;resize: none;
-}
-.f10-add-input:focus,
-.f10-add-textarea:focus {
-  border-color: rgba(99,56,6,0.6);
-  box-shadow: 0 0 8px rgba(99,56,6,0.15);
-}
-.f10-add-input::placeholder,
-.f10-add-textarea::placeholder {
-  color: rgba(200,180,140,0.25);
-}
-
-.f10-add-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-}
-.f10-add-actions .f10-btn {
-  flex: 1;
-}
+.f10-form-acts { display: flex; gap: 8px; margin-top: 4px; }
+.f10-form-acts .f10-btn { flex: 1; }
 
 /* ── 状态栏 ── */
 .f10-status {
-  position: absolute;
-  bottom: 56px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(10,10,15,0.9);
-  border: 1px solid rgba(99,56,6,0.3);
-  color: rgba(200,180,140,0.8);
-  font-size: 11px;
-  padding: 4px 14px;
-  border-radius: 12px;
-  z-index: 15;
-  font-family: 'Courier New', monospace;
-  white-space: nowrap;
-  pointer-events: none;
-  animation: f10-fade-in 0.2s ease-out;
+  position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%);
+  background: rgba(10,10,15,0.9); border: 1px solid rgba(99,56,6,0.25);
+  color: rgba(200,180,140,0.75); font-size: 10px; padding: 3px 12px;
+  border-radius: 10px; z-index: 15; font-family: 'Courier New', monospace;
+  white-space: nowrap; pointer-events: none; animation: f10-fi 0.2s ease-out;
 }
 
-/* ── 底部操作栏 ── */
-.f10-bottom-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  background: rgba(8,8,12,0.95);
-  border-top: 1px solid rgba(99,56,6,0.2);
-  z-index: 10;
-  backdrop-filter: blur(6px);
+/* ── 底部栏 ── */
+.f10-bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  display: flex; align-items: center; gap: 5px; padding: 7px 8px;
+  background: rgba(8,8,12,0.95); border-top: 1px solid rgba(99,56,6,0.18);
+  z-index: 10; backdrop-filter: blur(6px);
 }
 
 .f10-btn {
-  background: rgba(99,56,6,0.12);
-  border: 1px solid rgba(99,56,6,0.3);
-  color: rgba(200,180,140,0.8);
-  font-size: 11px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: 'Courier New', monospace;
-  transition: all 0.2s;
-  white-space: nowrap;
+  background: rgba(99,56,6,0.10); border: 1px solid rgba(99,56,6,0.25);
+  color: rgba(200,180,140,0.75); font-size: 10px; padding: 5px 8px;
+  border-radius: 5px; cursor: pointer; font-family: 'Courier New', monospace;
+  transition: all 0.2s; white-space: nowrap;
 }
-.f10-btn:hover:not(:disabled) {
-  background: rgba(99,56,6,0.25);
-  border-color: rgba(99,56,6,0.5);
-  color: #ffd080;
-}
-.f10-btn:active:not(:disabled) {
-  transform: scale(0.96);
-}
-.f10-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.f10-btn:hover:not(:disabled) { background: rgba(99,56,6,0.22); border-color: rgba(99,56,6,0.45); color: #ffd080; }
+.f10-btn:active:not(:disabled) { transform: scale(0.96); }
+.f10-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.f10-btn-primary {
-  background: rgba(99,56,6,0.25);
-  border-color: rgba(99,56,6,0.5);
-  color: #e8d5b0;
-  flex: 1;
+.f10-btn-pri {
+  background: rgba(99,56,6,0.22); border-color: rgba(99,56,6,0.45); color: #e8d5b0; flex: 1;
 }
-.f10-btn-primary:hover:not(:disabled) {
-  background: rgba(99,56,6,0.4);
-  color: #ffd080;
-  box-shadow: 0 0 12px rgba(99,56,6,0.3);
-}
+.f10-btn-pri:hover:not(:disabled) { background: rgba(99,56,6,0.38); color: #ffd080; box-shadow: 0 0 10px rgba(99,56,6,0.25); }
 
-.f10-btn-danger {
-  background: rgba(139,0,0,0.15);
-  border-color: rgba(139,0,0,0.3);
-  color: rgba(200,140,140,0.7);
-  font-size: 10px;
-  padding: 4px 8px;
-  width: 100%;
+.f10-btn-del {
+  background: rgba(139,0,0,0.12); border-color: rgba(139,0,0,0.25);
+  color: rgba(200,140,140,0.65); font-size: 9px; padding: 3px 6px; width: 100%;
 }
-.f10-btn-danger:hover:not(:disabled) {
-  background: rgba(139,0,0,0.3);
-  border-color: rgba(139,0,0,0.5);
-  color: #ff8080;
-}
+.f10-btn-del:hover:not(:disabled) { background: rgba(139,0,0,0.25); border-color: rgba(139,0,0,0.45); color: #ff8080; }
 
-.f10-count {
-  font-size: 9px;
-  color: rgba(200,180,140,0.35);
-  font-family: 'Courier New', monospace;
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-/* ── 详情面板滚动条 ── */
-.f10-detail-panel::-webkit-scrollbar {
-  width: 3px;
-}
-.f10-detail-panel::-webkit-scrollbar-track {
-  background: transparent;
-}
-.f10-detail-panel::-webkit-scrollbar-thumb {
-  background: rgba(99,56,6,0.3);
-  border-radius: 3px;
-}
-
-/* ── 空状态 ── */
-.f10-wrap .freq-empty-state {
-  color: rgba(200,180,140,0.3);
-}
+.f10-cnt { font-size: 8px; color: rgba(200,180,140,0.3); font-family: 'Courier New', monospace; margin-left: auto; }
 
 /* ============================================================ end App10 */
+
 
 
 
