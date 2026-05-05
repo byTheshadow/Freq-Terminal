@@ -4701,12 +4701,12 @@ const App08Calendar = (() => {
     return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   }
 
-  function _parseDateTime(dateStr, timeStr) {
+    function _parseDateTime(dateStr, timeStr) {
     const t = timeStr || '00:00';
     return new Date(`${dateStr}T${t}:00`);
   }
 
-  // ── 角色列表（通过 ST 后端 API 获取完整列表）──
+  //── 角色列表获取（多重回退）──
   async function _fetchCharListFromAPI() {
     try {
       const now = Date.now();
@@ -4714,50 +4714,47 @@ const App08Calendar = (() => {
         return _charListCache;
       }
 
-      // ST 1.15 的角色列表 API
-      const resp = await fetch('/api/characters/all', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
-        },
-        body: JSON.stringify({}),
-      });
+      let chars = null;
 
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
+      // 优先级1：SillyTavern.getContext()
+      try {
+        if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
+          const stCtx = SillyTavern.getContext();
+          if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+            chars = stCtx.characters;
+            _ctx.log.info('app08', '通过 SillyTavern.getContext() 获取角色列表');
+          }
+        }
+      } catch (e) {}
 
-      const list = [];
-      if (Array.isArray(data)) {
-        for (const c of data) {
-          if (!c || !c.name) continue;
-          list.push({
-            name: c.name,
-            avatar: c.avatar || '',
-            description: c.description || '',
-            personality: c.personality || '',
-            scenario: c.scenario || '',
-          });
+      // 优先级2：全局 getContext()
+      if (!chars) {
+        try {
+          if (typeof getContext === 'function') {
+            const stCtx = getContext();
+            if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+              chars = stCtx.characters;
+              _ctx.log.info('app08', '通过 getContext() 获取角色列表');
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 优先级3：window.characters
+      if (!chars) {
+        if (window.characters && Array.isArray(window.characters) && window.characters.length > 0) {
+          chars = window.characters;
+          _ctx.log.info('app08', '通过 window.characters 获取角色列表');
         }
       }
 
-      _charListCache = list;
-      _charListCacheTime = now;
-      _ctx.log.info('app08', `角色列表已加载: ${list.length} 个角色`);
-      return list;
-    } catch (e) {
-      _ctx.log.warn('app08', 'API获取角色列表失败，回退到本地', e.message);
-      return _getCharListLocal();
-    }
-  }
+      if (!chars || chars.length === 0) {
+        _ctx.log.warn('app08', '未能获取角色列表');
+        return [];
+      }
 
-  function _getCharListLocal() {
-    try {
-      const chars = window.characters;
-      if (!chars || !Array.isArray(chars)) return [];
       const list = [];
-      for (let i = 0; i < chars.length; i++) {
-        const c = chars[i];
+      for (const c of chars) {
         if (!c || !c.name) continue;
         list.push({
           name: c.name,
@@ -4767,10 +4764,15 @@ const App08Calendar = (() => {
           scenario: c.scenario || '',
         });
       }
+
       _charListCache = list;
-      _charListCacheTime = Date.now();
+      _charListCacheTime = now;
+      _ctx.log.info('app08', `角色列表已加载: ${list.length} 个角色`);
       return list;
-    } catch (e) { return []; }
+    } catch (e) {
+      _ctx.log.error('app08', '获取角色列表异常', e.message);
+      return [];
+    }
   }
 
   function _getSelectedCharName() {
@@ -4780,7 +4782,6 @@ const App08Calendar = (() => {
 
   function _getSelectedCharDesc() {
     const targetName = _getSelectedCharName();
-    // 先从缓存查
     if (_charListCache) {
       const c = _charListCache.find(ch => ch.name === targetName);
       if (c) {
@@ -4788,7 +4789,6 @@ const App08Calendar = (() => {
           .filter(Boolean).join('\n').slice(0, 800);
       }
     }
-    // 回退到当前角色
     try {
       const chid = window.this_chid;
       const chars = window.characters;
@@ -4802,6 +4802,7 @@ const App08Calendar = (() => {
   }
 
   // ── 持久化 ──
+
   async function _loadData() {
     try {
       const [u, c, cfg] = await Promise.all([
