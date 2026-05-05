@@ -135,7 +135,58 @@ app07_char_goal: `你是角色{char_name}。
 
 用<char_goal_response>标签包裹输出。
 <char_goal_response>你的回复</char_goal_response>`,
-    app08: '任务：User轨道和角色轨道在同一天都有日程，这是一个共鸣时刻。请以角色身份写一句关于这个巧合的感想。不超过 40 字。',
+    app08_char_schedule: `你是角色{char_name}。
+以下是你的人设信息：
+{char_desc}
+
+现在是现实世界的{real_datetime}，本月是{month_str}。
+以下是你和用户的近期对话：
+{recent_chat}
+
+请你以角色身份，根据你的人设和近期对话内容，生成你在现实世界时间线上的日程安排（5-8条）。
+日程必须锚定现实世界日期（{today_str}起的7天内），不要用RP世界的时间。
+日程应包含角色的日常活动和可能与用户相关的约定。
+
+每条用<schedule_item>标签包裹，格式：日期|时间|标题|类型
+- 日期格式：YYYY-MM-DD
+- 时间格式：HH:MM（24小时制，可留空）
+- 类型：daily（日常）或 appointment（与用户的约定）
+
+示例：
+<schedule_item>2026-05-06|14:00|在录音室调试设备|daily</schedule_item>
+<schedule_item>2026-05-07|20:00|和{user_name}一起听新专辑|appointment</schedule_item>`,
+
+app08_user_reminder: `你是角色{char_name}。
+以下是你的人设信息：
+{char_desc}
+
+现在是{real_datetime}。
+用户{user_name}有一个即将到来的日程：
+标题：{event_title}
+日期：{event_date}
+时间：{event_time}
+备注：{event_note}
+
+请你以角色身份，用你独特的说话方式，写一句简短的提醒语（30字以内），提醒用户这个日程。
+语气要符合你的性格，可以关心、调侃、催促，但要自然。
+直接输出提醒语，不要加标签。`,
+
+app08_scan_appointments: `你是一个日程分析助手。
+现在是{real_datetime}，今天是{today_str}。
+以下是角色{char_name}和用户的近期对话：
+{recent_chat}
+
+请从对话中提取所有明确或暗示的约定、计划、承诺（如"明天见""周末一起去""下次帮你…"等）。
+将模糊时间转换为具体的现实世界日期（基于今天{today_str}推算）。
+如果没有发现任何约定，输出<appointment>none</appointment>。
+
+每条约定用<appointment>标签包裹，格式：日期|时间|标题
+- 日期格式：YYYY-MM-DD
+- 时间格式：HH:MM（可留空）
+
+示例：
+<appointment>2026-05-06|15:00|一起去唱片店</appointment>
+<appointment>2026-05-08||帮忙修理收音机</appointment>`,
     app09: '任务：基于当前世界观，生成一章短篇小说内容（200-400 字）。可隐晦引用当前 Seeds伏笔。用 <chapter> 标签包裹。',
     app10: '任务：基于预设世界观，生成一个地点的详细介绍。包含地名、简介、氛围描述。用 <location> 标签包裹。',
     app11: '任务：基于当前天气「{weather_info}」和BGM「{current_bgm}」，以角色身份推荐 2-3 道菜，每道菜附角色口吻的点评。用 <menu> 标签包裹。',
@@ -4601,6 +4652,777 @@ const App07Checkin = (() => {
   };
 })();
 //============================================================ end block_16
+// ============================================================
+// block_17 — App08 · 日程表
+// ============================================================
+const App08Calendar = (() => {
+  let _ctx = null;
+  let _container = null;
+  let _clickHandler = null;
+  let _reminderTimer = null;
+
+  // ── 状态 ──
+  let _viewDate = new Date();          // 当前月历显示的年月
+  let _selectedDate = null;            // 选中的日期字符串 'YYYY-MM-DD'
+  let _userEvents = [];                // User 日程
+  let _charEvents = [];                // Char 日程（含约定）
+  let _loading = false;
+  let _statusText = '';
+  let _activeTab = 'calendar';         // 'calendar' | 'add' | 'char-select'
+  let _addForm = { date: '', time: '', title: '', note: '' };
+  let _selectedCharId = null;          // 自选角色 id（null = 当前主聊天角色）
+  let _notifiedIds = new Set();        // 已推送过提醒的约定 id，防重复
+
+  // ── 常量 ──
+  const STORE_KEY_USER   = 'app08_user_events';
+  const STORE_KEY_CHAR   = 'app08_char_events';
+  const STORE_KEY_CONFIG = 'app08_config';
+  const WEEKDAYS = ['日','一','二','三','四','五','六'];
+
+  // ── 工具 ──
+  function _escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function _today() {
+    const d = new Date();
+    return _dateStr(d);
+  }
+
+  function _dateStr(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function _timeStr(d) {
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function _parseDateTime(dateStr, timeStr) {
+    // 返回 Date 对象，timeStr 可为空（默认 00:00）
+    const t = timeStr || '00:00';
+    return new Date(`${dateStr}T${t}:00`);
+  }
+
+  function _getCharDesc(charId) {
+    try {
+      const chars = window.characters;
+      if (!chars) return '';
+      const c = charId != null ? chars[charId] : chars[window.this_chid];
+      if (!c) return '';
+      return [c.description, c.personality, c.scenario]
+        .filter(Boolean).join('\n').slice(0, 800);
+    } catch (e) { return ''; }
+  }
+
+  function _getCharName(charId) {
+    try {
+      const chars = window.characters;
+      if (!chars) return _ctx.bridge.getCharName();
+      const c = charId != null ? chars[charId] : chars[window.this_chid];
+      return c ? (c.name || _ctx.bridge.getCharName()) : _ctx.bridge.getCharName();
+    } catch (e) { return _ctx.bridge.getCharName(); }
+  }
+
+  function _getCharList() {
+    try {
+      const chars = window.characters;
+      if (!chars) return [];
+      return chars.map((c, i) => ({ id: i, name: c.name || `角色${i}`, avatar: c.avatar }))
+                  .filter(c => c.name);
+    } catch (e) { return []; }
+  }
+
+  // ── 持久化 ──
+  async function _loadData() {
+    try {
+      const [u, c, cfg] = await Promise.all([
+        _ctx.store.get(STORE_KEY_USER),
+        _ctx.store.get(STORE_KEY_CHAR),
+        _ctx.store.get(STORE_KEY_CONFIG),
+      ]);
+      _userEvents = Array.isArray(u) ? u : [];
+      _charEvents = Array.isArray(c) ? c : [];
+      if (cfg) {
+        if (cfg.selectedCharId !== undefined) _selectedCharId = cfg.selectedCharId;
+      }
+    } catch (e) {
+      _ctx.log.error('app08', '加载数据失败', e.message);
+    }
+  }
+
+  async function _saveUserEvents() {
+    await _ctx.store.set(STORE_KEY_USER, _userEvents);
+  }
+
+  async function _saveCharEvents() {
+    await _ctx.store.set(STORE_KEY_CHAR, _charEvents);
+  }
+
+  async function _saveConfig() {
+    await _ctx.store.set(STORE_KEY_CONFIG, { selectedCharId: _selectedCharId });
+  }
+
+  // ── Event 字段解析（辅助）──
+  function _parseEventFields(msgs) {
+    const events = [];
+    const today = _today();
+    const eventRe = /<event>([\s\S]*?)<\/event>/gi;
+    for (const msg of msgs) {
+      if (!msg.mes) continue;
+      let m;
+      while ((m = eventRe.exec(msg.mes)) !== null) {
+        const raw = m[1].trim();
+        // 尝试解析 "日期 时间 标题" 或 "标题" 格式
+        const dateMatch = raw.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})/);
+        const timeMatch = raw.match(/(\d{1,2}:\d{2})/);
+        const date = dateMatch
+          ? dateMatch[1].replace(/\//g, '-').replace(/(\d{4})-(\d{1,2})-(\d{1,2})/, (_, y, mo, d) =>
+              `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`)
+          : today;
+        const time = timeMatch ? timeMatch[1] : '';
+        const title = raw.replace(/\d{4}[-\/]\d{1,2}[-\/]\d{1,2}/, '')
+                         .replace(/\d{1,2}:\d{2}/, '').trim() || raw;
+        events.push({
+          id: `event_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+          date, time, title,
+          type: 'appointment',
+          source: 'event_field',
+          charName: _getCharName(_selectedCharId),
+          charDesc: '',
+          createdAt: Date.now(),
+          reminded: false,
+        });
+      }
+    }
+    return events;
+  }
+
+  // ── 副 API：生成角色日程 ──
+  async function _fetchCharSchedule() {
+    const charName = _getCharName(_selectedCharId);
+    const charDesc = _getCharDesc(_selectedCharId);
+    const recentMsgs = _ctx.bridge.getRecentMessages(20);
+    const recentText = recentMsgs.map(m => `${m.name}: ${m.mes}`).join('\n').slice(0, 1500);
+    const now = new Date();
+    const monthStr = `${now.getFullYear()}年${now.getMonth()+1}月`;
+
+    const messages = _ctx.subapi.buildMessages('app08_char_schedule', {
+      char_name: charName,
+      char_desc: charDesc,
+      recent_chat: recentText,
+      month_str: monthStr,
+      today_str: _today(),
+    });
+
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 600, temperature: 0.85 });
+    const items = _ctx.subapi.parseResponse(raw, 'schedule_item');
+
+    const newEvents = [];
+    for (const item of items) {
+      // 期望格式：日期|时间|标题|类型(daily/appointment)
+      const parts = item.split('|').map(s => s.trim());
+      if (parts.length < 3) continue;
+      const [date, time, title, typeRaw] = parts;
+      if (!date || !title) continue;
+      // 验证日期格式
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      newEvents.push({
+        id: `char_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+        date, time: time || '',
+        title,
+        type: (typeRaw === 'appointment') ? 'appointment' : 'daily',
+        source: 'api',
+        charName,
+        charDesc,
+        createdAt: Date.now(),
+        reminded: false,
+      });
+    }
+    return newEvents;
+  }
+
+  // ── 副 API：角色对 User 日程的提醒语 ──
+  async function _fetchCharReminder(userEvent) {
+    const charName = _getCharName(_selectedCharId);
+    const charDesc = _getCharDesc(_selectedCharId);
+    const messages = _ctx.subapi.buildMessages('app08_user_reminder', {
+      char_name: charName,
+      char_desc: charDesc,
+      event_title: userEvent.title,
+      event_date: userEvent.date,
+      event_time: userEvent.time || '未指定时间',
+      event_note: userEvent.note || '',
+    });
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 200, temperature: 0.9 });
+    return _ctx.subapi.safeParseText(raw);
+  }
+
+  // ── 副 API：自动扫描对话中的约定 ──
+  async function _autoScanAppointments() {
+    const charName = _getCharName(_selectedCharId);
+    const charDesc = _getCharDesc(_selectedCharId);
+    const recentMsgs = _ctx.bridge.getRecentMessages(30);
+    const recentText = recentMsgs.map(m => `${m.name}: ${m.mes}`).join('\n').slice(0, 2000);
+
+    // 先尝试 Event 字段解析
+    const eventFieldItems = _parseEventFields(recentMsgs);
+
+    const messages = _ctx.subapi.buildMessages('app08_scan_appointments', {
+      char_name: charName,
+      char_desc: charDesc,
+      recent_chat: recentText,
+      today_str: _today(),
+    });
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 400, temperature: 0.7 });
+    const items = _ctx.subapi.parseResponse(raw, 'appointment');
+
+    const newEvents = [...eventFieldItems];
+    for (const item of items) {
+      const parts = item.split('|').map(s => s.trim());
+      if (parts.length < 2) continue;
+      const [date, time, title] = parts;
+      if (!date || !title) continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      newEvents.push({
+        id: `appt_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+        date, time: time || '',
+        title,
+        type: 'appointment',
+        source: 'api_scan',
+        charName,
+        charDesc,
+        createdAt: Date.now(),
+        reminded: false,
+      });
+    }
+
+    // 去重：同日期+标题的约定不重复添加
+    const existingKeys = new Set(_charEvents.map(e => `${e.date}_${e.title}`));
+    const deduped = newEvents.filter(e => !existingKeys.has(`${e.date}_${e.title}`));
+    return deduped;
+  }
+
+  // ── 约定提醒定时器 ──
+  function _startReminderTimer() {
+    if (_reminderTimer) clearInterval(_reminderTimer);
+    _reminderTimer = setInterval(() => _checkReminders(), 60 * 1000);
+    _checkReminders(); // 立即检查一次
+  }
+
+  function _checkReminders() {
+    const now = new Date();
+    const nowStr = _dateStr(now);
+    const nowTime = _timeStr(now);
+
+    // 检查 Char 约定
+    for (const ev of _charEvents) {
+      if (ev.reminded || ev.type !== 'appointment') continue;
+      if (!ev.time) continue;
+      if (ev.date === nowStr && ev.time <= nowTime) {
+        if (!_notifiedIds.has(ev.id)) {
+          _notifiedIds.add(ev.id);
+          ev.reminded = true;
+          _ctx.notify.push('calendar', '🗓️', `约定提醒·${ev.charName}`, ev.title);
+          _saveCharEvents();
+        }
+      }
+    }
+
+    // 检查 User 日程（提前15分钟提醒）
+    for (const ev of _userEvents) {
+      if (ev.reminded) continue;
+      if (!ev.time) continue;
+      const evDt = _parseDateTime(ev.date, ev.time);
+      const diffMin = (evDt - now) / 60000;
+      if (diffMin <= 15 && diffMin > -1) {
+        if (!_notifiedIds.has(ev.id)) {
+          _notifiedIds.add(ev.id);
+          ev.reminded = true;
+          _ctx.notify.push('calendar', '🗓️', `日程提醒`, ev.title);
+          _saveUserEvents();
+          // 异步生成角色提醒语
+          _fetchCharReminder(ev).then(reminderText => {
+            if (reminderText) {
+              _ctx.notify.push('calendar', '💬', `${_getCharName(_selectedCharId)} 提醒你`, reminderText);
+            }
+          }).catch(() => {});
+        }
+      }
+    }
+  }
+
+  // ── 月历数据计算 ──
+  function _getMonthDays(year, month) {
+    // month: 0-indexed
+    const firstDay = new Date(year, month, 1).getDay(); // 0=日
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    return { firstDay, daysInMonth };
+  }
+
+  function _getDotsForDate(dateStr) {
+    const hasUser = _userEvents.some(e => e.date === dateStr);
+    const hasChar = _charEvents.some(e => e.date === dateStr);
+    return { hasUser, hasChar };
+  }
+
+  // ── 渲染 ──
+  function _render() {
+    if (!_container) return;
+    if (_activeTab === 'add') {
+      _container.innerHTML = _renderAddForm();
+    } else if (_activeTab === 'char-select') {
+      _container.innerHTML = _renderCharSelect();
+    } else {
+      _container.innerHTML = _renderCalendar();
+    }
+  }
+
+  function _renderCalendar() {
+    const year = _viewDate.getFullYear();
+    const month = _viewDate.getMonth();
+    const { firstDay, daysInMonth } = _getMonthDays(year, month);
+    const todayStr = _today();
+    const charName = _getCharName(_selectedCharId);
+
+    // 月历格子
+    let cells = '';
+    // 空白格
+    for (let i = 0; i < firstDay; i++) {
+      cells += `<div class="f08-cell f08-cell-empty"></div>`;
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dots = _getDotsForDate(dateStr);
+      const isToday = dateStr === todayStr;
+      const isSelected = dateStr === _selectedDate;
+      cells += `
+        <div class="f08-cell ${isToday ? 'f08-cell-today' : ''} ${isSelected ? 'f08-cell-selected' : ''}"
+             data-date="${dateStr}">
+          <span class="f08-cell-num">${d}</span>
+          <div class="f08-dots">
+            ${dots.hasUser ? '<span class="f08-dot f08-dot-user"></span>' : ''}
+            ${dots.hasChar ? '<span class="f08-dot f08-dot-char"></span>' : ''}
+          </div>
+        </div>`;
+    }
+
+    // 选中日期的日程详情
+    const dayDetail = _selectedDate ? _renderDayDetail(_selectedDate) : '';
+
+    return `
+      <div class="f08-wrap">
+        <!-- 顶部导航 -->
+        <div class="f08-header">
+          <button class="f08-nav-btn" id="f08-prev-month">‹</button>
+          <span class="f08-month-title">${year}年${month+1}月</span>
+          <button class="f08-nav-btn" id="f08-next-month">›</button>
+          <button class="f08-char-btn" id="f08-open-char-select" title="选择角色">
+            ${_escHtml(charName.slice(0,4))} ▾
+          </button>
+        </div>
+
+        <!-- 星期标题行 -->
+        <div class="f08-weekrow">
+          ${WEEKDAYS.map(w => `<div class="f08-weekday">${w}</div>`).join('')}
+        </div>
+
+        <!-- 月历格子 -->
+        <div class="f08-grid">${cells}</div>
+
+        <!-- 日程详情 -->
+        ${_selectedDate ? `
+          <div class="f08-detail-wrap">
+            <div class="f08-detail-header">
+              <span class="f08-detail-date">${_selectedDate}</span>
+              <button class="f08-add-btn" id="f08-open-add" data-date="${_selectedDate}">＋ 添加</button>
+            </div>
+            ${dayDetail}
+          </div>` : `
+          <div class="f08-hint">点击日期查看日程</div>`
+        }
+
+        <!-- 底部操作栏 -->
+        <div class="f08-bottom-bar">
+          <button class="f08-bottom-btn" id="f08-sync-char">🔄 同步角色日程</button>
+          <button class="f08-bottom-btn" id="f08-scan-appt">🔍 扫描约定</button>
+          ${_statusText ? `<span class="f08-status">${_escHtml(_statusText)}</span>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function _renderDayDetail(dateStr) {
+    const userEvs = _userEvents.filter(e => e.date === dateStr)
+                               .sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+    const charEvs = _charEvents.filter(e => e.date === dateStr)
+                               .sort((a,b) => (a.time||'99:99').localeCompare(b.time||'99:99'));
+
+    if (!userEvs.length && !charEvs.length) {
+      return `<div class="f08-detail-empty">今天没有日程</div>`;
+    }
+
+    let html = '<div class="f08-detail-list">';
+
+    // User 日程
+    for (const ev of userEvs) {
+      html += `
+        <div class="f08-event f08-event-user" data-id="${ev.id}">
+          <div class="f08-event-track f08-track-user"></div>
+          <div class="f08-event-body">
+            <div class="f08-event-top">
+              <span class="f08-event-time">${ev.time || '全天'}</span>
+              <span class="f08-event-title">${_escHtml(ev.title)}</span>
+              <button class="f08-del-btn" data-type="user" data-id="${ev.id}">×</button>
+            </div>
+            ${ev.note ? `<div class="f08-event-note">${_escHtml(ev.note)}</div>` : ''}
+          </div>
+        </div>`;
+    }
+
+    // Char 日程
+    for (const ev of charEvs) {
+      const typeLabel = ev.type === 'appointment' ? '约定' : '日常';
+      const sourceLabel = ev.source === 'event_field' ? '·Event' : '';
+      html += `
+        <div class="f08-event f08-event-char ${ev.type === 'appointment' ? 'f08-event-appt' : ''}" data-id="${ev.id}">
+          <div class="f08-event-track f08-track-char"></div>
+          <div class="f08-event-body">
+            <div class="f08-event-top">
+              <span class="f08-event-time">${ev.time || '全天'}</span>
+              <span class="f08-event-title">${_escHtml(ev.title)}</span>
+              <span class="f08-event-tag">${typeLabel}${sourceLabel}</span>
+              <button class="f08-del-btn" data-type="char" data-id="${ev.id}">×</button>
+            </div>
+            <div class="f08-event-char-name">${_escHtml(ev.charName)}</div>
+          </div>
+        </div>`;
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function _renderAddForm() {
+    return `
+      <div class="f08-wrap">
+        <div class="f08-form-header">
+          <button class="f08-back-btn" id="f08-back">← 返回</button>
+          <span class="f08-form-title">添加日程</span>
+        </div>
+        <div class="f08-form-body">
+          <div class="f08-form-row">
+            <label class="f08-form-label">日期</label>
+            <input class="f08-form-input" type="date" id="f08-input-date"
+                   value="${_escHtml(_addForm.date || _today())}" />
+          </div>
+          <div class="f08-form-row">
+            <label class="f08-form-label">时间</label>
+            <input class="f08-form-input" type="time" id="f08-input-time"
+                   value="${_escHtml(_addForm.time)}" />
+          </div>
+          <div class="f08-form-row">
+            <label class="f08-form-label">标题</label>
+            <input class="f08-form-input" type="text" id="f08-input-title"
+                   placeholder="日程标题" value="${_escHtml(_addForm.title)}" maxlength="40" />
+          </div>
+          <div class="f08-form-row">
+            <label class="f08-form-label">备注</label>
+            <textarea class="f08-form-textarea" id="f08-input-note"
+                      placeholder="可选备注" maxlength="200">${_escHtml(_addForm.note)}</textarea>
+          </div>
+          <button class="f08-submit-btn" id="f08-submit-add" ${_loading ? 'disabled' : ''}>
+            ${_loading ? '⏳ 保存中…' : '✓ 保存日程'}
+          </button>
+          ${_statusText ? `<div class="f08-form-status">${_escHtml(_statusText)}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function _renderCharSelect() {
+    const chars = _getCharList();
+    const currentId = _selectedCharId;
+    return `
+      <div class="f08-wrap">
+        <div class="f08-form-header">
+          <button class="f08-back-btn" id="f08-back">← 返回</button>
+          <span class="f08-form-title">选择角色</span>
+        </div>
+        <div class="f08-char-list">
+          <div class="f08-char-item ${currentId === null ? 'f08-char-active' : ''}"
+               data-char-id="null">
+            <span class="f08-char-avatar">🎙️</span>
+            <span class="f08-char-name">当前对话角色</span>
+            ${currentId === null ? '<span class="f08-char-check">✓</span>' : ''}
+          </div>
+          ${chars.map(c => `
+            <div class="f08-char-item ${currentId === c.id ? 'f08-char-active' : ''}"
+                 data-char-id="${c.id}">
+              <span class="f08-char-avatar">👤</span>
+              <span class="f08-char-name">${_escHtml(c.name)}</span>
+              ${currentId === c.id ? '<span class="f08-char-check">✓</span>' : ''}
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  // ── 事件绑定 ──
+  function _bindEvents(container) {
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+
+    _clickHandler = async (e) => {
+      // 返回按钮
+      if (e.target.id === 'f08-back') {
+        _activeTab = 'calendar';
+        _statusText = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 上一月
+      if (e.target.id === 'f08-prev-month') {
+        _viewDate = new Date(_viewDate.getFullYear(), _viewDate.getMonth() - 1, 1);
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 下一月
+      if (e.target.id === 'f08-next-month') {
+        _viewDate = new Date(_viewDate.getFullYear(), _viewDate.getMonth() + 1, 1);
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 打开角色选择
+      if (e.target.id === 'f08-open-char-select') {
+        _activeTab = 'char-select';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 选择角色
+      const charItem = e.target.closest('.f08-char-item');
+      if (charItem) {
+        const rawId = charItem.dataset.charId;
+        _selectedCharId = rawId === 'null' ? null : Number(rawId);
+        await _saveConfig();
+        _activeTab = 'calendar';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 点击日期格子
+      const cell = e.target.closest('.f08-cell:not(.f08-cell-empty)');
+      if (cell && cell.dataset.date) {
+        const date = cell.dataset.date;
+        _selectedDate = (_selectedDate === date) ? null : date;
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 打开添加表单
+      if (e.target.id === 'f08-open-add') {
+        _addForm = { date: e.target.dataset.date || _today(), time: '', title: '', note: '' };
+        _activeTab = 'add';
+        _statusText = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 提交添加
+      if (e.target.id === 'f08-submit-add') {
+        const title = _addForm.title.trim();
+        if (!title) {
+          _statusText = '⚠ 请填写标题';
+          _render(); _bindEvents(_container);
+          setTimeout(() => { _statusText = ''; if (_container) { _render(); _bindEvents(_container); } }, 3000);
+          return;
+        }
+        _loading = true;
+        _statusText = '⏳ 保存中…';
+        _render(); _bindEvents(_container);
+
+        try {
+          const newEv = {
+            id: `user_${Date.now()}`,
+            date: _addForm.date || _today(),
+            time: _addForm.time || '',
+            title: _addForm.title.trim(),
+            note: _addForm.note.trim(),
+            createdAt: Date.now(),
+            reminded: false,
+          };
+          _userEvents.push(newEv);
+          await _saveUserEvents();
+          _selectedDate = newEv.date;
+          _viewDate = new Date(newEv.date + 'T00:00:00');
+          _activeTab = 'calendar';
+          _statusText = '✓ 日程已保存';
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error('app08', '保存日程失败', err.message);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+        setTimeout(() => {
+          if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 3000);
+        return;
+      }
+
+      // 删除日程
+      const delBtn = e.target.closest('.f08-del-btn');
+      if (delBtn) {
+        const type = delBtn.dataset.type;
+        const id = delBtn.dataset.id;
+        if (type === 'user') {
+          _userEvents = _userEvents.filter(ev => ev.id !== id);
+          await _saveUserEvents();
+        } else {
+          _charEvents = _charEvents.filter(ev => ev.id !== id);
+          await _saveCharEvents();
+        }
+                _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 同步角色日程
+      if (e.target.id === 'f08-sync-char') {
+        _loading = true;
+        _statusText = '⏳ 正在同步角色日程…';
+        _render(); _bindEvents(_container);
+
+        try {
+          const newEvents = await _fetchCharSchedule();
+          // 去重
+          const existingKeys = new Set(_charEvents.map(ev => `${ev.date}_${ev.title}`));
+          const deduped = newEvents.filter(ev => !existingKeys.has(`${ev.date}_${ev.title}`));
+          if (deduped.length > 0) {
+            _charEvents.push(...deduped);
+            await _saveCharEvents();
+            _statusText = `✓ 已同步 ${deduped.length} 条角色日程`;
+          } else {
+            _statusText = '✓ 没有新的角色日程';
+          }
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error('app08', '同步角色日程失败', err.message);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+        setTimeout(() => {
+          if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 3000);
+        return;
+      }
+
+      // 扫描约定
+      if (e.target.id === 'f08-scan-appt') {
+        _loading = true;
+        _statusText = '⏳ 正在扫描对话中的约定…';
+        _render(); _bindEvents(_container);
+
+        try {
+          const newAppts = await _autoScanAppointments();
+          if (newAppts.length > 0) {
+            _charEvents.push(...newAppts);
+            await _saveCharEvents();
+            _statusText = `✓ 发现 ${newAppts.length} 条新约定`;
+            // 推送通知
+            for (const appt of newAppts) {
+              _ctx.notify.push('calendar', '📌', `新约定·${appt.charName}`, `${appt.date} ${appt.time || ''} ${appt.title}`);
+            }
+          } else {
+            _statusText = '✓ 未发现新约定';
+          }
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error('app08', '扫描约定失败', err.message);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+        setTimeout(() => {
+          if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 3000);
+        return;
+      }};
+
+    container.addEventListener('click', _clickHandler);
+
+    //── input/textarea 实时同步（坑15）──
+    if (_activeTab === 'add') {
+      const dateInp = container.querySelector('#f08-input-date');
+      const timeInp = container.querySelector('#f08-input-time');
+      const titleInp = container.querySelector('#f08-input-title');
+      const noteInp = container.querySelector('#f08-input-note');
+      if (dateInp) dateInp.addEventListener('input', (e) => { _addForm.date = e.target.value; });
+      if (timeInp) timeInp.addEventListener('input', (e) => { _addForm.time = e.target.value; });
+      if (titleInp) titleInp.addEventListener('input', (e) => { _addForm.title = e.target.value; });
+      if (noteInp) noteInp.addEventListener('input', (e) => { _addForm.note = e.target.value; });
+    }
+  }
+
+  // ── 公开接口 ──
+  return {
+    id: 'calendar',   // ⚠️ 与FREQ_APP_DEFS 完全一致
+    name: '日程表',
+    icon: '🗓️',
+
+    init(ctx) {
+      _ctx = ctx;
+      _loadData().then(() => {
+        _startReminderTimer();
+        _ctx.log.info('app08', '日程表初始化完成', `User:${_userEvents.length} Char:${_charEvents.length}`);
+      });
+    },
+
+    async mount(container) {
+      _container = container;
+      _container.innerHTML = `<div class="freq-loading">
+        <div class="freq-loading-dot"></div>
+        <div class="freq-loading-dot"></div>
+        <div class="freq-loading-dot"></div>
+      </div>`;
+      await _loadData();
+      _activeTab = 'calendar';
+      _selectedDate = _today();
+      _viewDate = new Date();
+      _statusText = '';
+      _render();
+      _bindEvents(_container);
+    },
+
+    unmount() {
+      if (_container && _clickHandler) {
+        _container.removeEventListener('click', _clickHandler);
+      }
+      _container = null;
+    },
+
+    destroy() {
+      if (_reminderTimer) clearInterval(_reminderTimer);
+      _reminderTimer = null;
+    },
+  };
+})();
+// ============================================================ end block_17
 
 
 
@@ -5079,6 +5901,7 @@ const FreqTerminal = (() => {
     App04Weather,
     App05Scanner,
     App07Checkin,
+    App08Calendar,
     App13Capsule,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
   ];
@@ -5236,7 +6059,7 @@ const FreqTerminal = (() => {
       'freq-sp-prompt-app05': 'app05',
       'freq-sp-prompt-app06': 'app06',
       'freq-sp-prompt-app07': 'app07_comment',
-      'freq-sp-prompt-app08': 'app08',
+      'freq-sp-prompt-app08': 'app08_char_schedule',
       'freq-sp-prompt-app09': 'app09',
       'freq-sp-prompt-app10': 'app10',
       'freq-sp-prompt-app11': 'app11',
@@ -5349,7 +6172,7 @@ const FreqTerminal = (() => {
     $('#freq-sp-prompt-app05').val(prompts.app05 || defaults.app05);
     $('#freq-sp-prompt-app06').val(prompts.app06 || defaults.app06);
     $('#freq-sp-prompt-app07').val(prompts.app07_comment || defaults.app07_comment);
-    $('#freq-sp-prompt-app08').val(prompts.app08 || defaults.app08);
+    $('#freq-sp-prompt-app08').val(prompts.app08_char_schedule || defaults.app08_char_schedule || '');
     $('#freq-sp-prompt-app09').val(prompts.app09 || defaults.app09);
     $('#freq-sp-prompt-app10').val(prompts.app10 || defaults.app10);
     $('#freq-sp-prompt-app11').val(prompts.app11 || defaults.app11);
