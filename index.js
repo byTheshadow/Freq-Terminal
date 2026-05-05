@@ -4000,7 +4000,8 @@ const App07Checkin = (() => {
         } else if (result.status === 'skip') {
           cg.streak = 0;
         }
-        // half不断签但也不加} catch (err) {
+        // half：不断签但也不累加streak
+      } catch (err) {
         _ctx.log.warn('app07', `char打卡生成失败: ${cg.name}`, err.message);
       }
     }
