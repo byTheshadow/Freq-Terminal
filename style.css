@@ -3466,6 +3466,564 @@
 }
 
 /* ============================================================ end App07 */
+/* ============================================================App08 · 日程表  f08-  主题色#0C447C
+   ============================================================ */
+
+/* ── 容器 ── */
+.f08-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;padding: 0;
+  font-family: 'SF Pro Text', -apple-system, sans-serif;
+  color: #e0e6ed;
+  position: relative;
+}
+
+/* ── 顶部导航 ── */
+.f08-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  position: relative;
+}
+
+.f08-month-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #c8d6e5;
+  letter-spacing: 1px;
+  min-width: 100px;
+  text-align: center;
+}
+
+.f08-nav-btn {
+  background: rgba(12, 68, 124, 0.25);
+  border: 1px solid rgba(12, 68, 124, 0.4);
+  color: #7eb8e0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.f08-nav-btn:hover {
+  background: rgba(12, 68, 124, 0.45);
+  color: #a8d8ff;
+}
+
+.f08-char-btn {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  background: rgba(12, 68, 124, 0.2);
+  border: 1px solid rgba(12, 68, 124, 0.35);
+  color: #7eb8e0;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.f08-char-btn:hover {
+  background: rgba(12, 68, 124, 0.4);
+  color: #a8d8ff;
+}
+
+/* ── 星期标题行 ── */
+.f08-weekrow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 0 8px;
+  margin-bottom: 2px;
+}
+
+.f08-weekday {
+  text-align: center;
+  font-size: 10px;
+  color: #5a7a9a;
+  padding: 2px 0;font-weight: 500;
+}
+
+/* ── 月历格子 ── */
+.f08-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.f08-cell {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  min-height: 32px;
+}
+
+.f08-cell:hover {
+  background: rgba(12, 68, 124, 0.15);
+}
+
+.f08-cell-empty {
+  cursor: default;
+}
+
+.f08-cell-empty:hover {
+  background: transparent;
+}
+
+.f08-cell-num {
+  font-size: 12px;
+  color: #8aa4be;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.f08-cell-today {
+  background: rgba(12, 68, 124, 0.2);
+}
+
+.f08-cell-today .f08-cell-num {
+  color: #7eb8e0;
+  font-weight: 700;
+}
+
+.f08-cell-selected {
+  background: rgba(12, 68, 124, 0.4) !important;
+  box-shadow: inset 0 0 0 1.5px rgba(126, 184, 224, 0.5);
+}
+
+.f08-cell-selected .f08-cell-num {
+  color: #fff;
+}
+
+/* ── 日期格子上的圆点 ── */
+.f08-dots {
+  display: flex;
+  gap: 3px;
+  margin-top: 2px;
+  height: 5px;
+}
+
+.f08-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}
+
+.f08-dot-user {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.f08-dot-char {
+  background: #4a9eda;
+}
+
+/* ── 日程详情区── */
+.f08-detail-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px;
+  margin-top: 6px;
+  min-height: 0;
+  padding-bottom: 50px;
+}
+
+.f08-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 2px 4px;
+  border-bottom: 1px solid rgba(12, 68, 124, 0.2);
+  margin-bottom: 6px;
+}
+
+.f08-detail-date {
+  font-size: 12px;
+  color: #7eb8e0;
+  font-weight: 600;
+}
+
+.f08-add-btn {
+  background: rgba(12, 68, 124, 0.3);
+  border: 1px solid rgba(12, 68, 124, 0.4);
+  color: #7eb8e0;
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.f08-add-btn:hover {
+  background: rgba(12, 68, 124, 0.5);
+  color: #a8d8ff;
+}
+
+.f08-detail-empty {
+  text-align: center;
+  color: #5a7a9a;
+  font-size: 12px;
+  padding: 16px 0;
+  font-style: italic;
+}
+
+.f08-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── 日程条目 ── */
+.f08-event {
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(12, 68, 124, 0.08);
+  border: 1px solid rgba(12, 68, 124, 0.15);
+  transition: all 0.2s;
+}
+
+.f08-event:hover {
+  background: rgba(12, 68, 124, 0.15);
+}
+
+.f08-event-appt {
+  border-left: 3px solid #e8a838;
+  background: rgba(232, 168, 56, 0.06);
+  border-color: rgba(232, 168, 56, 0.2);
+}
+
+.f08-event-track {
+  width: 3px;
+  border-radius: 2px;
+  flex-shrink: 0;min-height: 20px;
+}
+
+.f08-track-user {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.f08-track-char {
+  background: #4a9eda;
+}
+
+.f08-event-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.f08-event-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;flex-wrap: wrap;
+}
+
+.f08-event-time {
+  font-size: 10px;
+  color: #5a7a9a;
+  font-weight: 600;
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
+.f08-event-title {
+  font-size: 12px;
+  color: #c8d6e5;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.f08-event-tag {
+  font-size: 9px;
+  color: #e8a838;
+  background: rgba(232, 168, 56, 0.12);
+  padding: 1px 5px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.f08-event-note {
+  font-size: 10px;
+  color: #6a8aaa;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.f08-event-char-name {
+  font-size: 9px;
+  color: #4a9eda;
+  margin-top: 2px;
+  opacity: 0.7;
+}
+
+.f08-del-btn {
+  background: none;
+  border: none;
+  color: #5a7a9a;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;transition: color 0.2s;
+}
+
+.f08-del-btn:hover {
+  color: #e05555;
+}
+
+/* ── 提示文字 ── */
+.f08-hint {
+  text-align: center;
+  color: #4a6a8a;
+  font-size: 12px;
+  padding: 24px 0;
+  font-style: italic;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 底部操作栏 ── */
+.f08-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: linear-gradient(transparent, rgba(10, 14, 20, 0.95) 30%);
+  flex-wrap: wrap;
+}
+
+.f08-bottom-btn {
+  background: rgba(12, 68, 124, 0.3);
+  border: 1px solid rgba(12, 68, 124, 0.4);
+  color: #7eb8e0;
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.f08-bottom-btn:hover {
+  background: rgba(12, 68, 124, 0.5);
+  color: #a8d8ff;
+}
+
+.f08-bottom-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.f08-status {
+  font-size: 10px;
+  color: #7eb8e0;
+  flex: 1;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 添加表单 ── */
+.f08-form-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid rgba(12, 68, 124, 0.15);
+}
+
+.f08-back-btn {
+  background: none;
+  border: none;
+  color: #7eb8e0;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.2s;
+}
+
+.f08-back-btn:hover {
+  color: #a8d8ff;
+}
+
+.f08-form-title {
+  font-size: 14px;
+  color: #c8d6e5;
+  font-weight: 600;
+}
+
+.f08-form-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.f08-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.f08-form-label {
+  font-size: 11px;
+  color: #5a7a9a;
+  font-weight: 500;
+}
+
+.f08-form-input {
+  background: rgba(12, 68, 124, 0.12);
+  border: 1px solid rgba(12, 68, 124, 0.3);
+  color: #c8d6e5;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.2s;font-family: inherit;
+}
+
+.f08-form-input:focus {
+  border-color: rgba(126, 184, 224, 0.5);
+}
+
+.f08-form-textarea {
+  background: rgba(12, 68, 124, 0.12);
+  border: 1px solid rgba(12, 68, 124, 0.3);
+  color: #c8d6e5;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  outline: none;
+  resize: vertical;
+  min-height: 50px;
+  max-height: 100px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.f08-form-textarea:focus {
+  border-color: rgba(126, 184, 224, 0.5);
+}
+
+.f08-submit-btn {
+  background: rgba(12, 68, 124, 0.35);
+  border: 1px solid rgba(12, 68, 124, 0.5);
+  color: #a8d8ff;
+  font-size: 13px;
+  padding: 8px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+
+.f08-submit-btn:hover {
+  background: rgba(12, 68, 124, 0.55);
+}
+
+.f08-submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.f08-form-status {
+  font-size: 11px;
+  color: #7eb8e0;
+  text-align: center;
+  padding: 4px 0;
+}
+
+/* ── 角色选择列表 ── */
+.f08-char-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+
+.f08-char-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+}
+
+.f08-char-item:hover {
+  background: rgba(12, 68, 124, 0.15);
+}
+
+.f08-char-active {
+  background: rgba(12, 68, 124, 0.2);
+  border-color: rgba(12, 68, 124, 0.35);
+}
+
+.f08-char-avatar {
+  font-size: 18px;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.f08-char-name {
+  font-size: 13px;
+  color: #c8d6e5;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.f08-char-check {
+  color: #4a9eda;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── 色彩方案 input[type=date] / input[type=time] 修正 ── */
+.f08-form-input[type="date"]::-webkit-calendar-picker-indicator,
+.f08-form-input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
+/* ============================================================ end App08 */
+
 
 
 
