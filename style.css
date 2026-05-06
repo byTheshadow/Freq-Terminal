@@ -5315,6 +5315,538 @@
 }
 
 /* ============================================================ end App09 */
+/* ============================================================ App11 ·跨次元外卖  f11- 主题色#633806============================================================ */
+
+.f11-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #1a0e04 0%, #0d0d0d 100%);font-family: 'Segoe UI', sans-serif;
+}
+
+.f11-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 10px 80px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── 空状态 ── */
+.f11-empty {
+  text-align: center;
+  padding: 40px 20px 20px;
+}
+
+.f11-empty-icon {
+  font-size: 3em;
+  margin-bottom: 12px;
+  animation: f11-float 3s ease-in-out infinite;
+}
+
+@keyframes f11-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.f11-empty-title {
+  font-size: 1.2em;
+  font-weight: 700;
+  color: #e8d5b8;
+  margin-bottom: 6px;
+}
+
+.f11-empty-sub {
+  font-size: 0.8em;
+  color: #8a7a6a;
+}
+
+/* ── 心情输入区 ── */
+.f11-mood-section {
+  margin: 12px 0 8px;
+  padding: 0 2px;
+}
+
+.f11-mood-reorder {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.f11-section-label {
+  font-size: 0.75em;
+  color: #a08a6e;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.f11-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #e0d0c0;
+  font-size: 0.85em;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.f11-input:focus {
+  border-color: #a0784a;
+}
+
+.f11-input::placeholder {
+  color: #6a5a4a;
+}
+
+/* ── 角色选择器 ── */
+.f11-char-section {
+  margin: 10px 0 8px;
+  padding: 0 2px;
+}
+
+.f11-char-current {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.f11-char-current:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.f11-char-name {
+  color: #e8d5b8;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.f11-char-arrow {
+  color: #8a7a6a;
+  font-size: 0.8em;
+}
+
+.f11-char-list {
+  margin-top: 4px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.f11-char-option {
+  padding: 7px 10px;
+  font-size: 0.8em;
+  color: #c0b0a0;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.f11-char-option:last-child {
+  border-bottom: none;
+}
+
+.f11-char-option:hover {
+  background: rgba(160,120,74,0.15);
+}
+
+.f11-char-selected {
+  color: #e8c08a;
+  background: rgba(160,120,74,0.1);
+}
+
+.f11-char-loading {
+  padding: 10px;
+  text-align: center;
+  font-size: 0.75em;
+  color: #6a5a4a;
+}
+
+/* ── 订单头部 ── */
+.f11-order-header {
+  background: linear-gradient(135deg, rgba(99,56,6,0.3) 0%, rgba(30,20,10,0.4) 100%);
+  border: 1px solid rgba(160,120,74,0.2);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.f11-order-title {
+  font-size: 1em;
+  font-weight: 700;
+  color: #e8c08a;
+  margin-bottom: 6px;
+}
+
+.f11-order-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.72em;
+  color: #a09080;
+  margin-bottom: 4px;
+}
+
+.f11-order-time {
+  font-size: 0.68em;
+  color: #6a5a4a;
+}
+
+/* ── 菜品卡片 ── */
+.f11-dishes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.f11-dish-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-left: 3px solid #a0784a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  animation: f11-slideIn 0.4s ease-out both;
+}
+
+@keyframes f11-slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.f11-dish-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.f11-dish-emoji {
+  font-size: 1.4em;
+}
+
+.f11-dish-name {
+  font-size: 0.95em;
+  font-weight: 700;
+  color: #e8d5b8;
+}
+
+.f11-dish-comment {
+  font-size: 0.8em;
+  color: #b8a898;
+  line-height: 1.5;
+  padding-left: 4px;
+  font-style: italic;
+  border-left: 2px solid rgba(160,120,74,0.2);
+  margin-left: 2px;
+  padding: 2px 02px 8px;
+}
+
+/* ── 配送进度条 ── */
+.f11-delivery-zone {
+  margin: 10px 0;
+}
+
+.f11-delivery-track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 10px 4px;
+}
+
+.f11-phase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  min-width: 48px;
+}
+
+.f11-phase-icon {
+  font-size: 1.3em;
+  margin-bottom: 4px;
+  transition: transform 0.3s;
+}
+
+.f11-phase-active .f11-phase-icon {
+  animation: f11-bounce 0.6s ease-in-out infinite;
+}
+
+@keyframes f11-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.f11-phase-label {
+  font-size: 0.65em;
+  color: #6a5a4a;
+  transition: color 0.3s;
+}
+
+.f11-phase-done .f11-phase-label {
+  color: #a0784a;
+}
+
+.f11-phase-active .f11-phase-label {
+  color: #e8c08a;
+  font-weight: 700;
+}
+
+.f11-phase-check {
+  position: absolute;
+  top: -2px;
+  right: 2px;
+  font-size: 0.6em;
+  color: #6abf69;
+}
+
+.f11-phase-pulse {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(160,120,74,0.15);
+  animation: f11-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes f11-pulse {
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.4; }
+  50% { transform: translateX(-50%) scale(1.6); opacity: 0; }
+}
+
+.f11-phase-line {
+  width: 20px;
+  height: 2px;
+  background: rgba(255,255,255,0.1);
+  margin: 0 2px;
+  margin-bottom: 18px;
+  transition: background 0.3s;
+}
+
+.f11-line-done {
+  background: #a0784a;
+}
+
+/* ── 配送最终状态 ── */
+.f11-delivery-final {
+  text-align: center;
+  padding: 8px 04px;
+}
+
+.f11-final-text {
+  font-size: 0.82em;
+  color: #a09080;
+}
+
+.f11-never {
+  color: #c0784a;
+  font-weight: 700;text-decoration: line-through;
+  text-decoration-color: rgba(192,120,74,0.4);
+}
+
+.f11-final-sub {
+  font-size: 0.7em;
+  color: #5a4a3a;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.f11-delivery-eta {
+  text-align: center;
+  font-size: 0.75em;
+  color: #8a7a6a;
+  padding: 6px 0;
+}
+
+/* ── 关心语气泡 ── */
+.f11-care-bubble {
+  margin-top: 10px;
+  background: linear-gradient(135deg, rgba(160,120,74,0.12) 0%, rgba(99,56,6,0.08) 100%);
+  border: 1px solid rgba(160,120,74,0.15);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  animation: f11-fadeIn 0.6s ease-out;
+}
+
+@keyframes f11-fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.f11-care-char {
+  font-size: 0.7em;
+  color: #a0784a;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.f11-care-text {
+  font-size: 0.82em;
+  color: #d0c0a8;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* ── 历史订单 ── */
+.f11-history-title {
+  font-size: 0.9em;
+  font-weight: 700;
+  color: #e8d5b8;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.f11-history-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.f11-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.f11-history-char {
+  font-size: 0.82em;
+  font-weight: 700;
+  color: #e8c08a;
+}
+
+.f11-history-date {
+  font-size: 0.68em;
+  color: #6a5a4a;
+}
+
+.f11-history-meta {
+  font-size: 0.7em;
+  color: #8a7a6a;
+  margin-bottom: 6px;
+}
+
+.f11-history-dishes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.f11-history-dish {
+  font-size: 0.75em;
+  color: #c0b0a0;
+  background: rgba(255,255,255,0.04);
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.f11-history-care {
+  font-size: 0.75em;
+  color: #a09888;
+  font-style: italic;
+  padding-left: 8px;
+  border-left: 2px solid rgba(160,120,74,0.2);
+  margin-top: 4px;
+}
+
+/* ── 底部栏 ── */
+.f11-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  background: linear-gradient(0deg, #0d0d0d 60%, transparent);
+  z-index: 3;
+}
+
+.f11-btn-primary {
+  flex: 1;
+  background: linear-gradient(135deg, #a0784a 0%, #7a5a30 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 0;
+  font-size: 0.82em;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.f11-btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.f11-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.f11-btn-secondary {
+  background: rgba(255,255,255,0.06);
+  color: #a09080;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 0.78em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.f11-btn-secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,0.1);
+}
+
+.f11-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── 状态栏 ── */
+.f11-status {
+  position: absolute;
+  bottom: 48px;
+  left: 10px;
+  right: 10px;
+  text-align: center;
+  font-size: 0.72em;
+  color: #a0784a;
+  background: rgba(13,13,13,0.9);
+  padding: 4px 8px;
+  border-radius: 6px;
+  z-index: 2;
+}
+
+/* ============================================================ end App11 */
+
 
 
 
