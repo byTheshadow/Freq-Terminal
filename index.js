@@ -187,7 +187,82 @@ app08_scan_appointments: `你是一个日程分析助手。
 示例：
 <appointment>2026-05-06|15:00|一起去唱片店</appointment>
 <appointment>2026-05-08||帮忙修理收音机</appointment>`,
-    app09: '任务：基于当前世界观，生成一章短篇小说内容（200-400 字）。可隐晦引用当前 Seeds伏笔。用 <chapter> 标签包裹。',
+app09_book: `你是一个存在于{char_name}所在世界的文学频道编辑。现在是{real_datetime}。
+
+以下是这个世界的背景信息：
+{char_desc}
+
+最近发生的事：
+{recent_chat}
+
+当前BGM氛围：{current_bgm}
+最近剧情：{last_meow_fm_plot}
+
+已有书目（避免重复）：{existing_titles}
+
+请你为这个世界的"频道文库"推荐2-3本正在连载的短篇小说。
+这些小说是这个世界里的人写的、这个世界里的人在读的——书名、作者名、题材、内容都必须完全符合这个世界的设定和氛围。
+作者是这个世界里的NPC（不是{char_name}本人，而是这个世界里的其他居民/写手）。
+
+每本书用<book>标签包裹，内容为JSON格式：
+<book>{"title":"书名","author":"作者名","genre":"类型","desc":"一句话简介"}</book>
+<book>{"title":"书名","author":"作者名","genre":"类型","desc":"一句话简介"}</book>`,
+
+app09_chapter: `你是一个存在于{char_name}所在世界的小说作者"{book_author}"。现在是{real_datetime}。
+
+世界背景：
+{char_desc}
+
+你正在连载的小说：
+书名：{book_title}
+类型：{book_genre}
+简介：{book_desc}
+
+前文摘要：
+{prev_summary}
+
+请续写第{chapter_num}章。
+要求：
+- 400-700字，短篇连载节奏
+- 完全符合这个世界的设定和氛围
+- 第一行写章节标题（不要加"标题："前缀，直接写标题文字）
+- 之后是正文
+- 章末可以留悬念
+
+用<chapter>标签包裹全部内容：
+<chapter>
+章节标题
+正文内容...
+</chapter>`,
+
+app09_fanfic: `你是一个存在于{char_name}所在世界的同人文写手。现在是{real_datetime}。
+
+世界背景：
+{char_desc}
+
+{char_name}和{user_name}的最近互动：
+{recent_chat}
+
+当前BGM氛围：{current_bgm}
+
+请以{char_name}和{user_name}为主角，写一篇同人短文。
+题材：{fan_genre}
+性向：{fan_orientation}
+用户指定关键词：{fan_keywords}
+
+要求：
+- 400-700字
+- 第一行写标题（不要加"标题："前缀，直接写标题文字）
+- 之后是正文
+- 文风要贴合题材和性向
+- 角色性格必须符合原设
+- 可以暧昧、可以甜、可以虐，但要有文学质感
+
+用<fanfic>标签包裹全部内容：
+<fanfic>
+标题
+正文内容...
+</fanfic>`,
 app10_landmark: `你是角色{char_name}。
 以下是你的人设信息：
 {char_desc}
@@ -6255,6 +6330,763 @@ const App10Map = (() => {
   };
 })();
 // ============================================================ end block_19
+// ============================================================
+// block_18 — App09 · 频道文库
+// ============================================================
+const App09Novel = (() => {
+  let _ctx = null;
+  let _container = null;
+  let _clickHandler = null;
+  let _inputHandler = null;
+  let _changeHandler = null;
+
+  // ── 状态变量 ──
+  let _library = [];// 书架数据
+  let _fanfics = [];       // 同人文历史
+  let _loading = false;
+  let _statusText = '';
+  let _view = 'shelf';     // 'shelf' | 'read' | 'fanfic'
+  let _currentBookId = null;
+  let _currentChExpanded = {}; // { chapterIndex: true/false }
+
+  // 同人工坊输入状态
+  let _fanGenre = '甜文';
+  let _fanOrientation = 'BG';
+  let _fanKeywords = '';
+
+  const STORE_KEY_LIB = 'app09_library';
+  const STORE_KEY_FAN = 'app09_fanfics';
+
+  const GENRE_OPTIONS = ['甜文', '虐文', '日常', '冒险', '悬疑', '恐怖'];
+  const ORIENT_OPTIONS = [
+    { val: 'BG', label: 'BG' },
+    { val: 'BL', label: 'BL' },
+    { val: 'GL', label: 'GL' },
+    { val: '无CP', label: '无CP' },
+    { val: '全员向', label: '全员向' },
+  ];
+
+  //书目类型对应的封面色
+  const GENRE_COLORS = {
+    '都市': '#3a6186', '奇幻': '#6b3fa0', '悬疑': '#8B0000',
+    '恋爱': '#c0392b', '日常': '#27ae60', '冒险': '#d35400',
+    '恐怖': '#2c3e50', '科幻': '#0c447c', '历史': '#7f6b3e',
+    '喜剧': '#e67e22', '默认': '#2E2E3A',
+  };
+
+  // ── 工具函数 ──
+  function _escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function _getCharDesc() {
+    try {
+      const chid = window.this_chid;
+      const chars = window.characters;
+      if (chid == null || !chars || !chars[chid]) return '';
+      const c = chars[chid];
+      return [c.description, c.personality, c.scenario].filter(Boolean).join('\n').slice(0, 800);
+    } catch (e) { return ''; }
+  }
+
+  function _getRecentChat() {
+    try {
+      const msgs = _ctx.bridge.getRecentMessages(8);
+      if (!msgs || msgs.length === 0) return '暂无';
+      return msgs.map(m => {
+        const who = m.is_user ? '用户' : (m.name || '角色');
+        const txt = (m.mes || '').slice(0, 100);
+        return `${who}: ${txt}`;
+      }).join('\n').slice(0, 600);
+    } catch (e) { return '暂无'; }
+  }
+
+  function _getGenreColor(genre) {
+    if (!genre) return GENRE_COLORS['默认'];
+    for (const key of Object.keys(GENRE_COLORS)) {
+      if (genre.includes(key)) return GENRE_COLORS[key];
+    }
+    return GENRE_COLORS['默认'];
+  }
+
+  function _getCurrentBook() {
+    return _library.find(b => b.id === _currentBookId) || null;
+  }
+
+  // ── 持久化 ──
+  async function _saveLibrary() {
+    try { await _ctx.store.set(STORE_KEY_LIB, _library); } catch (e) {
+      _ctx.log.warn('app09', '保存书架失败', e.message);
+    }
+  }
+
+  async function _saveFanfics() {
+    try { await _ctx.store.set(STORE_KEY_FAN, _fanfics); } catch (e) {
+      _ctx.log.warn('app09', '保存同人文失败', e.message);
+    }
+  }
+
+  async function _loadData() {
+    try {
+      const lib = await _ctx.store.get(STORE_KEY_LIB);
+      if (Array.isArray(lib)) _library = lib;
+    } catch (e) {}
+    try {
+      const fan = await _ctx.store.get(STORE_KEY_FAN);
+      if (Array.isArray(fan)) _fanfics = fan;
+    } catch (e) {}
+  }
+
+  // ── 副API调用：生成新书目 ──
+  async function _generateBooks() {
+    const charName = _ctx.bridge.getCharName();
+    const charDesc = _getCharDesc();
+    const recentChat = _getRecentChat();
+
+    const existingTitles = _library.map(b => b.title).join('、') || '暂无';
+
+    const messages = _ctx.subapi.buildMessages('app09_book', {
+      char_desc: charDesc,
+      recent_chat: recentChat,
+      existing_titles: existingTitles,
+    });
+
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 800, temperature: 0.95 });
+    const blocks = _ctx.subapi.parseResponse(raw, 'book');
+
+    const newBooks = [];
+    for (const block of blocks) {
+      try {
+        //尝试 JSON 解析
+        const obj = JSON.parse(block);
+        if (obj.title && obj.author) {
+          newBooks.push({
+            id: Date.now() + Math.floor(Math.random() * 10000),
+            title: String(obj.title).slice(0, 30),
+            author: String(obj.author).slice(0, 20),
+            genre: String(obj.genre || '奇幻').slice(0, 10),
+            desc: String(obj.desc || '').slice(0, 120),
+            chapters: [],
+            charName: charName,
+            charDesc: charDesc,
+            ts: Date.now(),
+          });
+        }
+      } catch (e) {
+        // 非JSON，尝试行解析
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length >= 2) {
+          const titleMatch = lines[0].match(/(?:书名|标题)[：:]\s*(.+)/);
+          const authorMatch = lines[1].match(/(?:作者)[：:]\s*(.+)/);
+          const genreMatch = (lines[2] || '').match(/(?:类型|题材)[：:]\s*(.+)/);
+          const descMatch = (lines[3] || lines[2] || '').match(/(?:简介|描述)[：:]\s*(.+)/);
+          if (titleMatch) {
+            newBooks.push({
+              id: Date.now() + Math.floor(Math.random() * 10000),
+              title: titleMatch[1].slice(0, 30),
+              author: authorMatch ? authorMatch[1].slice(0, 20) : '佚名',
+              genre: genreMatch ? genreMatch[1].slice(0, 10) : '奇幻',
+              desc: descMatch ? descMatch[1].slice(0, 120) : '',
+              chapters: [],
+              charName: charName,
+              charDesc: charDesc,
+              ts: Date.now(),
+            });
+          }
+        }
+      }
+    }
+
+    //兜底：如果解析全部失败，用 safeParseText 做最后尝试
+    if (newBooks.length === 0) {
+      const fallback = _ctx.subapi.safeParseText(raw);
+      if (fallback && fallback.length > 10) {
+        newBooks.push({
+          id: Date.now(),
+          title: fallback.slice(0, 20).replace(/[\n\r]/g, ''),
+          author: '频道匿名',
+          genre: '奇幻',
+          desc: fallback.slice(0, 100),
+          chapters: [],
+          charName: charName,
+          charDesc: charDesc,
+          ts: Date.now(),
+        });
+      }
+    }
+
+    return newBooks;
+  }
+
+  // ── 副API调用：生成章节 ──
+  async function _generateChapter(book) {
+    const chapterNum = book.chapters.length + 1;
+    const prevSummary = book.chapters.length > 0
+      ? book.chapters.map(ch => `第${ch.num}章「${ch.title}」: ${(ch.content || '').slice(0, 80)}`).join('\n')
+      : '这是第一章，尚无前文。';
+
+    const messages = _ctx.subapi.buildMessages('app09_chapter', {
+      char_desc: book.charDesc || _getCharDesc(),
+      recent_chat: _getRecentChat(),
+      book_title: book.title,
+      book_author: book.author,
+      book_genre: book.genre,
+      book_desc: book.desc,
+      chapter_num: String(chapterNum),
+      prev_summary: prevSummary.slice(0, 600),
+    });
+
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 1200, temperature: 0.9 });
+    const blocks = _ctx.subapi.parseResponse(raw, 'chapter');
+
+    let chTitle = `第${chapterNum}章`;
+    let chContent = '';
+
+    if (blocks.length > 0) {
+      const text = blocks[0];
+      //尝试提取章节标题
+      const titleMatch = text.match(/(?:章节标题|标题)[：:]\s*(.+)/);
+      if (titleMatch) {
+        chTitle = titleMatch[1].trim().slice(0, 30);
+        chContent = text.replace(titleMatch[0], '').trim();
+      } else {
+        // 第一行当标题
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length > 1&& lines[0].length< 30) {
+          chTitle = lines[0].trim();
+          chContent = lines.slice(1).join('\n').trim();
+        } else {
+          chContent = text.trim();
+        }
+      }
+    } else {
+      chContent = _ctx.subapi.safeParseText(raw) || '（信号中断，本章内容丢失…）';
+    }
+
+    return {
+      num: chapterNum,
+      title: chTitle,
+      content: chContent.slice(0, 1500),
+      ts: Date.now(),
+    };
+  }
+
+  // ── 副API调用：生成同人文 ──
+  async function _generateFanfic() {
+    const charName = _ctx.bridge.getCharName();
+    const userName = _ctx.bridge.getUserName();
+    const charDesc = _getCharDesc();
+    const recentChat = _getRecentChat();
+
+    const messages = _ctx.subapi.buildMessages('app09_fanfic', {
+      char_desc: charDesc,
+      recent_chat: recentChat,
+      fan_genre: _fanGenre,
+      fan_orientation: _fanOrientation,
+      fan_keywords: _fanKeywords || '无特殊要求',
+    });
+
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 1200, temperature: 0.92 });
+    const blocks = _ctx.subapi.parseResponse(raw, 'fanfic');
+
+    let title = '无题';
+    let content = '';
+
+    if (blocks.length > 0) {
+      const text = blocks[0];
+      const titleMatch = text.match(/(?:标题|题目)[：:]\s*(.+)/);
+      if (titleMatch) {
+        title = titleMatch[1].trim().slice(0, 30);
+        content = text.replace(titleMatch[0], '').trim();
+      } else {
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length > 1 && lines[0].length < 30) {
+          title = lines[0].trim();
+          content = lines.slice(1).join('\n').trim();
+        } else {
+          content = text.trim();
+        }
+      }
+    } else {
+      content = _ctx.subapi.safeParseText(raw) || '（灵感枯竭，稿件丢失…）';
+    }
+
+    return {
+      id: Date.now(),
+      title,
+      content: content.slice(0, 1500),
+      genre: _fanGenre,
+      orientation: _fanOrientation,
+      keywords: _fanKeywords,
+      charName,
+      userName,
+      ts: Date.now(),
+      expanded: false,
+    };
+  }
+
+  // ═══════════════════════════════════════════════
+  // 渲染
+  // ═══════════════════════════════════════════════
+
+  function _render() {
+    if (!_container) return;
+
+    let html = '';
+    if (_view === 'shelf') html = _renderShelf();
+    else if (_view === 'read') html = _renderRead();
+    else if (_view === 'fanfic') html = _renderFanfic();
+
+    _container.innerHTML = html;
+  }
+
+  // ── 书架视图 ──
+  function _renderShelf() {
+    const booksHtml = _library.length === 0
+      ? `<div class="freq-empty-state">📖 书架空空如也<br><small>点击下方按钮扫描频道新书</small></div>`
+      : _library.slice().reverse().map(b => {
+          const color = _getGenreColor(b.genre);
+          const chCount = b.chapters ? b.chapters.length : 0;
+          return `
+            <div class="f09-book-card" data-book-id="${b.id}">
+              <div class="f09-book-cover" style="background:${color}">
+                <span class="f09-book-cover-text">${_escHtml(b.title.slice(0, 4))}</span>
+              </div>
+              <div class="f09-book-info">
+                <div class="f09-book-title">${_escHtml(b.title)}</div>
+                <div class="f09-book-author">✍ ${_escHtml(b.author)}</div>
+                <div class="f09-book-meta">
+                  <span class="f09-book-genre">${_escHtml(b.genre)}</span>
+                  <span class="f09-book-chapters">${chCount}章</span>
+                </div>
+                ${b.desc ? `<div class="f09-book-desc">${_escHtml(b.desc.slice(0, 60))}${b.desc.length > 60 ? '…' : ''}</div>` : ''}
+              </div>
+              <button class="f09-book-del" data-del-id="${b.id}" title="删除">✕</button>
+            </div>`;
+        }).join('');
+
+    return `
+      <div class="f09-wrap">
+        <div class="f09-header">
+          <div class="f09-header-title">📖 频道文库</div>
+          <button class="f09-tab-btn ${_view === 'shelf' ? 'active' : ''}" data-tab="shelf">书架</button>
+          <button class="f09-tab-btn" data-tab="fanfic">同人工坊</button>
+        </div>
+        <div class="f09-scroll">
+          ${_loading
+            ? `<div class="freq-loading"><div class="freq-loading-dot"></div><div class="freq-loading-dot"></div><div class="freq-loading-dot"></div></div>`
+            : booksHtml
+          }
+        </div>${_statusText ? `<div class="f09-status">${_escHtml(_statusText)}</div>` : ''}<div class="f09-bottom-bar">
+          <button id="f09-btn-scan" ${_loading ? 'disabled' : ''}>
+            ${_loading ? '⏳ 扫描中…' : '📡 扫描新书'}
+          </button></div>
+      </div>`;
+  }
+
+  // ── 阅读视图 ──
+  function _renderRead() {
+    const book = _getCurrentBook();
+    if (!book) {
+      _view = 'shelf';
+      return _renderShelf();
+    }
+
+    const color = _getGenreColor(book.genre);
+    const chaptersHtml = book.chapters.length === 0
+      ? `<div class="freq-empty-state">📝暂无章节<br><small>正在加载第一章…</small></div>`
+      : book.chapters.map((ch, idx) => {
+          const isExpanded = !!_currentChExpanded[idx];
+          const preview = ch.content.length > 60
+            ? _escHtml(ch.content.slice(0, 60)) + '<span class="f09-ellipsis">…</span>'
+            : _escHtml(ch.content);
+          return `
+            <div class="f09-chapter-item">
+              <div class="f09-chapter-header" data-ch-idx="${idx}">
+                <span class="f09-chapter-num">第${ch.num}章</span>
+                <span class="f09-chapter-title">${_escHtml(ch.title)}</span>
+                <span class="f09-chapter-toggle">${isExpanded ? '▴' : '▾'}</span>
+              </div>
+              ${isExpanded
+                ? `<div class="f09-chapter-body">${_escHtml(ch.content).replace(/\n/g, '<br>')}</div>`
+                : `<div class="f09-chapter-preview">${preview}</div>`
+              }
+            </div>`;
+        }).join('');
+
+    return `
+      <div class="f09-wrap">
+        <div class="f09-read-header" style="border-bottom-color:${color}">
+          <button class="f09-back-btn" id="f09-btn-back">← 返回</button>
+          <div class="f09-read-title">${_escHtml(book.title)}</div>
+          <div class="f09-read-author">✍ ${_escHtml(book.author)} · ${_escHtml(book.genre)}</div>
+        </div>
+        <div class="f09-scroll">
+          ${_loading
+            ? `<div class="freq-loading"><div class="freq-loading-dot"></div><div class="freq-loading-dot"></div><div class="freq-loading-dot"></div></div>`
+            : chaptersHtml
+          }
+        </div>
+        ${_statusText ? `<div class="f09-status">${_escHtml(_statusText)}</div>` : ''}
+        <div class="f09-bottom-bar">
+          <button id="f09-btn-next-ch" ${_loading ? 'disabled' : ''}>
+            ${_loading ? '⏳ 更新中…' : '📝 续更下一章'}
+          </button>
+        </div>
+      </div>`;
+  }
+
+  // ── 同人工坊视图 ──
+  function _renderFanfic() {
+    const genreButtons = GENRE_OPTIONS.map(g =>
+      `<button class="f09-genre-btn ${_fanGenre === g ? 'active' : ''}" data-genre="${g}">${g}</button>`
+    ).join('');
+
+    const orientButtons = ORIENT_OPTIONS.map(o =>
+      `<button class="f09-orient-btn ${_fanOrientation === o.val ? 'active' : ''}" data-orient="${o.val}">${o.label}</button>`
+    ).join('');
+
+    const historyHtml = _fanfics.length === 0
+      ? ''
+      : `<div class="f09-fan-history-title">── 往期作品 ──</div>` +
+        _fanfics.slice().reverse().map(f => {
+          const needsExpand = f.content.length > 80;
+          const displayText = (!needsExpand || f.expanded)
+            ? _escHtml(f.content).replace(/\n/g, '<br>')
+            : _escHtml(f.content.slice(0, 80)) + '<span class="f09-ellipsis">…</span>';
+          return `
+            <div class="f09-fan-card">
+              <div class="f09-fan-card-header">
+                <span class="f09-fan-card-title">「${_escHtml(f.title)}」</span>
+                <span class="f09-fan-card-meta">${_escHtml(f.genre)} · ${_escHtml(f.orientation)}</span>
+              </div>
+              <div class="f09-fan-card-body">${displayText}</div>
+              ${needsExpand
+                ? `<div class="f09-fan-expand" data-fan-id="${f.id}">${f.expanded ? '收起 ▴' : '展开 ▾'}</div>`
+                : ''
+              }
+              <div class="f09-fan-card-footer">
+                <span>${_escHtml(f.charName || '')} × ${_escHtml(f.userName || '')}</span>
+                <span>${new Date(f.ts).toLocaleDateString()}</span>
+              </div>
+            </div>`;
+        }).join('');
+
+    return `
+      <div class="f09-wrap">
+        <div class="f09-header">
+          <div class="f09-header-title">📖 频道文库</div>
+          <button class="f09-tab-btn" data-tab="shelf">书架</button>
+          <button class="f09-tab-btn active" data-tab="fanfic">同人工坊</button>
+        </div>
+        <div class="f09-scroll">
+          ${_loading
+            ? `<div class="freq-loading"><div class="freq-loading-dot"></div><div class="freq-loading-dot"></div><div class="freq-loading-dot"></div></div>`
+            : `
+              <div class="f09-fan-form">
+                <div class="f09-fan-section">
+                  <div class="f09-fan-label">题材</div>
+                  <div class="f09-fan-btn-group">${genreButtons}</div>
+                </div>
+                <div class="f09-fan-section">
+                  <div class="f09-fan-label">性向</div>
+                  <div class="f09-fan-btn-group">${orientButtons}</div>
+                </div>
+                <div class="f09-fan-section">
+                  <div class="f09-fan-label">关键词<small>（可选）</small></div>
+                  <input type="text" id="f09-fan-keywords" class="f09-fan-input"
+                    placeholder="如：雨天、咖啡馆、重逢…"
+                    value="${_escHtml(_fanKeywords)}" />
+                </div>
+              </div>
+              ${historyHtml}
+            `
+          }
+        </div>
+        ${_statusText ? `<div class="f09-status">${_escHtml(_statusText)}</div>` : ''}
+        <div class="f09-bottom-bar">
+          <button id="f09-btn-gen-fan" ${_loading ? 'disabled' : ''}>
+            ${_loading ? '⏳ 执笔中…' : '✨ 生成同人文'}
+          </button>
+        </div>
+      </div>`;
+  }
+
+  // ═══════════════════════════════════════════════
+  // 事件绑定
+  // ═══════════════════════════════════════════════
+
+  function _bindEvents(container) {
+    // click
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+    _clickHandler = async (e) => {
+
+      //── Tab切换 ──
+      const tabBtn = e.target.closest('.f09-tab-btn');
+      if (tabBtn) {
+        const tab = tabBtn.dataset.tab;
+        if (tab && tab !== _view) {
+          _view = tab;
+          _statusText = '';
+          _render(); _bindEvents(_container);
+        }
+        return;
+      }
+
+      // ── 书架：点击书目进入阅读 ──
+      const bookCard = e.target.closest('.f09-book-card');
+      if (bookCard && !e.target.closest('.f09-book-del') && _view === 'shelf') {
+        const bookId = Number(bookCard.dataset.bookId);
+        const book = _library.find(b => b.id === bookId);
+        if (book) {
+          _currentBookId = bookId;
+          _currentChExpanded = {};
+          _view = 'read';
+          _statusText = '';
+          _render(); _bindEvents(_container);
+
+          // 自动生成第一章（如果还没有章节）
+          if (book.chapters.length === 0) {
+            _loading = true;
+            _statusText = '⏳ 正在加载第一章…';
+            _render(); _bindEvents(_container);
+
+            try {
+              const ch = await _generateChapter(book);
+              book.chapters.push(ch);
+              await _saveLibrary();
+              _statusText = '✓ 第一章已加载';
+              _currentChExpanded[0] = true; // 自动展开第一章
+            } catch (err) {
+              _statusText = `⚠ ${err.message}`;
+              _ctx.log.error('app09', '生成第一章失败', err.message);
+            }
+
+            _loading = false;
+            if (!_container) return;
+            _render(); _bindEvents(_container);
+
+            setTimeout(() => {
+              if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+                _statusText = '';
+                if (_container) { _render(); _bindEvents(_container); }
+              }
+            }, 3000);
+          }
+        }return;
+      }
+
+      // ── 书架：删除书目 ──
+      const delBtn = e.target.closest('.f09-book-del');
+      if (delBtn) {
+        const delId = Number(delBtn.dataset.delId);
+        _library = _library.filter(b => b.id !== delId);
+        await _saveLibrary();
+        _statusText = '✓ 已删除';
+        _render(); _bindEvents(_container);
+        setTimeout(() => {
+          if (_statusText.startsWith('✓')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 2000);
+        return;
+      }
+
+      // ── 书架：扫描新书 ──
+      if (e.target.id === 'f09-btn-scan') {
+        _loading = true;
+        _statusText = '⏳ 正在扫描频道…';
+        _render(); _bindEvents(_container);
+
+        try {
+          const newBooks = await _generateBooks();
+          if (newBooks.length === 0) throw new Error('未扫描到新书');
+          _library.push(...newBooks);
+          await _saveLibrary();
+          _statusText = `✓ 发现 ${newBooks.length} 本新书`;
+          _ctx.notify.push('novel', '📖', '频道文库', `发现 ${newBooks.length} 本新书！`);
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error('app09', '扫描新书失败', err.message);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+
+        setTimeout(() => {
+          if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 3000);
+        return;
+      }
+
+      // ── 阅读：返回书架 ──
+      if (e.target.id === 'f09-btn-back') {
+        _view = 'shelf';
+        _currentBookId = null;
+        _currentChExpanded = {};
+        _statusText = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // ── 阅读：展开/收起章节 ──
+      const chHeader = e.target.closest('.f09-chapter-header');
+      if (chHeader) {
+        const idx = Number(chHeader.dataset.chIdx);
+        _currentChExpanded[idx] = !_currentChExpanded[idx];
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // ── 阅读：续更下一章 ──
+      if (e.target.id === 'f09-btn-next-ch') {
+        const book = _getCurrentBook();
+        if (!book) return;
+
+        _loading = true;
+        _statusText = '⏳ 正在续更…';
+        _render(); _bindEvents(_container);
+
+        try {
+          const ch = await _generateChapter(book);
+          book.chapters.push(ch);
+          await _saveLibrary();
+          const newIdx = book.chapters.length - 1;
+          _currentChExpanded[newIdx] = true; // 自动展开新章节
+          _statusText = `✓ 第${ch.num}章「${ch.title}」已更新`;
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error('app09', '续更失败', err.message);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+
+        setTimeout(() => {
+          if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 3000);
+        return;
+      }
+
+      // ── 同人工坊：题材选择 ──
+      const genreBtn = e.target.closest('.f09-genre-btn');
+      if (genreBtn) {
+        _fanGenre = genreBtn.dataset.genre;
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // ── 同人工坊：性向选择 ──
+      const orientBtn = e.target.closest('.f09-orient-btn');
+      if (orientBtn) {
+        _fanOrientation = orientBtn.dataset.orient;
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // ── 同人工坊：展开/收起历史 ──
+      const fanExpand = e.target.closest('.f09-fan-expand');
+      if (fanExpand) {
+        const fanId = Number(fanExpand.dataset.fanId);
+        const item = _fanfics.find(f => f.id === fanId);
+        if (item) {
+          item.expanded = !item.expanded;
+          _render(); _bindEvents(_container);
+        }
+        return;
+      }
+
+      // ── 同人工坊：生成同人文 ──
+      if (e.target.id === 'f09-btn-gen-fan') {
+        _loading = true;
+        _statusText = '⏳ 灵感酝酿中…';
+        _render(); _bindEvents(_container);
+
+        try {
+          const fanfic = await _generateFanfic();
+          fanfic.expanded = true; // 新生成的默认展开
+          _fanfics.push(fanfic);
+          await _saveFanfics();
+          _statusText = `✓ 「${fanfic.title}」已完成`;
+          _ctx.notify.push('novel', '📖', '同人工坊', `新作「${fanfic.title}」已出炉！`);
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error('app09', '生成同人文失败', err.message);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+
+        setTimeout(() => {
+          if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 3000);
+        return;
+      }
+    };
+    container.addEventListener('click', _clickHandler);
+
+    // input
+    if (_inputHandler) container.removeEventListener('input', _inputHandler);
+    _inputHandler = (e) => {
+      if (e.target.id === 'f09-fan-keywords') {
+        _fanKeywords = e.target.value;}
+    };
+    container.addEventListener('input', _inputHandler);
+  }
+
+  // ═══════════════════════════════════════════════
+  // 公开接口
+  // ═══════════════════════════════════════════════
+
+  return {
+    id: 'novel',// ⚠️ 与FREQ_APP_DEFS 一致
+    name: '频道文库',
+    icon: '📖',
+
+    init(ctx) {
+      _ctx = ctx;
+      _loadData();
+    },
+
+    async mount(container) {
+      _container = container;
+      _container.innerHTML = `<div class="freq-loading">
+        <div class="freq-loading-dot"></div>
+        <div class="freq-loading-dot"></div>
+        <div class="freq-loading-dot"></div>
+      </div>`;
+
+      await _loadData();
+      _view = 'shelf';
+      _currentBookId = null;
+      _currentChExpanded = {};
+      _statusText = '';
+      _render();
+      _bindEvents(_container);
+    },
+
+    unmount() {
+      if (_container && _clickHandler) _container.removeEventListener('click', _clickHandler);
+      if (_container && _inputHandler) _container.removeEventListener('input', _inputHandler);
+      _container = null;
+    },
+  };
+})();
+//============================================================ end block_18
 
 
 
@@ -6734,6 +7566,7 @@ const FreqTerminal = (() => {
     App05Scanner,
     App07Checkin,
     App08Calendar,
+    App09Novel,
     App10Map,
     App13Capsule,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
@@ -6893,7 +7726,7 @@ const FreqTerminal = (() => {
       'freq-sp-prompt-app06': 'app06',
       'freq-sp-prompt-app07': 'app07_comment',
       'freq-sp-prompt-app08': 'app08_char_schedule',
-      'freq-sp-prompt-app09': 'app09',
+      'freq-sp-prompt-app09': 'app09_book',
       'freq-sp-prompt-app10': 'app10_landmark',
       'freq-sp-prompt-app11': 'app11',
       'freq-sp-prompt-app12': 'app12',
@@ -7006,7 +7839,7 @@ const FreqTerminal = (() => {
     $('#freq-sp-prompt-app06').val(prompts.app06 || defaults.app06);
     $('#freq-sp-prompt-app07').val(prompts.app07_comment || defaults.app07_comment);
     $('#freq-sp-prompt-app08').val(prompts.app08_char_schedule || defaults.app08_char_schedule || '');
-    $('#freq-sp-prompt-app09').val(prompts.app09 || defaults.app09);
+    $('#freq-sp-prompt-app09').val(prompts.app09_book || defaults.app09_book || '');
     $('#freq-sp-prompt-app10').val(prompts.app10_landmark || defaults.app10_landmark || '');
     $('#freq-sp-prompt-app11').val(prompts.app11 || defaults.app11);
     $('#freq-sp-prompt-app12').val(prompts.app12 || defaults.app12);
