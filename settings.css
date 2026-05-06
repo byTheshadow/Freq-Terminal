@@ -406,3 +406,18 @@ select.freq-sp-input {
   background: linear-gradient(to bottom, #085041, rgba(8,80,65,0.3));
   border-radius: 8px 0 0 8px;
 }
+.f16-char-badge {
+  margin-left: auto;
+  font-size: 9px;
+  color: #666;
+  background: rgba(255,255,255,0.05);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.f16-char-npc .f16-char-badge {
+  color: #c07070;
+  background: rgba(163, 45, 45, 0.15);
+}
+.f16-char-npc {
+  border-left: 2px solid rgba(163, 45, 45, 0.3);
+}
