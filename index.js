@@ -386,7 +386,28 @@ app11_order: `你是角色{char_name}。现在是{real_datetime}。
 - 回应信中的具体内容，不要泛泛而谈
 - 结尾用角色自己的方式落款
 - 直接输出信件正文，不要加任何额外说明`,
-    app14: '任务：User 描述了一个梦境：「{dream_content}」。以角色视角解读这个梦，可荒诞、可温柔、可锐评。不超过 150 字。',
+app14_dream: `你是角色{char_name}。现在是{real_datetime}。
+
+以下是你的人设信息：
+{char_desc}
+
+用户刚刚向你分享了他们昨晚做的梦：
+"""
+{dream_content}
+"""
+
+请以你的角色身份和说话风格，为这个梦境提供一个趣味性的解读。
+
+要求：
+1. 保持你的角色人设、语气和说话方式
+2. 这不是专业的心理分析，而是角色化的趣味解读
+3. 可以结合你的世界观、价值观来理解梦境
+4. 可以加入一些"梦境符号学"的趣味元素（如"这可能代表..."、"在我看来这象征着..."）
+5. 可以联系用户的日常生活或你们之间的互动
+6. 保持轻松、有趣、富有想象力
+7. 长度控制在200-400字
+
+直接输出解读内容，不要加标签或前缀。`,
     app15: '任务：分析以下对话内容的情绪倾向，生成一句角色视角的感知描述。不超过 60 字。同时给出情绪关键词（用 <emotion> 标签包裹）。',
     app16: '任务：生成一段角色之间不在User 面前的私下对话或内部通讯记录。像在偷窥一个不属于你的世界。用 <secret> 标签包裹。不超过 200 字。',
     app17: '任务：将以下文字用当前 BGM「{current_bgm}」的文风重新表达。只输出翻译结果。',
@@ -8522,6 +8543,423 @@ ${pickDesc}
   };
 })();
 // ============================================================ end of app06
+// ============================================================
+//  App14Dream — 梦境记录仪
+// ============================================================
+const App14Dream = (() => {
+  const APP_ID = 'dream';
+  let _ctx = null;
+  let _container = null;
+  let _mounted = false;
+  let _currentDream = '';
+  let _archives = [];
+
+  //── 初始化 ──
+  function init(ctx) {
+    _ctx = ctx;
+    _loadArchives();
+    _ctx.log.info(APP_ID, 'App 已初始化');
+  }
+
+  //── 挂载 ──
+  function mount(el) {
+    _container = el;
+    _mounted = true;
+    _render();
+  }
+
+  //── 卸载 ──
+  function unmount() {
+    _mounted = false;
+    _container = null;
+  }
+
+  //── 渲染 ──
+  function _render() {
+    if (!_container) return;
+    
+    const chars = _ctx.bridge.getCharacters() || [];
+    const currentChar = _ctx.bridge.getCharName();
+    
+    _container.innerHTML = `
+      <div class="dream-app">
+        <div class="dream-header">
+          <div class="dream-stars"></div>
+          <h2 class="dream-title">🌙 梦境记录仪</h2>
+          <p class="dream-subtitle">记录你的梦境碎片，让角色为你解读</p>
+        </div>
+
+        <div class="dream-input-section">
+          <div class="dream-input-header">
+            <label>记录梦境</label>
+            <span class="dream-char-count">0 字</span>
+          </div>
+          <textarea 
+            class="dream-textarea" 
+            placeholder="记录你昨晚的梦境碎片…&#10;&#10;越详细越好，不用在意逻辑和连贯性。&#10;梦境本就是碎片化的、跳跃的、充满象征的…"
+            maxlength="2000"
+          ></textarea>
+          
+          <div class="dream-controls">
+            <div class="dream-char-selector">
+              <label>解读者</label>
+              <select class="dream-char-select">
+                ${chars.map(c => `
+                  <option value="${c.name}" ${c.name === currentChar ? 'selected' : ''}>
+                    ${c.name}
+                  </option>
+                `).join('')}
+              </select>
+            </div>
+            <button class="dream-btn dream-interpret-btn" data-action="interpret">
+              ✨ 开始解读
+            </button>
+          </div>
+        </div>
+
+        <div class="dream-result-section" style="display: none;">
+          <div class="dream-result-header">
+            <h3>💭 解读结果</h3>
+            <button class="dream-btn-small dream-save-btn" data-action="save">
+              💾 保存到归档
+            </button>
+          </div>
+          <div class="dream-result-card">
+            <div class="dream-result-meta">
+              <span class="dream-result-char"></span>
+              <span class="dream-result-time"></span>
+            </div>
+            <div class="dream-result-content"></div>
+          </div>
+        </div>
+
+        <div class="dream-archives-section">
+          <div class="dream-archives-header">
+            <h3>📚 梦境归档</h3>
+            <span class="dream-archives-count">共 ${_archives.length} 条记录</span>
+          </div>
+          <div class="dream-archives-list">
+            ${_renderArchives()}
+          </div>
+        </div>
+
+        <div class="dream-loading" style="display: none;">
+          <div class="dream-loading-spinner"></div>
+          <p class="dream-loading-text">正在解读梦境…</p>
+        </div>
+      </div>
+    `;
+    
+    _bindEvents();
+  }
+
+  //── 渲染归档列表 ──
+  function _renderArchives() {
+    if (_archives.length === 0) {
+      return `
+        <div class="dream-empty">
+          <div class="dream-empty-icon">🌙</div>
+          <p>还没有梦境记录</p>
+          <p class="dream-empty-hint">记录你的第一个梦境吧</p>
+        </div>
+      `;
+    }
+
+    return _archives.map(item => `
+      <div class="dream-archive-item" data-id="${item.id}">
+        <div class="dream-archive-header">
+          <span class="dream-archive-date">${item.date}</span>
+          <button class="dream-archive-delete" data-action="delete" data-id="${item.id}">
+            🗑️
+          </button>
+        </div>
+        <div class="dream-archive-dream">
+          <strong>梦境：</strong>${_truncate(item.dream, 80)}
+        </div>
+        <div class="dream-archive-meta">
+          <span class="dream-archive-char">解读者：${item.charName}</span>
+        </div>
+        <div class="dream-archive-interpretation">
+          ${_truncate(item.interpretation, 150)}
+        </div>
+        <button class="dream-archive-expand" data-action="expand" data-id="${item.id}">
+          展开完整内容 ▼
+        </button>
+      </div>
+    `).join('');
+  }
+
+  //── 事件绑定 ──
+  function _bindEvents() {
+    if (!_container) return;
+
+    // 字数统计
+    const textarea = _container.querySelector('.dream-textarea');
+    const charCount = _container.querySelector('.dream-char-count');
+    if (textarea && charCount) {
+      textarea.addEventListener('input', () => {
+        const count = textarea.value.length;
+        charCount.textContent = `${count} 字`;
+        _currentDream = textarea.value;
+      });
+    }
+
+    // 按钮点击
+    _container.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      
+      const action = btn.dataset.action;
+      
+      if (action === 'interpret') {
+        await _interpretDream();
+      } else if (action === 'save') {
+        await _saveToArchive();
+      } else if (action === 'delete') {
+        const id = parseInt(btn.dataset.id);
+        await _deleteArchive(id);
+      } else if (action === 'expand') {
+        const id = parseInt(btn.dataset.id);
+        _toggleExpand(id);
+      }
+    });
+  }
+
+  //── 解读梦境 ──
+  async function _interpretDream() {
+    const textarea = _container.querySelector('.dream-textarea');
+    const charSelect = _container.querySelector('.dream-char-select');
+    
+    if (!textarea || !charSelect) return;
+    
+    const dream = textarea.value.trim();
+    const selectedChar = charSelect.value;
+    
+    if (!dream) {
+      _ctx.notify.push(APP_ID, '⚠️', '梦境记录仪', '请先输入梦境内容');
+      return;
+    }
+
+    if (!_ctx.settings.apiUrl || !_ctx.settings.apiKey || !_ctx.settings.apiModel) {
+      _ctx.notify.push(APP_ID, '⚠️', '梦境记录仪', '请先在设置中配置副 API');
+      return;
+    }
+
+    _setLoading(true);
+    _ctx.notify.push(APP_ID, '🌙', '梦境记录仪', '正在解读梦境…', { silent: true });
+
+    try {
+      // 获取选中角色的信息
+      const chars = _ctx.bridge.getCharacters() || [];
+      const targetChar = chars.find(c => c.name === selectedChar);
+      const charDesc = targetChar?.data?.description || targetChar?.description || '';
+
+      const messages = _ctx.subapi.buildMessages('app14_dream', {
+        char_name: selectedChar,
+        char_desc: charDesc,
+        dream_content: dream,
+      });
+
+      const text = await _ctx.subapi.call(messages, { 
+        maxTokens: 700, 
+        temperature: 0.9 
+      });
+
+      if (!_mounted || !_container) return;
+
+      if (text) {
+        const cleaned = _ctx.subapi.safeParseText(text);
+        _showResult(selectedChar, cleaned, dream);
+        _ctx.notify.push(APP_ID, '✨', '梦境记录仪', '解读完成');
+      } else {
+        throw new Error('未收到解读结果');
+      }
+    } catch (e) {
+      _ctx.log.error(APP_ID, '解读失败', e.message);
+      _ctx.notify.push(APP_ID, '❌', '梦境记录仪', '解读失败，请重试');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  //── 显示解读结果 ──
+  function _showResult(charName, interpretation, dream) {
+    if (!_container) return;
+
+    const resultSection = _container.querySelector('.dream-result-section');
+    const resultChar = _container.querySelector('.dream-result-char');
+    const resultTime = _container.querySelector('.dream-result-time');
+    const resultContent = _container.querySelector('.dream-result-content');
+
+    if (resultSection && resultChar && resultTime && resultContent) {
+      const now = new Date();
+      const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+      resultChar.textContent = `解读者：${charName}`;
+      resultTime.textContent = timeStr;
+      resultContent.textContent = interpretation;
+      resultSection.style.display = 'block';
+
+      // 保存当前结果到临时变量
+      _currentDream = dream;
+      _container.dataset.currentInterpretation = interpretation;
+      _container.dataset.currentChar = charName;
+      _container.dataset.currentTime = timeStr;
+
+      // 滚动到结果区域
+      resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  //── 保存到归档 ──
+  async function _saveToArchive() {
+    if (!_container) return;
+
+    const interpretation = _container.dataset.currentInterpretation;
+    const charName = _container.dataset.currentChar;
+    const timeStr = _container.dataset.currentTime;
+
+    if (!interpretation || !charName || !_currentDream) {
+      _ctx.notify.push(APP_ID, '⚠️', '梦境记录仪', '没有可保存的内容');
+      return;
+    }
+
+    const archive = {
+      id: Date.now(),
+      dream: _currentDream,
+      interpretation: interpretation,
+      charName: charName,
+      timestamp: Date.now(),
+      date: timeStr,
+    };
+
+    _archives.unshift(archive);
+    await _saveArchives();
+
+    _ctx.notify.push(APP_ID, '💾', '梦境记录仪', '已保存到归档');
+
+    // 刷新归档列表
+    const archivesList = _container.querySelector('.dream-archives-list');
+    const archivesCount = _container.querySelector('.dream-archives-count');
+    if (archivesList) {
+      archivesList.innerHTML = _renderArchives();
+    }
+    if (archivesCount) {
+      archivesCount.textContent = `共 ${_archives.length} 条记录`;
+    }
+  }
+
+  //── 删除归档 ──
+  async function _deleteArchive(id) {
+    _archives = _archives.filter(item => item.id !== id);
+    await _saveArchives();
+
+    _ctx.notify.push(APP_ID, '🗑️', '梦境记录仪', '已删除');
+
+    // 刷新归档列表
+    if (!_container) return;
+    const archivesList = _container.querySelector('.dream-archives-list');
+    const archivesCount = _container.querySelector('.dream-archives-count');
+    if (archivesList) {
+      archivesList.innerHTML = _renderArchives();
+    }
+    if (archivesCount) {
+      archivesCount.textContent = `共 ${_archives.length} 条记录`;
+    }
+  }
+
+  //── 展开/收起归档项 ──
+  function _toggleExpand(id) {
+    if (!_container) return;
+    
+    const item = _container.querySelector(`.dream-archive-item[data-id="${id}"]`);
+    if (!item) return;
+
+    const archive = _archives.find(a => a.id === id);
+    if (!archive) return;
+
+    const isExpanded = item.classList.contains('dream-archive-expanded');
+    
+    if (isExpanded) {
+      // 收起
+      item.classList.remove('dream-archive-expanded');
+      const dreamDiv = item.querySelector('.dream-archive-dream');
+      const interpDiv = item.querySelector('.dream-archive-interpretation');
+      const expandBtn = item.querySelector('.dream-archive-expand');
+      
+      if (dreamDiv) dreamDiv.innerHTML = `<strong>梦境：</strong>${_truncate(archive.dream, 80)}`;
+      if (interpDiv) interpDiv.textContent = _truncate(archive.interpretation, 150);
+      if (expandBtn) expandBtn.textContent = '展开完整内容 ▼';
+    } else {
+      // 展开
+      item.classList.add('dream-archive-expanded');
+      const dreamDiv = item.querySelector('.dream-archive-dream');
+      const interpDiv = item.querySelector('.dream-archive-interpretation');
+      const expandBtn = item.querySelector('.dream-archive-expand');
+      
+      if (dreamDiv) dreamDiv.innerHTML = `<strong>梦境：</strong>${archive.dream}`;
+      if (interpDiv) interpDiv.textContent = archive.interpretation;
+      if (expandBtn) expandBtn.textContent = '收起 ▲';
+    }
+  }
+
+  //── 加载归档 ──
+  async function _loadArchives() {
+    try {
+      const data = await _ctx.store.get('dream_archives');
+      _archives = data || [];
+      _ctx.log.info(APP_ID, `加载了 ${_archives.length} 条归档`);
+    } catch (e) {
+      _ctx.log.error(APP_ID, '加载归档失败', e.message);
+      _archives = [];
+    }
+  }
+
+  //── 保存归档 ──
+  async function _saveArchives() {
+    try {
+      await _ctx.store.set('dream_archives', _archives);
+      _ctx.log.info(APP_ID, '归档已保存');
+    } catch (e) {
+      _ctx.log.error(APP_ID, '保存归档失败', e.message);
+    }
+  }
+
+  //── 截断文本 ──
+  function _truncate(text, maxLen) {
+    if (!text) return '';
+    if (text.length <= maxLen) return text;
+    return text.substring(0, maxLen) + '...';
+  }
+
+  //── 加载状态 ──
+  function _setLoading(isLoading) {
+    if (!_container) return;
+    
+    const loading = _container.querySelector('.dream-loading');
+    const interpretBtn = _container.querySelector('.dream-interpret-btn');
+    
+    if (loading) {
+      loading.style.display = isLoading ? 'flex' : 'none';
+    }
+    if (interpretBtn) {
+      interpretBtn.disabled = isLoading;
+    }
+  }
+
+  //── 公开接口 ──
+  return {
+    id: APP_ID,
+    name: '梦境记录仪',
+    icon: '🌙',
+    init,
+    mount,
+    unmount,
+  };
+})();
+// ============================================================
+//  App14Dream END
+// ============================================================
 
 
 
@@ -9014,6 +9452,7 @@ const FreqTerminal = (() => {
     App10Map,
     App11Delivery,
     App13Capsule,
+    App14Dream,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
   ];
   for (const app of implementations) {
@@ -9197,7 +9636,7 @@ const FreqTerminal = (() => {
       'freq-sp-prompt-app11': 'app11_order',
       'freq-sp-prompt-app12': 'app12',
       'freq-sp-prompt-app13': 'app13_reply',
-      'freq-sp-prompt-app14': 'app14',
+      'freq-sp-prompt-app14': 'app14_dream',
       'freq-sp-prompt-app15': 'app15',
       'freq-sp-prompt-app16': 'app16',
       'freq-sp-prompt-app17': 'app17',
@@ -9311,7 +9750,7 @@ const FreqTerminal = (() => {
     $('#freq-sp-prompt-app11').val(prompts.app11_order || defaults.app11_order || '');
     $('#freq-sp-prompt-app12').val(prompts.app12 || defaults.app12);
     $('#freq-sp-prompt-app13').val(prompts.app13_reply || defaults.app13_reply);
-    $('#freq-sp-prompt-app14').val(prompts.app14 || defaults.app14);
+    $('#freq-sp-prompt-app14').val(prompts.app14_dream || defaults.app14_dream);
     $('#freq-sp-prompt-app15').val(prompts.app15 || defaults.app15);
     $('#freq-sp-prompt-app16').val(prompts.app16 || defaults.app16);
     $('#freq-sp-prompt-app17').val(prompts.app17 || defaults.app17);
