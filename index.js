@@ -26,6 +26,7 @@ const FREQ_DEFAULTS = {
   hefengApiKey: '',
   app04AutoPush: true,
   app04LocationEnabled: false,
+  cosmicFreqEnabled: true,
 
 
   prompts: {
@@ -8294,9 +8295,13 @@ ${pickDesc}
   // ══════════════════════════════════════
 
   function _getCosmicStatus() {
-    const msgs = _ctx.bridge.getChatMessages();
-    return _ctx.parser.inferCosmicStatus(msgs);
+  // 优先读取用户设置，其次读取聊天记录
+  if (_ctx.settings.cosmicFreqEnabled !== undefined) {
+    return _ctx.settings.cosmicFreqEnabled ? '开启' : '未开启';
   }
+  const msgs = _ctx.bridge.getChatMessages();
+  return _ctx.parser.inferCosmicStatus(msgs);
+}
 
   function _setGenerating(isGen) {
     if (!_mounted || !_container) return;
@@ -8352,7 +8357,7 @@ ${pickDesc}
 
         <!--顶部状态区 -->
         <div class="cosmic-header">
-          <div class="cosmic-status-orb ${isOpen ? 'cosmic-orb-on' : 'cosmic-orb-off'}">
+        <div class="cosmic-status-orb ${isOpen ? 'cosmic-orb-on' : 'cosmic-orb-off'}" data-action="toggle-cosmic">
             <div class="cosmic-orb-core"></div>
             <div class="cosmic-orb-ring"></div>
             <div class="cosmic-orb-ring cosmic-orb-ring-2"></div>
@@ -8444,24 +8449,64 @@ ${pickDesc}
   }
 
   function _bindEvents() {
-    if (!_container) return;
+  if (!_container) return;
 
-    _container.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-action]');
-      if (!btn) return;
-      const action = btn.dataset.action;
+  _container.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
 
-      if (action === 'perception') {
-        await _generatePerception();
-      } else if (action === 'other_char') {
-        await _generateOtherCharMessage();
-      } else if (action === 'clear') {
-        if (confirm('确定清空所有宇宙频率记录？')) {
-          await _clearMessages();
-        }
+    // ← ← ← 新增：切换宇宙频率状态 ↓ ↓ ↓
+    if (action === 'toggle-cosmic') {
+      const currentStatus = _ctx.settings.cosmicFreqEnabled !== false;
+      _ctx.settings.cosmicFreqEnabled = !currentStatus;
+      
+      // 保存设置
+      if (typeof FreqBridge !== 'undefined' && FreqBridge.saveSettings) {
+        FreqBridge.saveSettings(_ctx.settings);
       }
-    });
-  }
+      
+      // 更新后台定时器
+      if (_ctx.settings.cosmicFreqEnabled) {
+        if (_ctx.settings.apiUrl && _ctx.settings.apiKey && _ctx.settings.apiModel) {
+          _ctx.subapi.startBackgroundTimer();
+        }
+        _ctx.notify.push('cosmic', '🌌', '宇宙频率', '已开启');
+      } else {
+        _ctx.subapi.stopBackgroundTimer();
+        _ctx.notify.push('cosmic', '🌌', '宇宙频率', '已关闭');
+      }
+      
+      // 重新渲染
+      _render();
+    // ↑ ↑ ↑ 新增结束
+      
+    } else if (action === 'perception') {
+      // ← ← ← 新增：检查 API 配置 ↓ ↓ ↓
+      if (!_ctx.settings.apiUrl || !_ctx.settings.apiKey || !_ctx.settings.apiModel) {
+        _ctx.notify.push('cosmic', '⚠️', '宇宙频率', '请先在设置中配置副 API');
+        _ctx.log.warn('cosmic', '副 API 未配置');
+        return;
+      }
+      // ↑ ↑ ↑ 新增结束
+      await _generatePerception();
+      
+    } else if (action === 'other_char') {
+      // ← ← ← 新增：检查 API 配置 ↓ ↓ ↓
+      if (!_ctx.settings.apiUrl || !_ctx.settings.apiKey || !_ctx.settings.apiModel) {
+        _ctx.notify.push('cosmic', '⚠️', '宇宙频率', '请先在设置中配置副 API');
+        return;
+      }
+      // ↑ ↑ ↑ 新增结束
+      await _generateOtherCharMessage();
+      
+    } else if (action === 'clear') {
+      if (confirm('确定清空所有宇宙频率记录？')) {
+        await _clearMessages();
+      }
+    }
+  });
+}
 
   // ── 公开接口 ──
   return {
@@ -8531,9 +8576,13 @@ const FreqTerminal = (() => {
 
     _listenSTEvents();
 
-    if (_settings.enabled && _settings.apiUrl && _settings.apiKey && _settings.apiModel) {
-      FreqSubAPI.startBackgroundTimer();
-    }
+   if (_settings.enabled && 
+      _settings.cosmicFreqEnabled !== false && 
+      _settings.apiUrl && 
+      _settings.apiKey && 
+      _settings.apiModel) {
+    FreqSubAPI.startBackgroundTimer();
+  }
 
     _registerAllApps();
 
@@ -9036,6 +9085,27 @@ const FreqTerminal = (() => {
         _fab.classList.add('freq-fab-hidden');
       }
     });
+    // 宇宙频率开关
+  $(document).on('change', '#freq-sp-cosmic-enabled', function () {
+    _settings.cosmicFreqEnabled = this.checked;
+    _saveSettings();
+    
+    // 如果关闭，停止后台定时器
+    if (!this.checked) {
+      FreqSubAPI.stopBackgroundTimer();
+      FreqLog.info('system', '宇宙频率已关闭，后台推送已停止');
+    } else {
+      // 如果开启且 API 已配置，启动定时器
+      if (_settings.apiUrl && _settings.apiKey && _settings.apiModel) {
+        FreqSubAPI.startBackgroundTimer();
+        FreqLog.info('system', '宇宙频率已开启，后台推送已启动');
+      }
+    }
+    
+    FreqNotify.push('system', '🌌', '宇宙频率', 
+      this.checked ? '已开启' : '已关闭');
+  });
+  
 
     // 打开手机
     $(document).on('click', '#freq-sp-open-phone', function () {
@@ -9174,6 +9244,7 @@ const FreqTerminal = (() => {
 
     $('#freq-sp-enabled').prop('checked', _settings.enabled);
     $('#freq-sp-fab-enabled').prop('checked', _settings.fabEnabled);
+    $('#freq-sp-cosmic-enabled').prop('checked', _settings.cosmicFreqEnabled !== false);
     $('#freq-sp-api-url').val(_settings.apiUrl || '');
     $('#freq-sp-api-key').val(_settings.apiKey || '');
 
