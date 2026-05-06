@@ -6902,6 +6902,532 @@
 }
 
 /*============================================================App14 Dream END============================================================ */
+/* ============================================================
+   App16 Blackbox — 黑匣子·禁区档案
+   ============================================================ */
+
+/* ── 主容器 ── */
+.f16-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: #0a0a0f;
+  font-family: 'Courier New', monospace;
+  color: #c8c8d0;
+}
+
+/* ── 扫描线效果 ── */
+.f16-scanline {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(160, 45, 45, 0.03) 2px,
+    rgba(160, 45, 45, 0.03) 4px
+  );
+  animation: f16-scanmove 8s linear infinite;
+}
+@keyframes f16-scanmove {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100px; }
+}
+
+/* ── 头部 ── */
+.f16-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid rgba(163, 45, 45, 0.3);
+  background: linear-gradient(180deg, rgba(163, 45, 45, 0.15) 0%, transparent 100%);
+  position: relative;
+  z-index: 2;
+}
+.f16-header-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.f16-header-icon {
+  font-size: 18px;
+  animation: f16-pulse 2s ease-in-out infinite;
+}
+@keyframes f16-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.f16-header-text {
+  font-size: 15px;
+  font-weight: bold;
+  color: #e04040;
+  text-shadow: 0 0 8px rgba(224, 64, 64, 0.5);
+  letter-spacing: 1px;
+}
+.f16-header-sub {
+  font-size: 11px;
+  color: #a06060;
+  font-weight: normal;
+}
+.f16-header-badge {
+  font-size: 11px;
+  color: #888;
+  background: rgba(255,255,255,0.05);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(163, 45, 45, 0.2);
+}
+
+/* ── 工具栏 ── */
+.f16-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  position: relative;
+  z-index: 5;
+}
+
+/* ── 按钮系统 ── */
+.f16-btn {
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.f16-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.f16-btn-primary {
+  flex: 1;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #8b1a1a, #a32d2d);
+  color: #fff;
+  border: 1px solid rgba(163, 45, 45, 0.5);
+  text-shadow: 0 0 4px rgba(255,100,100,0.3);
+}
+.f16-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #a32d2d, #c04040);
+  box-shadow: 0 0 12px rgba(163, 45, 45, 0.4);
+}
+.f16-btn-ghost {
+  padding: 6px 10px;
+  background: transparent;
+  color: #888;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.f16-btn-ghost:hover:not(:disabled) {
+  background: rgba(255,255,255,0.05);
+  color: #aaa;
+}
+.f16-btn-sm {
+  padding: 6px 14px;
+  font-size: 12px;
+}
+.f16-btn-xs {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+.f16-btn-danger {
+  background: rgba(163, 45, 45, 0.2);
+  color: #e06060;
+  border: 1px solid rgba(163, 45, 45, 0.3);
+}
+.f16-btn-danger:hover:not(:disabled) {
+  background: rgba(163, 45, 45, 0.35);
+}
+
+/* ── 类型选择菜单 ── */
+.f16-type-menu {
+  margin: 012px 8px;
+  background: rgba(20, 20, 30, 0.95);
+  border: 1px solid rgba(163, 45, 45, 0.3);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  z-index: 5;
+  animation: f16-slideDown 0.2s ease-out;
+}
+@keyframes f16-slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.f16-type-option {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  transition: background 0.15s;
+}
+.f16-type-option:last-child { border-bottom: none; }
+.f16-type-option:hover {
+  background: rgba(163, 45, 45, 0.15);
+  color: #e08080;
+}
+
+/* ── 角色选择器 ── */
+.f16-char-picker {
+  margin: 0 12px 8px;
+  background: rgba(20, 20, 30, 0.95);
+  border: 1px solid rgba(163, 45, 45, 0.3);
+  border-radius: 6px;
+  padding: 10px;
+  position: relative;
+  z-index: 5;
+  animation: f16-slideDown 0.2s ease-out;
+}
+.f16-char-picker-title {
+  font-size: 12px;
+  color: #e06060;
+  margin-bottom: 4px;
+  font-weight: bold;
+}
+.f16-char-picker-hint {
+  font-size: 10px;
+  color: #666;
+  margin-bottom: 8px;
+}
+.f16-char-list {
+  max-height: 150px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(163,45,45,0.3) transparent;
+}
+.f16-char-list::-webkit-scrollbar { width: 4px; }
+.f16-char-list::-webkit-scrollbar-thumb { background: rgba(163,45,45,0.3); border-radius: 2px; }
+.f16-char-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+.f16-char-item:hover { background: rgba(255,255,255,0.05); }
+.f16-char-selected {
+  background: rgba(163, 45, 45, 0.15);
+  border: 1px solid rgba(163, 45, 45, 0.3);
+}
+.f16-char-item input[type="checkbox"] {
+  accent-color: #a32d2d;
+  width: 14px;
+  height: 14px;
+}
+.f16-char-name { color: #d0d0d8; }
+.f16-char-empty {
+  text-align: center;
+  color: #555;
+  padding: 12px;
+  font-size: 11px;
+}
+.f16-char-picker-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+/* ── 滚动区── */
+.f16-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px 70px;
+  position: relative;
+  z-index: 2;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(163,45,45,0.2) transparent;
+}
+.f16-scroll::-webkit-scrollbar { width: 4px; }
+.f16-scroll::-webkit-scrollbar-thumb { background: rgba(163,45,45,0.3); border-radius: 2px; }
+
+/* ── 空状态 ── */
+.f16-empty {
+  text-align: center;
+  padding: 40px 20px;
+}
+.f16-empty-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+  opacity: 0.4;
+}
+.f16-empty-text {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 4px;
+}
+.f16-empty-hint {
+  font-size: 11px;
+  color: #444;
+}
+
+/* ── 档案卡片（通用） ── */
+.f16-record {
+  margin-bottom: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+/* ── 档案头部 ── */
+.f16-record-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+.f16-record-lock { font-size: 12px; }
+.f16-record-type { color: #999; flex: 1; }
+.f16-record-time { color: #555; font-size: 10px; }
+
+/* ── 锁定档案 ── */
+.f16-record-locked {
+  background: rgba(163, 45, 45, 0.08);
+  border: 1px solid rgba(163, 45, 45, 0.2);
+  position: relative;
+}
+.f16-record-locked::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 3px,
+    rgba(163, 45, 45, 0.04) 3px,
+    rgba(163, 45, 45, 0.04) 6px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+.f16-record-locked-body {
+  padding: 8px 10px;
+  position: relative;
+  z-index: 1;
+}
+.f16-locked-title {
+  font-size: 13px;
+  color: #333;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+  user-select: none;
+}
+.f16-locked-glitch {
+  font-size: 12px;
+  color: rgba(163, 45, 45, 0.25);
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  animation: f16-glitch 3s infinite;
+  user-select: none;
+}
+@keyframes f16-glitch {
+  0%, 90%, 100% { opacity: 0; transform: translateX(0); }
+  92% { opacity: 0.6; transform: translateX(-2px); filter: blur(0.5px); }
+  94% { opacity: 0.3; transform: translateX(3px); filter: blur(1px); }
+  96% { opacity: 0.8; transform: translateX(-1px); filter: blur(0); }
+  98% { opacity: 0; transform: translateX(1px); }
+}
+.f16-countdown {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 11px;color: #a06060;
+}
+.f16-countdown-icon {
+  animation: f16-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── 已解锁档案 ── */
+.f16-record-unlocked {
+  background: rgba(30, 30, 40, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.f16-record-unlocked:hover {
+  border-color: rgba(163, 45, 45, 0.25);
+}
+.f16-record-title {
+  padding: 2px 10px 4px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #d8d0d0;
+}
+.f16-record-participants {
+  padding: 0 10px 4px;
+  font-size: 11px;
+}
+.f16-participant {
+  color: #c07070;
+  background: rgba(163, 45, 45, 0.1);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+.f16-record-content {
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #b0b0b8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 对话类型样式 */
+.f16-content-dialogue {
+  border-left: 2px solid rgba(163, 45, 45, 0.3);
+  margin-left: 10px;
+  padding-left: 10px;
+  font-style: italic;
+}
+
+/* 草稿类型样式 */
+.f16-content-draft {
+  background: rgba(60, 50, 30, 0.15);
+  border: 1px dashed rgba(180, 150, 80, 0.2);
+  border-radius: 4px;
+  margin: 4px 10px;
+  padding: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #a0a080;
+}
+
+/* 通讯类型样式 */
+.f16-content-memo {
+  background: rgba(20, 40, 30, 0.2);
+  border-left: 2px solid rgba(80, 180, 120, 0.2);
+  margin-left: 10px;
+  padding-left: 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #80b090;
+}
+
+.f16-ellipsis {
+  color: #666;
+}
+
+/* ── 档案操作栏 ── */
+.f16-record-actions {
+  display: flex;
+  gap: 6px;
+  padding: 4px 10px 8px;
+  justify-content: flex-end;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── 状态栏 ── */
+.f16-status {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 12px;
+  font-size: 11px;
+  text-align: center;
+  background: rgba(10, 10, 15, 0.9);
+  border-top: 1px solid rgba(163, 45, 45, 0.2);
+  z-index: 4;
+  color: #a08080;
+}
+
+/* ── 假警报覆盖层 ── */
+.f16-fake-alert {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: f16-alertIn 0.15s ease-out;
+}
+@keyframes f16-alertIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.f16-fake-alert-inner {
+  text-align: center;
+  padding: 20px;
+  max-width: 280px;
+  animation: f16-alertShake 0.3s ease-out;
+}
+@keyframes f16-alertShake {
+  0% { transform: translateX(0); }
+  15% { transform: translateX(-8px); }
+  30% { transform: translateX(6px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+.f16-fake-alert-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  animation: f16-pulse 0.5s ease-in-out infinite;
+}
+.f16-fake-alert-text {
+  font-size: 13px;
+  color: #ff4040;
+  text-shadow: 0 0 10px rgba(255, 64, 64, 0.5);
+  line-height: 1.5;
+  letter-spacing: 0.5px;
+}
+.f16-fake-alert-bar {
+  margin-top: 16px;
+  height: 3px;
+  background: rgba(255, 64, 64, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.f16-fake-alert-bar::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, transparent, #ff4040, transparent);
+  animation: f16-barScan 1.5s linear infinite;
+}
+@keyframes f16-barScan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── 全局故障闪烁（低频） ── */
+.f16-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  animation: f16-crtFlicker 10s step-end infinite;
+}
+@keyframes f16-crtFlicker {
+  0%, 95%, 100% { background: transparent; }
+  96% { background: rgba(163, 45, 45, 0.03); }
+  97% { background: transparent; }
+  98% { background: rgba(163, 45, 45, 0.05); }
+  99% { background: transparent; }
+}
+
+/* ============================================================
+   App16 END
+   ============================================================ */
 
 
 
