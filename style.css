@@ -5897,6 +5897,572 @@
 }
 
 /* ============================================================ end App11 */
+/*============================================================App06 · 宇宙频率·感知 — 深空风格
+   ============================================================ */
+
+.cosmic-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(90, 50, 180, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(180, 50, 50, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, rgba(50, 80, 180, 0.05) 0%, transparent 40%),
+    linear-gradient(180deg, #0a0a10 0%, #0d0d18 40%, #0f0a14 100%);
+  color: #c8c0d8;
+  font-family: 'Courier New', 'SF Mono', monospace;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── 星尘背景粒子 ── */
+.cosmic-app::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 60%, rgba(200,180,255,0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 10%, rgba(255,255,255,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 80%, rgba(255,200,200,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 40%, rgba(200,220,255,0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 15% 90%, rgba(255,255,255,0.15) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 15%, rgba(220,200,255,0.2) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 45% 45%, rgba(255,255,255,0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 70%, rgba(180,160,255,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 35%, rgba(255,220,220,0.15) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+  animation: cosmic-drift 60s linear infinite;
+}
+
+@keyframes cosmic-drift {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-20px); }
+}
+
+.cosmic-app > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ══════════════════════════════════════顶部状态区══════════════════════════════════════ */
+
+.cosmic-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid rgba(120, 100, 160, 0.12);
+}
+
+/* ── 状态球体 ── */
+.cosmic-status-orb {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.cosmic-orb-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #333;
+  box-shadow: 0 0 4px rgba(100, 80, 140, 0.3);
+  transition: all 0.6s ease;
+}
+
+.cosmic-orb-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(100, 80, 140, 0.2);
+  transition: all 0.6s ease;
+}
+
+.cosmic-orb-ring-2 {
+  width: 42px;
+  height: 42px;
+  border-color: rgba(100, 80, 140, 0.1);
+}
+
+/*开启状态 */
+.cosmic-orb-on .cosmic-orb-core {
+  background: #a855f7;
+  box-shadow:
+    0 0 8px rgba(168, 85, 247, 0.6),
+    0 0 20px rgba(168, 85, 247, 0.3),
+    0 0 40px rgba(168, 85, 247, 0.1);animation: cosmic-pulse-core 2s ease-in-out infinite;
+}
+
+.cosmic-orb-on .cosmic-orb-ring {
+  border-color: rgba(168, 85, 247, 0.4);
+  animation: cosmic-pulse-ring 2s ease-in-out infinite;
+}
+
+.cosmic-orb-on .cosmic-orb-ring-2 {
+  border-color: rgba(168, 85, 247, 0.15);
+  animation: cosmic-pulse-ring 2s ease-in-out infinite0.3s;
+}
+
+@keyframes cosmic-pulse-core {
+  0%, 100% { box-shadow: 0 0 8px rgba(168,85,247,0.6), 0 0 20px rgba(168,85,247,0.3); }
+  50%{ box-shadow: 0 0 14px rgba(168,85,247,0.8), 0 0 30px rgba(168,85,247,0.4); }
+}
+
+@keyframes cosmic-pulse-ring {
+  0%, 100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+  50%      { transform: translate(-50%,-50%) scale(1.08); opacity: 0.7; }
+}
+
+/* 关闭状态 */
+.cosmic-orb-off .cosmic-orb-core {
+  background: #2a2535;
+  box-shadow: 0 0 4px rgba(60, 50, 80, 0.3);
+}
+
+.cosmic-orb-off .cosmic-orb-ring {
+  border-color: rgba(60, 50, 80, 0.2);
+}
+
+.cosmic-status-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cosmic-status-label {
+  font-size: 10px;
+  color: #665c80;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 2px;
+}
+
+.cosmic-status-value {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.cosmic-on {
+  color: #a855f7;text-shadow: 0 0 8px rgba(168, 85, 247, 0.4);
+}
+
+.cosmic-off {
+  color: #4a4060;
+}
+
+.cosmic-offline-block {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.cosmic-offline-label {
+  font-size: 9px;
+  color: #555068;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 2px;
+}
+
+.cosmic-offline-value {
+  font-size: 12px;
+  color: #8b7faa;
+  font-weight: 500;
+}
+
+/* ══════════════════════════════════════
+   操作栏
+   ══════════════════════════════════════ */
+
+.cosmic-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(120, 100, 160, 0.08);
+}
+
+.cosmic-gen-btn,
+.cosmic-btn-clear {
+  border: none;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: inherit;
+  letter-spacing: 0.5px;
+}
+
+.cosmic-btn-perception {
+  background: rgba(168, 85, 247, 0.12);
+  color: #b388ff;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  flex: 1;
+}
+
+.cosmic-btn-perception:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.2);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.15);
+}
+
+.cosmic-btn-other {
+  background: rgba(80, 140, 220, 0.1);
+  color: #7db8f0;
+  border: 1px solid rgba(80, 140, 220, 0.18);
+  flex: 1;
+}
+
+.cosmic-btn-other:hover:not(:disabled) {
+  background: rgba(80, 140, 220, 0.18);
+  box-shadow: 0 0 12px rgba(80, 140, 220, 0.12);
+}
+
+.cosmic-btn-clear {
+  background: rgba(180, 60, 60, 0.08);
+  color: #885050;
+  border: 1px solid rgba(180, 60, 60, 0.12);
+  padding: 7px 10px;
+}
+
+.cosmic-btn-clear:hover {
+  background: rgba(180, 60, 60, 0.18);
+}
+
+.cosmic-gen-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/*加载旋转 */
+.cosmic-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid rgba(168, 85, 247, 0.3);
+  border-top-color: #b388ff;
+  border-radius: 50%;
+  animation: cosmic-spin 0.7s linear infinite;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+@keyframes cosmic-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ══════════════════════════════════════
+   消息流
+   ══════════════════════════════════════ */
+
+.cosmic-feed {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 100, 160, 0.15) transparent;
+}
+
+.cosmic-feed::-webkit-scrollbar {
+  width: 3px;
+}
+
+.cosmic-feed::-webkit-scrollbar-thumb {
+  background: rgba(120, 100, 160, 0.2);
+  border-radius: 3px;
+}
+
+/* ── 空状态 ── */
+.cosmic-feed-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 200px;
+  opacity: 0.5;
+}
+
+.cosmic-empty-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+  animation: cosmic-float 4s ease-in-out infinite;
+}
+
+@keyframes cosmic-float {
+  0%, 100% { transform: translateY(0); }
+  50%{ transform: translateY(-8px); }
+}
+
+.cosmic-empty-text {
+  font-size: 13px;
+  color: #5a5070;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.cosmic-empty-text span {
+  font-size: 10px;
+  color: #443d58;
+  letter-spacing: 1px;
+}
+
+/* ── 消息卡片 ── */
+.cosmic-msg {
+  position: relative;
+  background: rgba(20, 18, 30, 0.6);
+  border: 1px solid rgba(120, 100, 160, 0.1);
+  border-radius: 10px;
+  padding: 12px 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: border-color 0.3s ease;
+  overflow: hidden;
+}
+
+.cosmic-msg:hover {
+  border-color: rgba(120, 100, 160, 0.25);
+}
+
+/*呼吸光效 */
+.cosmic-msg-glow {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  border-radius: 10px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.cosmic-msg:hover .cosmic-msg-glow {
+  opacity: 1;
+}
+
+.cosmic-msg-perception .cosmic-msg-glow {
+  box-shadow: inset 0 0 20px rgba(168, 85, 247, 0.06), 0 0 15px rgba(168, 85, 247, 0.04);
+}
+
+.cosmic-msg-bg_message .cosmic-msg-glow {
+  box-shadow: inset 0 0 20px rgba(80, 180, 120, 0.06), 0 0 15px rgba(80, 180, 120, 0.04);
+}
+
+.cosmic-msg-other_char .cosmic-msg-glow {
+  box-shadow: inset 0 0 20px rgba(80, 140, 220, 0.06), 0 0 15px rgba(80, 140, 220, 0.04);
+}
+
+/*类型左侧色条 */
+.cosmic-msg::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 2px;
+  opacity: 0.5;
+}
+
+.cosmic-msg-perception::before {
+  background: linear-gradient(180deg, #a855f7, transparent);
+}
+
+.cosmic-msg-bg_message::before {
+  background: linear-gradient(180deg, #50b478, transparent);
+}
+
+.cosmic-msg-other_char::before {
+  background: linear-gradient(180deg, #508cdc, transparent);
+}
+
+/* 入场动画 */
+.cosmic-msg-enter {
+  animation: cosmic-msg-in 0.4s ease-out both;
+}
+
+@keyframes cosmic-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 消息头部 */
+.cosmic-msg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;font-size: 11px;
+}
+
+.cosmic-msg-type-icon {
+  font-size: 12px;
+}
+
+.cosmic-msg-char {
+  font-weight: 600;
+  color: #d0c8e0;
+  letter-spacing: 0.5px;
+}
+
+.cosmic-msg-type-label {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.cosmic-msg-perception .cosmic-msg-type-label {
+  background: rgba(168, 85, 247, 0.12);
+  color: #b388ff;
+}
+
+.cosmic-msg-bg_message .cosmic-msg-type-label {
+  background: rgba(80, 180, 120, 0.1);
+  color: #70c090;
+}
+
+.cosmic-msg-other_char .cosmic-msg-type-label {
+  background: rgba(80, 140, 220, 0.1);
+  color: #7db8f0;
+}
+
+.cosmic-msg-time {
+  margin-left: auto;
+  font-size: 9px;
+  color: #555068;
+  letter-spacing: 0.5px;
+}
+
+/*消息正文 */
+.cosmic-msg-body {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #b8b0c8;
+  word-break: break-word;
+  padding-left: 2px;
+}
+
+/*上下文标签 */
+.cosmic-msg-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.cosmic-tag {
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  background: rgba(60, 50, 80, 0.3);
+  color: #7a7090;
+  border: 1px solid rgba(80, 70, 110, 0.15);
+}
+
+.cosmic-tag-time {
+  color: #9080b0;
+}
+
+.cosmic-tag-weather {
+  color: #70a0c0;
+}
+
+.cosmic-tag-offline {
+  color: #a08870;
+}
+
+.cosmic-tag-cosmic {
+  color: #b388ff;
+  background: rgba(168, 85, 247, 0.08);
+  border-color: rgba(168, 85, 247, 0.15);
+}
+
+/* ══════════════════════════════════════
+   底部装饰
+   ══════════════════════════════════════ */
+
+.cosmic-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid rgba(120, 100, 160, 0.06);
+}
+
+.cosmic-footer-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(168, 85, 247, 0.3);
+  animation: cosmic-pulse-dot 3s ease-in-out infinite;
+}
+
+@keyframes cosmic-pulse-dot {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 0.8; }
+}
+
+.cosmic-footer-text {
+  font-size: 8px;
+  color: #3a3450;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+/* ══════════════════════════════════════
+   滚动条美化 & 响应式
+   ══════════════════════════════════════ */
+
+.cosmic-feed::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (max-width: 400px) {
+  .cosmic-header {
+    padding: 12px 10px 10px;
+    gap: 8px;
+  }
+
+  .cosmic-toolbar {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .cosmic-gen-btn {
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+
+  .cosmic-msg {
+    padding: 10px 12px;
+  }
+
+  .cosmic-msg-body {
+    font-size: 12px;
+  }
+}
+
 
 
 
