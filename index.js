@@ -310,7 +310,36 @@ app10_landmark: `你是角色{char_name}。
 
 用<landmark>标签包裹每个地标，内容为JSON格式：
 <landmark>{"name":"地标名称","desc":"地标描述"}</landmark>`,
-    app11: '任务：基于当前天气「{weather_info}」和BGM「{current_bgm}」，以角色身份推荐 2-3 道菜，每道菜附角色口吻的点评。用 <menu> 标签包裹。',
+app11_order: `你是角色{char_name}。现在是{real_datetime}。
+以下是你的人设信息：
+{char_desc}
+
+最近对话摘要：
+{recent_chat}
+
+当前环境信息：
+- 天气/用户状态：{weather_info}
+- 当前BGM：{bgm_info}
+- 用户自述心情：{user_mood}
+
+你现在要替{user_name}点外卖。请根据以上所有信息（天气、BGM情绪、对话氛围、用户心情），以你的角色身份推荐{dish_count}道菜/饮品。
+
+要求：
+1. 必须是真实存在的菜名（中餐、日料、韩餐、西餐、奶茶、甜品等均可）
+2. 每道菜的点评必须完全符合你的性格、说话方式和与{user_name}的关系
+3. 点评要自然，像是你真的在替对方点餐时会说的话，可以关心、吐槽、撒娇、命令——取决于你的性格
+4. 选择的菜品要与天气、心情、BGM氛围相匹配
+5. 最后写一句配送关心语，是你在外卖备注栏会写给{user_name}的话
+
+每道菜用<dish>标签包裹，格式：
+<dish>
+[图标]（一个食物emoji）
+[菜名]具体菜名
+[点评]你的角色风格点评
+</dish>
+
+最后用<care>标签包裹配送关心语：
+<care>你想对{user_name}说的话</care>`,
     app12: '任务：基于以下角色人设列表，生成 3-5 条论坛帖子和互评。包含发帖人、标题、内容、回复。用 <thread> 标签包裹每个帖子。',
     app13_reply: `你是角色{char_name}。现在是{real_datetime}。以下是你的人设信息：
 {char_desc}
@@ -7146,6 +7175,643 @@ const App09Novel = (() => {
   };
 })();
 //============================================================ end block_18
+// ============================================================
+// block_20 — App11 · 跨次元外卖
+// ============================================================
+const App11Delivery = (() => {
+  let _ctx = null;
+  let _container = null;
+  let _clickHandler = null;
+  let _inputHandler = null;
+
+  //── 状态变量 ──
+  let _loading = false;
+  let _statusText = '';
+  let _order = null;          // 当前订单 { dishes, charName, weather, bgm, mood, time, deliveryPhase, careText }
+  let _deliveryTimer = null;  // 配送动画定时器
+  let _moodInput = '';// 用户手动输入的心情
+  let _selectedCharName = ''; // 用户选择的角色（空=当前角色）
+  let _charList = [];         // 可选角色列表
+  let _charListLoaded = false;
+  let _showCharPicker = false;
+  let _orderHistory = [];     // 历史订单
+  let _showHistory = false;
+
+  // ── 常量 ──
+  const STORE_KEY = 'app11_order';
+  const HISTORY_KEY = 'app11_history';
+  const MAX_HISTORY = 20;
+  const DELIVERY_PHASES = [
+    { label: '接单', icon: '📋', duration: 2000 },
+    { label: '备餐', icon: '🔪', duration: 3000 },
+    { label: '配送中', icon: '🛵', duration: 4000 },
+    { label: '信号丢失', icon: '💫', duration: null },  // 永远停在这里
+  ];
+
+  // ── 工具函数 ──
+  function _escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function _getCharDesc(charName) {
+    try {
+      const chars = window.characters;
+      if (!chars || !Array.isArray(chars)) return '';
+      let c = null;
+      if (charName) {
+        c = chars.find(ch => ch && ch.name === charName);
+      }
+      if (!c) {
+        const chid = window.this_chid;
+        if (chid != null && chars[chid]) c = chars[chid];
+      }
+      if (!c) return '';
+      return [c.description, c.personality, c.scenario].filter(Boolean).join('\n').slice(0, 800);
+    } catch (e) { return ''; }
+  }
+
+  function _getRecentChat() {
+    try {
+      const msgs = _ctx.bridge.getRecentMessages(8);
+      if (!msgs || msgs.length === 0) return '暂无';
+      return msgs.map(m => {
+        const who = m.is_user ? '用户' : (m.name || '角色');
+        const txt = (m.mes || '').slice(0, 100);
+        return `${who}: ${txt}`;
+      }).join('\n').slice(0, 600);
+    } catch (e) { return '暂无'; }
+  }
+
+  function _getActiveCharName() {
+    if (_selectedCharName) return _selectedCharName;
+    return _ctx.bridge.getCharName() || '未知角色';
+  }
+
+  // ── 天气获取（独立实现，失败则降级） ──
+  async function _fetchWeatherInfo() {
+    try {
+      const apiKey = _ctx.settings.hefengApiKey || '';
+      const locationEnabled = _ctx.settings.app04LocationEnabled !== false;
+      if (!apiKey || !locationEnabled) return null;
+
+      const pos = await new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error('no geo'));
+        navigator.geolocation.getCurrentPosition(
+          p => resolve({ lat: p.coords.latitude.toFixed(2), lon: p.coords.longitude.toFixed(2) }),
+          () => reject(new Error('denied')),{ timeout: 5000 }
+        );
+      });
+
+      // 查城市
+      const geoRes = await fetch(
+        `https://geoapi.qweather.com/v2/city/lookup?location=${pos.lon},${pos.lat}&key=${apiKey}&number=1`
+      );
+      const geoData = await geoRes.json();
+      if (geoData.code !== '200' || !geoData.location?.length) return null;
+      const cityId = geoData.location[0].id;
+      const cityName = geoData.location[0].name;
+
+      // 获取天气
+      const wxRes = await fetch(
+        `https://devapi.qweather.com/v7/weather/now?location=${cityId}&key=${apiKey}`
+      );
+      const wxData = await wxRes.json();
+      if (wxData.code !== '200' || !wxData.now) return null;
+
+      return {
+        text: wxData.now.text,
+        temp: wxData.now.temp,
+        feelsLike: wxData.now.feelsLike,
+        humidity: wxData.now.humidity,
+        windDir: wxData.now.windDir,
+        cityName,
+      };
+    } catch (e) {
+      _ctx.log.info('app11', '天气获取失败，使用降级模式', e.message);
+      return null;
+    }
+  }
+
+  // ── BGM 获取 ──
+  function _getBGMInfo() {
+    try {
+      const bgm = _ctx.parser.getLatestBGM(_ctx.bridge.getChatMessages());
+      if (!bgm) return null;
+      return typeof bgm === 'string' ? bgm : (bgm.title || bgm.name || JSON.stringify(bgm));
+    } catch (e) { return null; }
+  }
+
+  // ── 角色列表获取 ──
+  async function _fetchCharList() {
+    let chars = null;
+    try {
+      if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
+        const stCtx = SillyTavern.getContext();
+        if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+          chars = stCtx.characters;
+        }
+      }
+    } catch (e) {}
+    if (!chars) {
+      try {
+        if (typeof getContext === 'function') {
+          const stCtx = getContext();
+          if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+            chars = stCtx.characters;
+          }
+        }
+      } catch (e) {}
+    }
+    if (!chars) {
+      if (window.characters && Array.isArray(window.characters) && window.characters.length > 0) {
+        chars = window.characters;
+      }
+    }
+    if (!chars) return [];
+    return chars.filter(c => c && c.name).map(c => c.name);
+  }
+
+  // ── 配送动画控制 ──
+  function _startDeliveryAnimation() {
+    _stopDeliveryAnimation();
+    if (!_order) return;
+    _order.deliveryPhase = 0;
+    _order.deliveryStartTime = Date.now();
+    _renderDeliveryOnly();
+
+    let phaseIndex = 0;
+    function advancePhase() {
+      phaseIndex++;
+      if (!_order || !_container) return;
+      if (phaseIndex >= DELIVERY_PHASES.length) {
+        // 到达最终阶段
+        _order.deliveryPhase = DELIVERY_PHASES.length - 1;
+        _renderDeliveryOnly();
+        _stopDeliveryAnimation();
+        return;
+      }
+      _order.deliveryPhase = phaseIndex;
+      _renderDeliveryOnly();
+      const nextPhase = DELIVERY_PHASES[phaseIndex];
+      if (nextPhase.duration) {
+        _deliveryTimer = setTimeout(advancePhase, nextPhase.duration);
+      }// duration === null → 永远停在这里
+    }
+
+    const firstPhase = DELIVERY_PHASES[0];
+    _deliveryTimer = setTimeout(advancePhase, firstPhase.duration);
+  }
+
+  function _stopDeliveryAnimation() {
+    if (_deliveryTimer) {
+      clearTimeout(_deliveryTimer);
+      _deliveryTimer = null;
+    }
+  }
+
+  // ── 只更新配送进度区域（不重绘整个页面，避免闪烁） ──
+  function _renderDeliveryOnly() {
+    if (!_container || !_order) return;
+    const el = _container.querySelector('#f11-delivery-zone');
+    if (el) el.innerHTML = _buildDeliveryHTML();
+  }
+
+  function _buildDeliveryHTML() {
+    if (!_order) return '';
+    const phase = _order.deliveryPhase ?? 0;
+    const careText = _order.careText || '';
+
+    let html = '<div class="f11-delivery-track">';
+    DELIVERY_PHASES.forEach((p, i) => {
+      const done = i< phase;
+      const active = i === phase;
+      const cls = done ? 'f11-phase-done' : (active ? 'f11-phase-active' : 'f11-phase-pending');
+      html += `<div class="f11-phase ${cls}">`;
+      html += `<div class="f11-phase-icon">${p.icon}</div>`;
+      html += `<div class="f11-phase-label">${_escHtml(p.label)}</div>`;
+      if (done) html += '<div class="f11-phase-check">✓</div>';
+      if (active && i< DELIVERY_PHASES.length - 1) html += '<div class="f11-phase-pulse"></div>';
+      html += '</div>';
+      if (i < DELIVERY_PHASES.length - 1) {
+        html += `<div class="f11-phase-line ${done ? 'f11-line-done' : ''}"></div>`;
+      }
+    });
+    html += '</div>';
+
+    // 最终阶段文案
+    if (phase >= DELIVERY_PHASES.length - 1) {
+      html += `<div class="f11-delivery-final">`;
+      html += `<div class="f11-final-text">⏱ 预计送达：<span class="f11-never">永远不会送到</span></div>`;
+      html += `<div class="f11-final-sub">这是异次元外卖。信号已在第三维度丢失。</div>`;
+      if (careText) {
+        html += `<div class="f11-care-bubble">`;
+        html += `<div class="f11-care-char">${_escHtml(_order.charName || '角色')}</div>`;
+        html += `<div class="f11-care-text">"${_escHtml(careText)}"</div>`;
+        html += `</div>`;
+      }
+      html += `</div>`;
+    } else {
+      const elapsed = phase;
+      const total = DELIVERY_PHASES.length;
+      html += `<div class="f11-delivery-eta">⏱ 配送进度 ${elapsed}/${total - 1}…</div>`;
+    }
+
+    return html;
+  }
+
+  // ── 副API 调用：生成菜单──
+  async function _generateOrder() {
+    const charName = _getActiveCharName();
+    const charDesc = _getCharDesc(charName);
+    const weather = await _fetchWeatherInfo();
+    const bgm = _getBGMInfo();
+    const recentChat = _getRecentChat();
+    const userName = _ctx.bridge.getUserName() || '用户';
+
+    // 构建天气/心情描述
+    let weatherStr = '';
+    if (weather) {
+      weatherStr = `${weather.cityName}，${weather.text}，${weather.temp}°C，体感${weather.feelsLike}°C，湿度${weather.humidity}%`;
+    } else if (_moodInput.trim()) {
+      weatherStr = `天气未知。用户自述心情/状态：${_moodInput.trim()}`;
+    } else {
+      weatherStr = '天气未知，心情未知';
+    }
+
+    const bgmStr = bgm || '无BGM信息';
+    const moodStr = _moodInput.trim() || '未提供';
+
+    const messages = _ctx.subapi.buildMessages('app11_order', {
+      char_desc: charDesc,
+      recent_chat: recentChat,
+      weather_info: weatherStr,
+      bgm_info: bgmStr,
+      user_mood: moodStr,
+      user_name: userName,
+      dish_count: String(Math.random() < 0.5 ? 2 : 3),
+    });
+
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 600, temperature: 0.9 });
+
+    // 解析菜品
+    const dishBlocks = _ctx.subapi.parseResponse(raw, 'dish');
+    let dishes = [];
+
+    if (dishBlocks && dishBlocks.length > 0) {
+      dishes = dishBlocks.map(block => {
+        const nameMatch = block.match(/\[菜名\](.*?)(?:\n|$)/);
+        const emojiMatch = block.match(/\[图标\](.*?)(?:\n|$)/);
+        const commentMatch = block.match(/\[点评\](.*?)(?:\n|$)/s);
+        return {
+          name: nameMatch ? nameMatch[1].trim() : '未知料理',
+          emoji: emojiMatch ? emojiMatch[1].trim() : '🍽️',
+          comment: commentMatch ? commentMatch[1].trim() : '',
+        };
+      });
+    }
+
+    // 兜底：如果解析失败，尝试纯文本解析
+    if (dishes.length === 0) {
+      const text = _ctx.subapi.safeParseText(raw);
+      dishes = [{ name: '异次元料理', emoji: '🍽️', comment: text.slice(0, 200) }];
+    }
+
+    // 解析关心语
+    const careBlocks = _ctx.subapi.parseResponse(raw, 'care');
+    const careText = (careBlocks && careBlocks.length > 0)
+      ? careBlocks[0].trim()
+      : '';
+
+    return {
+      dishes,
+      charName,
+      weather: weather ? `${weather.text} ${weather.temp}°C` : (_moodInput.trim() || '未知'),
+      bgm: bgm || '无',
+      mood: _moodInput.trim() || '',
+      time: new Date().toISOString(),
+      deliveryPhase: 0,
+      careText,
+    };
+  }
+
+  // ── 持久化 ──
+  async function _saveOrder() {
+    if (_order) {
+      await _ctx.store.set(STORE_KEY, _order);
+    }
+  }
+
+  async function _loadOrder() {
+    const saved = await _ctx.store.get(STORE_KEY);
+    if (saved && saved.dishes) {
+      _order = saved;
+      //恢复时直接显示最终阶段
+      _order.deliveryPhase = DELIVERY_PHASES.length - 1;
+    }
+  }
+
+  async function _saveHistory() {
+    await _ctx.store.set(HISTORY_KEY, _orderHistory);
+  }
+
+  async function _loadHistory() {
+    const saved = await _ctx.store.get(HISTORY_KEY);
+    if (saved && Array.isArray(saved)) {
+      _orderHistory = saved;
+    }
+  }
+
+  async function _pushToHistory(order) {
+    const record = {
+      dishes: order.dishes,
+      charName: order.charName,
+      weather: order.weather,
+      bgm: order.bgm,
+      time: order.time,
+      careText: order.careText || '',
+    };
+    _orderHistory.unshift(record);
+    if (_orderHistory.length > MAX_HISTORY) _orderHistory = _orderHistory.slice(0, MAX_HISTORY);
+    await _saveHistory();
+  }
+
+  // ── 渲染 ──
+  function _render() {
+    if (!_container) return;
+    _container.innerHTML = `
+      <div class="f11-wrap">
+        <div class="f11-scroll">
+          ${_loading
+            ? `<div class="freq-loading"><div class="freq-loading-dot"></div><div class="freq-loading-dot"></div><div class="freq-loading-dot"></div></div>`
+            : _renderContent()
+          }
+        </div>${_statusText ? `<div class="f11-status">${_escHtml(_statusText)}</div>` : ''}
+        <div class="f11-bottom-bar">
+          <button id="f11-btn-order" class="f11-btn-primary" ${_loading ? 'disabled' : ''}>
+            ${_loading ? '⏳ 下单中…' : (_order ? '🔄 重新点单' : '🛵 开始点单')}
+          </button>
+          <button id="f11-btn-history" class="f11-btn-secondary" ${_loading ? 'disabled' : ''}>
+            ${_showHistory ? '📋 返回' : '📜 历史'}
+          </button>
+        </div>
+      </div>`;
+  }
+
+  function _renderContent() {
+    if (_showHistory) return _renderHistory();
+    if (!_order) return _renderEmpty();
+    return _renderOrder();
+  }
+
+  function _renderEmpty() {
+    let html = '<div class="f11-empty">';
+    html += '<div class="f11-empty-icon">🛵</div>';
+    html += '<div class="f11-empty-title">跨次元外卖</div>';
+    html += '<div class="f11-empty-sub">让角色替你点一份来自异次元的外卖</div>';
+    html += '</div>';
+
+    // 心情输入区
+    html += '<div class="f11-mood-section">';
+    html += '<div class="f11-section-label">💭 你现在的心情/状态（可选）</div>';
+    html += `<input type="text" id="f11-mood-input" class="f11-input"placeholder="比如：有点累、很开心、刚加完班…"
+               value="${_escHtml(_moodInput)}" />`;
+    html += '</div>';
+
+    // 角色选择
+    html += _renderCharPicker();
+
+    return html;
+  }
+
+  function _renderCharPicker() {
+    const currentChar = _ctx.bridge.getCharName() || '当前角色';
+    let html = '<div class="f11-char-section">';
+    html += '<div class="f11-section-label">👤 谁来替你点单？</div>';
+    html += `<div class="f11-char-current" id="f11-toggle-picker">`;
+    html += `<span class="f11-char-name">${_escHtml(_selectedCharName || currentChar)}</span>`;
+    html += `<span class="f11-char-arrow">${_showCharPicker ? '▴' : '▾'}</span>`;
+    html += `</div>`;
+
+    if (_showCharPicker && _charListLoaded) {
+      html += '<div class="f11-char-list">';
+      // 当前角色选项
+      html += `<div class="f11-char-option ${!_selectedCharName ? 'f11-char-selected' : ''}"data-char="">📍 ${_escHtml(currentChar)}（当前）</div>`;
+      _charList.forEach(name => {
+        if (name === currentChar) return;
+        const sel = _selectedCharName === name ? 'f11-char-selected' : '';
+        html += `<div class="f11-char-option ${sel}" data-char="${_escHtml(name)}">${_escHtml(name)}</div>`;
+      });
+      html += '</div>';
+    } else if (_showCharPicker && !_charListLoaded) {
+      html += '<div class="f11-char-loading">加载角色列表中…</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function _renderOrder() {
+    const o = _order;
+    let html = '';
+
+    // 顶部信息条
+    html += '<div class="f11-order-header">';
+    html += `<div class="f11-order-title">🛵 ${_escHtml(o.charName)}替你点的单</div>`;
+    html += `<div class="f11-order-meta">`;
+    html += `<span>🌤️ ${_escHtml(o.weather)}</span>`;
+    html += `<span>🎵 ${_escHtml(o.bgm.length > 15 ? o.bgm.slice(0, 15) + '…' : o.bgm)}</span>`;
+    html += `</div>`;
+    const t = o.time ? new Date(o.time) : new Date();
+    html += `<div class="f11-order-time">下单时间：${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}</div>`;
+    html += '</div>';
+
+    // 菜品列表
+    html += '<div class="f11-dishes">';
+    o.dishes.forEach((dish, i) => {
+      html += `<div class="f11-dish-card" style="animation-delay:${i * 0.15}s">`;
+      html += `<div class="f11-dish-header">`;
+      html += `<span class="f11-dish-emoji">${dish.emoji || '🍽️'}</span>`;
+      html += `<span class="f11-dish-name">${_escHtml(dish.name)}</span>`;
+      html += `</div>`;
+      if (dish.comment) {
+        html += `<div class="f11-dish-comment">"${_escHtml(dish.comment)}"</div>`;
+      }
+      html += `</div>`;
+    });
+    html += '</div>';
+
+    // 配送进度区
+    html += `<div id="f11-delivery-zone" class="f11-delivery-zone">${_buildDeliveryHTML()}</div>`;
+
+    // 心情输入（重新点单时可改）
+    html += '<div class="f11-mood-section f11-mood-reorder">';
+    html += '<div class="f11-section-label">💭 更新心情（重新点单时生效）</div>';
+    html += `<input type="text" id="f11-mood-input" class="f11-input"
+               placeholder="比如：有点累、很开心…"
+               value="${_escHtml(_moodInput)}" />`;
+    html += '</div>';
+
+    // 角色选择
+    html += _renderCharPicker();
+
+    return html;
+  }
+
+  function _renderHistory() {
+    if (_orderHistory.length === 0) {
+      return `<div class="freq-empty-state">
+        <div style="font-size:2em;margin-bottom:8px">📜</div>
+        <div>还没有历史订单</div>
+      </div>`;
+    }
+
+    let html = '<div class="f11-history-title">📜 历史订单</div>';
+    _orderHistory.forEach((o, idx) => {
+      const t = o.time ? new Date(o.time) : new Date();
+      const dateStr = `${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+      html += `<div class="f11-history-card">`;
+      html += `<div class="f11-history-header">`;
+      html += `<span class="f11-history-char">${_escHtml(o.charName)}</span>`;
+      html += `<span class="f11-history-date">${dateStr}</span>`;
+      html += `</div>`;
+      html += `<div class="f11-history-meta">${_escHtml(o.weather)} · ${_escHtml(o.bgm.length > 12 ? o.bgm.slice(0,12)+'…' : o.bgm)}</div>`;
+      html += `<div class="f11-history-dishes">`;
+      o.dishes.forEach(d => {
+        html += `<span class="f11-history-dish">${d.emoji || '🍽️'} ${_escHtml(d.name)}</span>`;
+      });
+      html += `</div>`;
+      if (o.careText) {
+        html += `<div class="f11-history-care">"${_escHtml(o.careText)}"</div>`;
+      }
+      html += `</div>`;
+    });
+    return html;
+  }
+
+  // ── 事件绑定 ──
+  function _bindEvents(container) {
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+    _clickHandler = async (e) => {
+
+      // 点单按钮
+      if (e.target.id === 'f11-btn-order' || e.target.closest('#f11-btn-order')) {
+        if (_loading) return;
+        _showHistory = false;
+        _loading = true;
+        _statusText = '⏳ 正在跨次元下单…';
+        _render(); _bindEvents(_container);
+
+        try {
+          // 如果有旧订单，先存入历史
+          if (_order) {
+            await _pushToHistory(_order);
+          }
+
+          _order = await _generateOrder();
+          await _saveOrder();
+          _statusText = '✓ 下单成功！配送中…';
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error('app11', '点单失败', err.message);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);// 启动配送动画
+        if (_order && !_statusText.startsWith('⚠')) {
+          _startDeliveryAnimation();
+
+          // 推送通知
+          try {
+            const dishNames = _order.dishes.map(d => `${d.emoji} ${d.name}`).join('、');
+            _ctx.notify.push('delivery', '🛵', `${_order.charName} 的外卖`, dishNames);
+          } catch (e) {}
+        }
+
+        setTimeout(() => {
+          if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
+            _statusText = '';
+            if (_container) { _render(); _bindEvents(_container); }
+          }
+        }, 3000);
+        return;
+      }
+
+      // 历史按钮
+      if (e.target.id === 'f11-btn-history' || e.target.closest('#f11-btn-history')) {
+        _showHistory = !_showHistory;
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 角色选择器切换
+      if (e.target.id === 'f11-toggle-picker' || e.target.closest('#f11-toggle-picker')) {
+        _showCharPicker = !_showCharPicker;
+        if (_showCharPicker && !_charListLoaded) {
+          _render(); _bindEvents(_container);_charList = await _fetchCharList();
+          _charListLoaded = true;if (!_container) return;
+        }
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 角色选项点击
+      const charOpt = e.target.closest('.f11-char-option');
+      if (charOpt) {
+        const name = charOpt.dataset.char || '';
+        _selectedCharName = name;
+        _showCharPicker = false;
+        _render(); _bindEvents(_container);
+        return;
+      }
+    };
+    container.addEventListener('click', _clickHandler);
+
+    // input 事件
+    if (_inputHandler) container.removeEventListener('input', _inputHandler);
+    _inputHandler = (e) => {
+      if (e.target.id === 'f11-mood-input') {
+        _moodInput = e.target.value;}
+    };
+    container.addEventListener('input', _inputHandler);
+  }
+
+  // ── 公开接口 ──
+  return {
+    id: 'delivery',
+    name: '跨次元外卖',
+    icon: '🛵',
+
+    init(ctx) {
+      _ctx = ctx;
+      // 后台加载历史数据
+      _loadHistory().catch(() => {});
+    },
+
+    async mount(container) {
+      _container = container;
+      _container.innerHTML = `<div class="freq-loading">
+        <div class="freq-loading-dot"></div>
+        <div class="freq-loading-dot"></div>
+        <div class="freq-loading-dot"></div>
+      </div>`;
+
+      await _loadOrder();
+      await _loadHistory();
+      _render();
+      _bindEvents(_container);
+    },
+
+    unmount() {
+      _stopDeliveryAnimation();
+      if (_container && _clickHandler) _container.removeEventListener('click', _clickHandler);
+      if (_container && _inputHandler) _container.removeEventListener('input', _inputHandler);
+      _container = null;
+    },
+  };
+})();
+// ============================================================ end block_20
 
 
 
@@ -7628,6 +8294,7 @@ const FreqTerminal = (() => {
     App08Calendar,
     App09Novel,
     App10Map,
+    App11Delivery,
     App13Capsule,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
   ];
@@ -7788,7 +8455,7 @@ const FreqTerminal = (() => {
       'freq-sp-prompt-app08': 'app08_char_schedule',
       'freq-sp-prompt-app09': 'app09_book',
       'freq-sp-prompt-app10': 'app10_landmark',
-      'freq-sp-prompt-app11': 'app11',
+      'freq-sp-prompt-app11': 'app11_order',
       'freq-sp-prompt-app12': 'app12',
       'freq-sp-prompt-app13': 'app13_reply',
       'freq-sp-prompt-app14': 'app14',
@@ -7901,7 +8568,7 @@ const FreqTerminal = (() => {
     $('#freq-sp-prompt-app08').val(prompts.app08_char_schedule || defaults.app08_char_schedule || '');
     $('#freq-sp-prompt-app09').val(prompts.app09_book || defaults.app09_book || '');
     $('#freq-sp-prompt-app10').val(prompts.app10_landmark || defaults.app10_landmark || '');
-    $('#freq-sp-prompt-app11').val(prompts.app11 || defaults.app11);
+    $('#freq-sp-prompt-app11').val(prompts.app11_order || defaults.app11_order || '');
     $('#freq-sp-prompt-app12').val(prompts.app12 || defaults.app12);
     $('#freq-sp-prompt-app13').val(prompts.app13_reply || defaults.app13_reply);
     $('#freq-sp-prompt-app14').val(prompts.app14 || defaults.app14);
