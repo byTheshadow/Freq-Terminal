@@ -9159,41 +9159,109 @@ const App16Blackbox = (() => {
     _ctx.store.set(STORE_UNLOCK_KEY, _unlockData);
   }
 
-  // ── 角色列表获取 ──
-  async function _fetchCharList() {
-    let chars = null;
-    try {
-      if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
-        const stCtx = SillyTavern.getContext();
-        if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
-          chars = stCtx.characters;
-        }
-      }
-    } catch (e) {}
-    if (!chars) {
-      try {
-        if (typeof getContext === 'function') {
-          const stCtx = getContext();
-          if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
-            chars = stCtx.characters;
+ // ── 从聊天记录中提取NPC ──
+function _extractNPCsFromChat() {
+  try {
+    const msgs = _ctx.bridge.getRecentMessages(50); // 取最近50条
+    if (!msgs || !msgs.length) return [];
+    
+    const currentChar = _ctx.bridge.getCharName() || '';
+    const userName = _ctx.bridge.getUserName() || 'User';
+    const npcSet = new Set();
+    
+    // 正则匹配对话中的角色名（常见格式：角色名：对话内容 或 【角色名】对话内容）
+    const patterns = [
+      /^([^：:\n]+)[：:]/m,           // 角色名：对话
+      /【([^】]+)】/g,                 // 【角色名】
+      /\*\*([^*]+)\*\*/g,             // **角色名**
+      /^([A-Z][a-zA-Z\s]+):/m,        // English Name:
+    ];
+    
+    for (const msg of msgs) {
+      if (!msg.mes || msg.is_user) continue;
+      const text = String(msg.mes);
+      
+      for (const pattern of patterns) {
+        const matches = text.matchAll(pattern);
+        for (const match of matches) {
+          const name = match[1].trim();
+          // 过滤掉User、当前角色、过短/过长的名字
+          if (name && 
+              name !== userName && 
+              name !== currentChar &&
+              name.length >= 2 && 
+              name.length <= 20 &&
+              !/^(他|她|它|我|你|的|了|是|在)$/.test(name)) {
+            npcSet.add(name);
           }
         }
-      } catch (e) {}
-    }
-    if (!chars) {
-      if (window.characters && Array.isArray(window.characters) && window.characters.length > 0) {
-        chars = window.characters;
       }
     }
-    if (!chars) return [];
-    return chars.filter(c => c && c.name).map(c => ({
-      name: c.name,
-      avatar: c.avatar || '',
-      description: (c.description || '').slice(0, 400),
-      personality: (c.personality || '').slice(0, 200),
-      scenario: (c.scenario || '').slice(0, 200),
+    
+    return Array.from(npcSet).map(name => ({
+      name,
+      source: 'npc',
+      description: '（剧情中出现的角色）',
+      personality: '',
+      scenario: '',
     }));
+  } catch (e) {
+    _ctx.log.warn(APP_ID, '提取NPC失败', e.message);
+    return [];
   }
+}
+// ── 获取完整角色列表（ST角色卡 + 聊天NPC） ──
+async function _fetchCharList() {
+  let stChars = [];
+  
+  // 1. 获取ST角色卡列表
+  try {
+    let chars = null;
+    if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
+      const stCtx = SillyTavern.getContext();
+      if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+        chars = stCtx.characters;
+      }
+    }
+    if (!chars && typeof getContext === 'function') {
+      const stCtx = getContext();
+      if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+        chars = stCtx.characters;
+      }
+    }
+    if (!chars && window.characters && Array.isArray(window.characters)) {
+      chars = window.characters;
+    }
+    
+    if (chars) {
+      stChars = chars.filter(c => c && c.name).map(c => ({
+        name: c.name,
+        source: 'card',  // ← 新增：标记来源是角色卡
+        avatar: c.avatar || '',
+        description: (c.description || '').slice(0, 400),
+        personality: (c.personality || '').slice(0, 200),
+        scenario: (c.scenario || '').slice(0, 200),
+      }));
+    }
+  } catch (e) {
+    _ctx.log.warn(APP_ID, '获取ST角色列表失败', e.message);
+  }
+  
+  // 2. 获取聊天中的NPC
+  const npcs = _extractNPCsFromChat();
+  
+  // 3. 合并（NPC在前，更贴近当前剧情）
+  const combined = [...npcs, ...stChars];
+  
+  // 4. 去重（按name）
+  const seen = new Set();
+  return combined.filter(c => {
+    if (seen.has(c.name)) return false;
+    seen.add(c.name);
+    return true;
+  });
+}
+
 
   // ── 自动检查解锁 ──
   function _checkAutoUnlocks() {
@@ -9282,28 +9350,55 @@ const App16Blackbox = (() => {
         const selectedNames = _selectedChars.length >= 2 ? _selectedChars : [];
 
         if (selectedNames.length >= 2) {
-          // 用户选择了角色
-          for (const name of selectedNames) {
-            const ch = _charList.find(c => c.name === name);
-            if (ch) {
-              participantsInfo += `【${ch.name}】\n${[ch.description, ch.personality].filter(Boolean).join('\n')}\n\n`;
-            } else {
-              participantsInfo += `【${name}】\n（无详细信息）\n\n`;
-            }
-          }
-        } else {
-          // 自动选择：当前角色 + 随机1-2个其他角色
-          participantsInfo += `【${charName}】\n${charDesc}\n\n`;
-          const others = _charList.filter(c => c.name !== charName);
-          const pickCount = Math.min(others.length, 1 + Math.floor(Math.random() * 2));
-          const shuffled = others.sort(() => Math.random() - 0.5).slice(0, pickCount);
-          for (const ch of shuffled) {
-            participantsInfo += `【${ch.name}】\n${[ch.description, ch.personality].filter(Boolean).join('\n')}\n\n`;
-          }
-          if (!participantsInfo.trim()) {
-            participantsInfo = `【${charName}】\n${charDesc}\n\n【未知角色】\n（系统自动生成的对话伙伴）\n`;
-          }
-        }
+  // 用户选择了角色
+  for (const name of selectedNames) {
+    const ch = _charList.find(c => c.name === name);
+    if (ch) {
+      const desc = ch.source === 'npc' 
+        ? ch.description 
+        : [ch.description, ch.personality].filter(Boolean).join('\n');
+      participantsInfo += `【${ch.name}】\n${desc}\n\n`;
+    } else {
+      participantsInfo += `【${name}】\n（无详细信息）\n\n`;
+    }
+  }
+} else {
+  // 自动选择：优先从NPC中选（更贴近剧情），不足则从ST角色卡补充
+  const npcs = _charList.filter(c => c.source === 'npc' && c.name !== charName);
+  const cards = _charList.filter(c => c.source === 'card' && c.name !== charName);
+  
+  // 当前角色
+  participantsInfo += `【${charName}】\n${charDesc}\n\n`;
+  
+  // 优先选NPC（1-2个）
+  const pickCount = 1 + Math.floor(Math.random() * 2);
+  let picked = [];
+  
+  if (npcs.length > 0) {
+    const npcPick = Math.min(pickCount, npcs.length);
+    picked = npcs.sort(() => Math.random() - 0.5).slice(0, npcPick);
+  }
+  
+  // 不足则从角色卡补充
+  if (picked.length < pickCount && cards.length > 0) {
+    const needMore = pickCount - picked.length;
+    const cardPick = cards.sort(() => Math.random() - 0.5).slice(0, needMore);
+    picked = [...picked, ...cardPick];
+  }
+  
+  for (const ch of picked) {
+    const desc = ch.source === 'npc' 
+      ? ch.description 
+      : [ch.description, ch.personality].filter(Boolean).join('\n');
+    participantsInfo += `【${ch.name}】\n${desc}\n\n`;
+  }
+  
+  // 兜底
+  if (picked.length === 0) {
+    participantsInfo += `【未知角色】\n（系统自动生成的对话伙伴）\n`;
+  }
+}
+
 
         extraVars.participants_info = participantsInfo;
         extraVars.recent_chat = _getRecentChat();
@@ -9435,14 +9530,15 @@ const App16Blackbox = (() => {
         <div class="f16-char-picker-title">选择参与角色（至少2个）</div>
         <div class="f16-char-picker-hint">不选择则由系统自动分配</div>
         <div class="f16-char-list">
-          ${_charList.map(c => `
-            <label class="f16-char-item ${_selectedChars.includes(c.name) ? 'f16-char-selected' : ''}">
-              <input type="checkbox" data-char-name="${_escHtml(c.name)}" ${_selectedChars.includes(c.name) ? 'checked' : ''} />
-              <span class="f16-char-name">${_escHtml(c.name)}</span>
-            </label>
-          `).join('')}
-          ${_charList.length === 0 ? '<div class="f16-char-empty">未找到角色列表</div>' : ''}
-        </div>
+  ${_charList.map(c => `
+    <label class="f16-char-item ${_selectedChars.includes(c.name) ? 'f16-char-selected' : ''} ${c.source === 'npc' ? 'f16-char-npc' : ''}">
+      <input type="checkbox" data-char-name="${_escHtml(c.name)}" ${_selectedChars.includes(c.name) ? 'checked' : ''} />
+      <span class="f16-char-name">${_escHtml(c.name)}</span>
+      <span class="f16-char-badge">${c.source === 'npc' ? '剧情' : '角色卡'}</span>
+    </label>
+  `).join('')}
+  ${_charList.length === 0 ? '<div class="f16-char-empty">未找到角色列表</div>' : ''}
+</div>
         <div class="f16-char-picker-actions">
           <button class="f16-btn f16-btn-sm" id="f16-btn-char-confirm" ${_loading ? 'disabled' : ''}>
             ${_selectedChars.length >= 2 ? `确认（${_selectedChars.length}人）` : '跳过，自动分配'}
