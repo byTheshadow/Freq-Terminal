@@ -1236,6 +1236,21 @@ const FreqSubAPI = (() => {
       return vars[key] !== undefined ? vars[key] : match;
     });
   }
+    function startBackgroundTimer() {
+    stopBackgroundTimer();
+    if (!_settings) return;
+    let interval = _settings.triggerInterval;
+    if (interval === 'custom' || String(interval) === 'custom') {
+      interval = (_settings.customIntervalMin || 60) * 60 * 1000;
+    }
+    interval = Number(interval);
+    if (isNaN(interval) || interval < 300000) interval = 3600000;
+    FreqLog.info('subapi', `后台定时器启动，间隔 ${Math.round(interval / 60000)} 分钟`);
+    _bgTimer = setInterval(() => { _tryBackgroundTrigger(); }, interval);
+  }
+  function stopBackgroundTimer() {
+    if (_bgTimer) { clearInterval(_bgTimer); _bgTimer = null; }
+  }
 
   async function _tryBackgroundTrigger() {
     if (Date.now() < _silentUntil) {
