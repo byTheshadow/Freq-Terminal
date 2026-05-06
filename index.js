@@ -188,25 +188,29 @@ app08_scan_appointments: `你是一个日程分析助手。
 <appointment>2026-05-06|15:00|一起去唱片店</appointment>
 <appointment>2026-05-08||帮忙修理收音机</appointment>`,
     app09: '任务：基于当前世界观，生成一章短篇小说内容（200-400 字）。可隐晦引用当前 Seeds伏笔。用 <chapter> 标签包裹。',
-    app10_landmark: `你是角色{char_name}。
+app10_landmark: `你是角色{char_name}。
 以下是你的人设信息：
 {char_desc}
 
-现在是{real_datetime}。
+当前时间：{real_datetime}
+当前BGM：{current_bgm}
+最近剧情：{last_meow_fm_plot}
+最近对话摘要：{recent_chat}
 
-你所在的世界有一张古老的地图，上面标注着各种重要地标——城镇、遗迹、神秘场所、危险区域等。
-已有地标：{existing_landmarks}
+你所在的世界有一张古老的地图。现在请你以{char_name}的身份，根据你的世界观、你所经历的故事、你熟悉的地方，标注{count}个地标。
 
-请你以{char_name}的视角和语气，生成{count}个这个世界中的地标。
-每个地标包含名称和简短描述（描述要有世界观氛围感，50-100字）。
+这些地标必须是属于你的世界的真实地点——可以是你去过的地方、你听说过的传闻之地、你故事中出现过的场景、或者与你的种族/职业/身份相关的重要地点。
+
+已有地标（不要重复）：{existing_landmarks}
+
+要求：
+- 地标名称必须符合你的世界观风格（奇幻世界用奇幻地名，现代世界用现代地名，科幻世界用科幻地名，以此类推）
+- 描述用你自己的语气和口吻来写，50-80字
+- 描述中可以包含你对这个地方的个人记忆、感受、警告或传闻
+- 不要出现任何现实世界的地名
 
 用<landmark>标签包裹每个地标，内容为JSON格式：
-<landmark>{"name":"地标名称","desc":"地标描述"}</landmark>
-
-注意：
-- 地标名称不要与已有地标重复
-- 描述要体现角色的世界观和说话风格
-- 可以包含神秘、危险、温馨等不同氛围的地点`,
+<landmark>{"name":"地标名称","desc":"地标描述"}</landmark>`,
     app11: '任务：基于当前天气「{weather_info}」和BGM「{current_bgm}」，以角色身份推荐 2-3 道菜，每道菜附角色口吻的点评。用 <menu> 标签包裹。',
     app12: '任务：基于以下角色人设列表，生成 3-5 条论坛帖子和互评。包含发帖人、标题、内容、回复。用 <thread> 标签包裹每个帖子。',
     app13_reply: `你是角色{char_name}。现在是{real_datetime}。以下是你的人设信息：
@@ -5513,7 +5517,7 @@ const App08Calendar = (() => {
   };
 })();
 // ============================================================ end block_17
-// ============================================================
+//============================================================
 // block_19 — App10 · 异界探索
 // ============================================================
 const App10Map = (() => {
@@ -5522,7 +5526,7 @@ const App10Map = (() => {
   let _clickHandler = null;
   let _inputHandler = null;
 
-  //── 状态变量 ──
+  //── 状态 ──
   let _landmarks = [];
   let _loading = false;
   let _statusText = '';
@@ -5530,17 +5534,17 @@ const App10Map = (() => {
   let _showAddForm = false;
   let _addNameInput = '';
   let _addDescInput = '';
+  let _viewMode = 'map';  // 'map' | 'list'
 
-  // ── 地图状态 ──
+  // ── 地图 ──
   let _terrainCanvas = null;
   let _terrainGenerated = false;
   let _noiseData = null;
-  let _mapW = 600;            // 内部地形分辨率（固定）
+  let _mapW = 600;
   let _mapH = 600;
-  let _vpW = 300;             // 实际视口像素尺寸（mount时测量）
+  let _vpW = 300;
   let _vpH = 400;
 
-  // 平移& 缩放（作用于内部坐标系）
   let _offsetX = 0;
   let _offsetY = 0;
   let _scale = 1;
@@ -5552,7 +5556,6 @@ const App10Map = (() => {
   let _touchStartDist = 0;
   let _touchStartScale = 1;
 
-  // 扫描线
   let _scanY = 0;
   let _scanRAF = null;
 
@@ -5574,6 +5577,18 @@ const App10Map = (() => {
       const c = chars[chid];
       return [c.description, c.personality, c.scenario].filter(Boolean).join('\n').slice(0, 800);
     } catch (e) { return ''; }
+  }
+
+  function _getRecentChat() {
+    try {
+      const msgs = _ctx.bridge.getRecentMessages(8);
+      if (!msgs || msgs.length === 0) return '暂无';
+      return msgs.map(m => {
+        const who = m.is_user ? '用户' : (m.name || '角色');
+        const txt = (m.mes || '').slice(0, 100);
+        return `${who}: ${txt}`;
+      }).join('\n').slice(0, 600);
+    } catch (e) { return '暂无'; }
   }
 
   // ── 噪声 ──
@@ -5601,7 +5616,7 @@ const App10Map = (() => {
     return v;
   }
 
-  // ── 地形生成 ──
+  // ── 地形 ──
   function _genTerrain() {
     if (_terrainGenerated && _noiseData) return;
     const name = _ctx ? _ctx.bridge.getCharName() : 'x';
@@ -5639,18 +5654,19 @@ const App10Map = (() => {
         const v = _noiseData[y * w + x];
         const i = (y * w + x) * 4;
         let r, g, b;
-        if (v < 0.22){ r = 8;  g = 12; b = 22; }
-        else if (v < 0.30) { const t = (v - 0.22) / 0.08; r = 8 + t * 6| 0;  g = 12 + t * 8 | 0;  b = 22 + t * 14 | 0; }
-        else if (v < 0.35) { const t = (v - 0.30) / 0.05; r = 14 + t * 10 | 0; g = 20 + t * 4 | 0;  b = 36 - t * 18 | 0; }
+        if (v < 0.22) { r = 8; g = 12; b = 22; }
+        else if (v < 0.30) { const t = (v - 0.22) / 0.08; r = 8 + t * 6| 0; g = 12 + t * 8 | 0; b = 22 + t * 14 | 0; }
+        else if (v < 0.35) { const t = (v - 0.30) / 0.05; r = 14 + t * 10 | 0; g = 20 + t * 4 | 0; b = 36 - t * 18 | 0; }
         else if (v < 0.45) { r = 24; g = 26; b = 18; }
         else if (v < 0.55) { const t = (v - 0.45) / 0.10; r = 24 + t * 10 | 0; g = 26 + t * 10 | 0; b = 18 + t * 4 | 0; }
         else if (v < 0.65) { r = 34; g = 36; b = 22; }
         else if (v < 0.75) { r = 46; g = 42; b = 24; }
-        else               { const t = Math.min((v - 0.75) / 0.15, 1); r = 46 + t * 20 | 0; g = 42 + t * 18 | 0; b = 24 + t * 12 | 0; }
+        else { const t = Math.min((v - 0.75) / 0.15, 1); r = 46 + t * 20 | 0; g = 42 + t * 18 | 0; b = 24 + t * 12 | 0; }
         const gr = (Math.random() - 0.5) * 3;
-        d[i]= Math.max(0, Math.min(255, r + gr));
-        d[i+1] = Math.max(0, Math.min(255, g + gr));
-        d[i+2] = Math.max(0, Math.min(255, b + gr));d[i+3] = 255;
+        d[i] = Math.max(0, Math.min(255, r + gr));
+        d[i + 1] = Math.max(0, Math.min(255, g + gr));
+        d[i + 2] = Math.max(0, Math.min(255, b + gr));
+        d[i + 3] = 255;
       }
     }
     c.putImageData(img, 0, 0);
@@ -5675,16 +5691,18 @@ const App10Map = (() => {
     c.strokeStyle = 'rgba(99,56,6,0.05)';
     c.lineWidth = 0.5;
     for (let x = 0; x < w; x += 40) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); }
-    for (let y = 0; y < h; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }}
+    for (let y = 0; y < h; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+  }
 
-  // ── 找陆地坐标 ──
+  // ── 找陆地 ──
   function _findLand() {
     if (!_noiseData) _genTerrain();
     for (let i = 0; i < 300; i++) {
       const x = Math.floor(Math.random() * (_mapW - 80) + 40);
       const y = Math.floor(Math.random() * (_mapH - 80) + 40);
       if (_noiseData[y * _mapW + x] > 0.36) return { x, y };
-    }return { x: _mapW / 2, y: _mapH / 2 };
+    }
+    return { x: _mapW / 2, y: _mapH / 2 };
   }
 
   // ── 数据 ──
@@ -5698,15 +5716,20 @@ const App10Map = (() => {
     catch (e) { _ctx.log.warn('app10', '保存失败', e.message); }
   }
 
-  // ── 坐标转换：地图内部坐标 → 视口像素 ──
-  function _toScreen(mx, my) {
-    return {
-      sx: (mx + _offsetX) * _scale + _vpW / 2,
-      sy: (my + _offsetY) * _scale + _vpH / 2,
-    };
+  // ── 命中检测 ──
+  function _hitTest(sx, sy) {
+    const mx = (sx - _vpW / 2) / _scale - _offsetX + _mapW / 2;
+    const my = (sy - _vpH / 2) / _scale - _offsetY + _mapH / 2;
+    let best = null, bestD = 20/ _scale;
+    for (const lm of _landmarks) {
+      const dx = lm.x - mx, dy = lm.y - my;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestD) { bestD = d; best = lm; }
+    }
+    return best;
   }
 
-  // ── 绘制主Canvas ──
+  // ── Canvas 绘制 ──
   function _draw() {
     const el = _container ? _container.querySelector('#f10-cv') : null;
     if (!el) return;
@@ -5719,7 +5742,6 @@ const App10Map = (() => {
     c.scale(_scale, _scale);
     c.translate(_offsetX, _offsetY);
 
-    // 地形（居中绘制：左上角在 -mapW/2, -mapH/2）
     c.drawImage(_terrainCanvas, -_mapW / 2, -_mapH / 2);
 
     // 扫描线
@@ -5750,7 +5772,7 @@ const App10Map = (() => {
       c.stroke();
       c.setLineDash([]);
 
-      // 外圈光晕
+      // 光晕
       const gr = 8 + Math.sin(Date.now() / 600+ lm.id) * 3;
       c.beginPath();
       c.arc(lx, ly, gr, 0, Math.PI * 2);
@@ -5782,7 +5804,7 @@ const App10Map = (() => {
 
     c.restore();
 
-    // CRT扫描线叠加（在屏幕空间）
+    // CRT扫描线
     c.fillStyle = 'rgba(99,56,6,0.012)';
     for (let y = 0; y < _vpH; y += 4) {
       c.fillRect(0, y, _vpW, 2);
@@ -5804,28 +5826,36 @@ const App10Map = (() => {
     if (_scanRAF) { cancelAnimationFrame(_scanRAF); _scanRAF = null; }
   }
 
-  // ── 点击命中检测（屏幕坐标 → 地图坐标 → 找最近地标）──
-  function _hitTest(sx, sy) {
-    //屏幕 → 地图内部
-    const mx = (sx - _vpW / 2) / _scale - _offsetX + _mapW / 2;
-    const my = (sy - _vpH / 2) / _scale - _offsetY + _mapH / 2;
-    let best = null, bestD = 20; // 20px 命中半径
-    for (const lm of _landmarks) {
-      const dx = lm.x - mx, dy = lm.y - my;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < bestD) { bestD = d; best = lm; }
-    }
-    return best;
+  // ── 居中到某个地标 ──
+  function _focusLandmark(lm) {
+    _offsetX = -(lm.x - _mapW / 2);
+    _offsetY = -(lm.y - _mapH / 2);
+    _scale = Math.max(_scale, 1.2);
+    _selectedLandmark = lm.id;
+    _viewMode = 'map';
   }
 
-  // ── 渲染 DOM ──
+  // ── 渲染 ──
   function _render() {
     if (!_container) return;
     const sel = _selectedLandmark ? _landmarks.find(l => l.id === _selectedLandmark) : null;
 
+    // 计算地图区域高度：列表模式下地图占上半，列表占下半
+    const mapAreaStyle = _viewMode === 'list' ? 'flex:0 0 45%;' : 'flex:1;';
+    const canvasH = _viewMode === 'list' ? Math.floor(_vpH * 0.45) : _vpH - 48;
+
     _container.innerHTML = `
       <div class="f10-wrap">
-        <canvas id="f10-cv" class="f10-canvas" width="${_vpW}" height="${_vpH}"></canvas>
+        <div class="f10-tabs">
+          <button class="f10-tab ${_viewMode === 'map' ? 'f10-tab-active' : ''}" data-tab="map">🗺️ 地图</button>
+          <button class="f10-tab ${_viewMode === 'list' ? 'f10-tab-active' : ''}" data-tab="list">📋 列表 (${_landmarks.length})</button>
+        </div>
+
+        <div class="f10-map-area" style="${mapAreaStyle}">
+          <canvas id="f10-cv" class="f10-canvas" width="${_vpW}" height="${canvasH}"></canvas>
+        </div>
+
+        ${_viewMode === 'list' ? _renderList() : ''}
 
         ${sel ? _renderDetail(sel) : ''}
         ${_showAddForm ? _renderForm() : ''}
@@ -5841,7 +5871,41 @@ const App10Map = (() => {
         </div>
       </div>`;
 
+    // 更新canvas高度变量用于绘制
+    const cvEl = _container.querySelector('#f10-cv');
+    if (cvEl) {
+      _vpW = cvEl.width;
+      // 不改_vpH，只在绘制时用canvas 实际高度
+    }
     _draw();
+  }
+
+  // ── 地标列表 ──
+  function _renderList() {
+    if (_landmarks.length === 0) {
+      return `<div class="f10-list-area">
+        <div class="f10-list-empty">暂无地标<br><span style="font-size:10px;opacity:0.5;">点击「✨ AI生成」扫描异界信号</span></div>
+      </div>`;
+    }
+
+    const items = _landmarks.map(lm => {
+      const isSel = lm.id === _selectedLandmark;
+      const shortDesc = lm.desc ? lm.desc.slice(0, 40) + (lm.desc.length > 40 ? '…' : '') : '无描述';
+      return `
+        <div class="f10-list-item ${isSel ? 'f10-list-item-active' : ''}" data-lm-list="${lm.id}">
+          <div class="f10-list-item-dot ${lm.type === 'ai' ? '' : 'f10-list-item-dot-manual'}"></div>
+          <div class="f10-list-item-info">
+            <div class="f10-list-item-name">${_esc(lm.name)}</div>
+            <div class="f10-list-item-desc">${_esc(shortDesc)}</div>
+          </div>
+          <div class="f10-list-item-meta">
+            <span class="f10-list-item-type">${lm.type === 'ai' ? '✨' : '📌'}</span>
+            <span class="f10-list-item-char">${_esc((lm.charName || '').slice(0, 6))}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `<div class="f10-list-area">${items}</div>`;
   }
 
   function _renderDetail(lm) {
@@ -5857,7 +5921,10 @@ const App10Map = (() => {
         <div class="f10-d-meta">
           <span>📍 (${lm.x}, ${lm.y})</span>
           <span>🏷️ ${lm.type === 'ai' ? 'AI生成' : '手动'}</span>
-        </div><div class="f10-d-char">来源：${_esc(lm.charName || '未知')}</div><div class="f10-d-desc">${txt}</div>${long ? `<div class="f10-expand-btn" data-id="${lm.id}">${lm.expanded ? '收起 ▴' : '展开 ▾'}</div>` : ''}
+        </div>
+        <div class="f10-d-char">来源：${_esc(lm.charName || '未知')}</div>
+        <div class="f10-d-desc">${txt}</div>
+        ${long ? `<div class="f10-expand-btn" data-id="${lm.id}">${lm.expanded ? '收起 ▴' : '展开 ▾'}</div>` : ''}
         <div class="f10-d-time">${lm.createdAt || ''}</div>
         <button class="f10-btn f10-btn-del" id="f10-del" data-id="${lm.id}">🗑️ 删除地标</button>
       </div>`;
@@ -5888,10 +5955,14 @@ const App10Map = (() => {
     const cd = _getCharDesc();
     const rem = Math.min(3, MAX_LM - _landmarks.length);
     const existing = _landmarks.map(l => l.name).join('、') || '暂无';
+    const recentChat = _getRecentChat();
 
     const msgs = _ctx.subapi.buildMessages('app10_landmark', {
-      char_desc: cd, existing_landmarks: existing, count: String(rem),});
-    const raw = await _ctx.subapi.call(msgs, { maxTokens: 600, temperature: 0.95 });
+      char_desc: cd,
+      existing_landmarks: existing,
+      count: String(rem),
+      recent_chat: recentChat,});
+    const raw = await _ctx.subapi.call(msgs, { maxTokens: 800, temperature: 0.92 });
     const results = _ctx.subapi.parseResponse(raw, 'landmark');
     if (!results || results.length === 0) throw new Error('AI未返回有效数据');
 
@@ -5905,7 +5976,8 @@ const App10Map = (() => {
         name = String(obj.name || '未知地标').slice(0, 30);
         desc = String(obj.desc || obj.description || '').slice(0, 300);
       } catch (_) {
-        name = txt.slice(0, 30);}
+        name = txt.slice(0, 30);
+      }
       _landmarks.push({
         id: Date.now() + added, name, desc,
         x: pos.x, y: pos.y,
@@ -5915,7 +5987,8 @@ const App10Map = (() => {
       added++;
     }
     await _save();
-    _ctx.notify.push('map', '🗺️', '异界探索', `发现了${added} 个新地标`);return added;
+    _ctx.notify.push('map', '🗺️', '异界探索', `发现了${added} 个新地标`);
+    return added;
   }
 
   // ── 事件 ──
@@ -5923,7 +5996,6 @@ const App10Map = (() => {
     if (_clickHandler) ct.removeEventListener('click', _clickHandler);
     if (_inputHandler) ct.removeEventListener('input', _inputHandler);
 
-    // input 同步
     _inputHandler = (e) => {
       if (e.target.id === 'f10-inp-name') {
         _addNameInput = e.target.value;
@@ -5934,20 +6006,42 @@ const App10Map = (() => {
     };
     ct.addEventListener('input', _inputHandler);
 
-    // click
     _clickHandler = async (e) => {
       const tgt = e.target;
 
-      // 居中
+      //── Tab切换 ──
+      const tab = tgt.closest('.f10-tab');
+      if (tab) {
+        const mode = tab.dataset.tab;
+        if (mode && mode !== _viewMode) {
+          _viewMode = mode;
+          _render(); _bind(_container);
+        }
+        return;
+      }
+
+      // ── 列表项点击 ──
+      const listItem = tgt.closest('.f10-list-item');
+      if (listItem) {
+        const id = Number(listItem.dataset.lmList);
+        const lm = _landmarks.find(l => l.id === id);
+        if (lm) {
+          _focusLandmark(lm);
+          _render(); _bind(_container);
+        }return;
+      }
+
+      // ── 居中 ──
       if (tgt.id === 'f10-btn-center' || tgt.closest('#f10-btn-center')) {
-        _offsetX = 0; _offsetY = 0; _scale = 1;
+        _offsetX = 0; _offsetY = 0;
+        _scale = Math.min(_vpW / _mapW, (_vpH - 48) / _mapH);
         _statusText = '✓ 视图已居中';
         _render(); _bind(_container);
         setTimeout(() => { _statusText = ''; if (_container) { _render(); _bind(_container); } }, 2000);
         return;
       }
 
-      // AI生成
+      // ── AI生成 ──
       if (tgt.id === 'f10-btn-gen' || tgt.closest('#f10-btn-gen')) {
         _loading = true; _statusText = '⏳ 正在扫描异界信号…';
         _render(); _bind(_container);
@@ -5956,12 +6050,11 @@ const App10Map = (() => {
           _statusText = `✓已生成 ${n} 个地标`;
         } catch (err) {
           _statusText = `⚠ ${err.message}`;
-          _ctx.log.error('app10', 'AI生成失败', err.message);
+          _ctx.log.error('app10','AI生成失败', err.message);
         }
         _loading = false;
         if (!_container) return;
-        _render(); _bind(_container);
-        setTimeout(() => {
+        _render(); _bind(_container);setTimeout(() => {
           if (_statusText.startsWith('✓') || _statusText.startsWith('⚠')) {
             _statusText = ''; if (_container) { _render(); _bind(_container); }
           }
@@ -5969,7 +6062,7 @@ const App10Map = (() => {
         return;
       }
 
-      // 手动添加
+      // ── 手动添加 ──
       if (tgt.id === 'f10-btn-add' || tgt.closest('#f10-btn-add')) {
         _showAddForm = true; _addNameInput = ''; _addDescInput = '';
         _render(); _bind(_container);
@@ -5977,7 +6070,7 @@ const App10Map = (() => {
         return;
       }
 
-      // 确认添加
+      // ── 确认添加 ──
       if (tgt.id === 'f10-ok-add' || tgt.closest('#f10-ok-add')) {
         const nm = _addNameInput.trim();
         if (!nm) { _statusText = '⚠ 请输入名称'; _render(); _bind(_container); return; }
@@ -5998,21 +6091,21 @@ const App10Map = (() => {
         return;
       }
 
-      // 取消添加
+      // ── 取消添加 ──
       if (tgt.id === 'f10-cancel-add' || tgt.closest('#f10-cancel-add')) {
         _showAddForm = false; _addNameInput = ''; _addDescInput = '';
         _render(); _bind(_container);
         return;
       }
 
-      // 关闭详情
+      // ── 关闭详情 ──
       if (tgt.id === 'f10-close' || tgt.closest('#f10-close')) {
         _selectedLandmark = null;
         _render(); _bind(_container);
         return;
       }
 
-      // 删除
+      // ── 删除 ──
       if (tgt.id === 'f10-del' || tgt.closest('#f10-del')) {
         const btn = tgt.closest('#f10-del') || tgt;
         const id = Number(btn.dataset.id);
@@ -6026,17 +6119,18 @@ const App10Map = (() => {
         return;
       }
 
-      // 展开/收起
+      // ── 展开/收起 ──
       const expBtn = tgt.closest('.f10-expand-btn');
       if (expBtn) {
         const id = Number(expBtn.dataset.id);
         const item = _landmarks.find(l => l.id === id);
-        if (item) { item.expanded = !item.expanded; _render(); _bind(_container); }return;
+        if (item) { item.expanded = !item.expanded; _render(); _bind(_container); }
+        return;
       }
     };
     ct.addEventListener('click', _clickHandler);
 
-    // ── Canvas拖拽 & 点击地标 ──
+    // ── Canvas 交互 ──
     const cv = ct.querySelector('#f10-cv');
     if (cv) {
       cv.addEventListener('mousedown', _mDown);
@@ -6059,13 +6153,11 @@ const App10Map = (() => {
   function _mMove(e) {
     if (!_isDragging) return;
     _offsetX = _dragStartOX + (e.offsetX - _dragStartX) / _scale;
-    _offsetY = _dragStartOY + (e.offsetY - _dragStartY) / _scale;
-  }
+    _offsetY = _dragStartOY + (e.offsetY - _dragStartY) / _scale;}
   function _mUp(e) {
     if (_isDragging) {
       const dx = e.offsetX - _dragStartX, dy = e.offsetY - _dragStartY;
       if (Math.abs(dx) < 4 && Math.abs(dy) < 4) {
-        // 点击 → 命中检测
         const lm = _hitTest(e.offsetX, e.offsetY);
         if (lm) {
           _selectedLandmark = (_selectedLandmark === lm.id) ? null : lm.id;
@@ -6081,7 +6173,7 @@ const App10Map = (() => {
   function _wheel(e) {
     e.preventDefault();
     const d = e.deltaY > 0 ? 0.9 : 1.1;
-    _scale = Math.max(0.4, Math.min(4, _scale * d));
+    _scale = Math.max(0.3, Math.min(4, _scale * d));
   }
 
   // ── 触摸 ──
@@ -6105,7 +6197,7 @@ const App10Map = (() => {
     } else if (e.touches.length === 2 && _touchStartDist > 0) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
-      _scale = Math.max(0.4, Math.min(4, _touchStartScale * Math.sqrt(dx * dx + dy * dy) / _touchStartDist));
+      _scale = Math.max(0.3, Math.min(4, _touchStartScale * Math.sqrt(dx * dx + dy * dy) / _touchStartDist));
     }
     e.preventDefault();
   }
@@ -6130,13 +6222,14 @@ const App10Map = (() => {
       await _load();
       _paintTerrain();
 
-      // 测量实际容器尺寸
       const rect = _container.getBoundingClientRect();
       _vpW = Math.floor(rect.width) || 340;
       _vpH = Math.floor(rect.height) || 500;
 
-      _offsetX = 0; _offsetY = 0; _scale = Math.min(_vpW / _mapW, (_vpH - 50) / _mapH);
+      _offsetX = 0; _offsetY = 0;
+      _scale = Math.min(_vpW / _mapW, (_vpH - 48) / _mapH);
       _selectedLandmark = null; _showAddForm = false;
+      _viewMode = 'map';
 
       _render();
       _bind(_container);_startScan();
@@ -6162,6 +6255,7 @@ const App10Map = (() => {
   };
 })();
 // ============================================================ end block_19
+
 
 
 
