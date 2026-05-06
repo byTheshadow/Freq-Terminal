@@ -6462,6 +6462,447 @@
     font-size: 12px;
   }
 }
+/* ============================================================
+   App14 Dream — 梦境记录仪
+   ============================================================ */
+
+.dream-app {
+  height: 100%;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  color: #e0e0e0;
+  padding: 16px;
+  position: relative;
+}
+
+/* 星空背景 */
+.dream-stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background-image: 
+    radial-gradient(2px 2px at 20% 30%, white, transparent),
+    radial-gradient(2px 2px at 60% 70%, white, transparent),
+    radial-gradient(1px 1px at 50% 50%, white, transparent),
+    radial-gradient(1px 1px at 80% 10%, white, transparent),
+    radial-gradient(2px 2px at 90% 60%, white, transparent),
+    radial-gradient(1px 1px at 33% 80%, white, transparent);
+  background-size: 200% 200%;
+  animation: dream-stars-twinkle 8s ease-in-out infinite;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+@keyframes dream-stars-twinkle {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+}
+
+/* 头部 */
+.dream-header {
+  text-align: center;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.dream-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: #c8b6ff;
+  text-shadow: 0 0 10px rgba(200, 182, 255, 0.5);
+}
+
+.dream-subtitle {
+  font-size: 13px;
+  color: #a0a0a0;
+  margin: 0;
+}
+
+/* 输入区域 */
+.dream-input-section {
+  background: rgba(60, 52, 137, 0.2);
+  border: 1px solid rgba(200, 182, 255, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.dream-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.dream-input-header label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #c8b6ff;
+}
+
+.dream-char-count {
+  font-size: 12px;
+  color: #888;
+}
+
+.dream-textarea {
+  width: 100%;
+  min-height: 150px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(200, 182, 255, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  color: #e0e0e0;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.dream-textarea::placeholder {
+  color: #666;
+}
+
+.dream-textarea:focus {
+  outline: none;
+  border-color: rgba(200, 182, 255, 0.5);
+  box-shadow: 0 0 10px rgba(200, 182, 255, 0.2);
+}
+
+.dream-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  gap: 12px;
+}
+
+.dream-char-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.dream-char-selector label {
+  font-size: 13px;
+  color: #a0a0a0;
+  white-space: nowrap;
+}
+
+.dream-char-select {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(200, 182, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #e0e0e0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.dream-char-select:focus {
+  outline: none;
+  border-color: rgba(200, 182, 255, 0.5);
+}
+
+/* 按钮 */
+.dream-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.dream-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.dream-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dream-btn-small {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dream-btn-small:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+/* 解读结果区域 */
+.dream-result-section {
+  background: rgba(60, 52, 137, 0.2);
+  border: 1px solid rgba(200, 182, 255, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.dream-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.dream-result-header h3 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  color: #c8b6ff;
+}
+
+.dream-result-card {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(200, 182, 255, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.dream-result-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #888;
+}
+
+.dream-result-content {
+  color: #e0e0e0;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+/* 归档区域 */
+.dream-archives-section {
+  background: rgba(60, 52, 137, 0.15);
+  border: 1px solid rgba(200, 182, 255, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.dream-archives-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.dream-archives-header h3 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  color: #c8b6ff;
+}
+
+.dream-archives-count {
+  font-size: 12px;
+  color: #888;
+}
+
+.dream-archives-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 归档项 */
+.dream-archive-item {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(200, 182, 255, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.3s ease;
+}
+
+.dream-archive-item:hover {
+  border-color: rgba(200, 182, 255, 0.4);
+  box-shadow: 0 2px 8px rgba(200, 182, 255, 0.1);
+}
+
+.dream-archive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.dream-archive-date {
+  font-size: 12px;
+  color: #888;
+}
+
+.dream-archive-delete {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  padding: 4px;
+}
+
+.dream-archive-delete:hover {
+  opacity: 1;
+}
+
+.dream-archive-dream {
+  font-size: 13px;
+  color: #b0b0b0;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.dream-archive-dream strong {
+  color: #c8b6ff;
+}
+
+.dream-archive-meta {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+.dream-archive-interpretation {
+  font-size: 13px;
+  color: #e0e0e0;
+  line-height: 1.6;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+}
+
+.dream-archive-expand {
+  background: rgba(200, 182, 255, 0.1);
+  border: 1px solid rgba(200, 182, 255, 0.2);
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: #c8b6ff;
+  font-size: 12px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.dream-archive-expand:hover {
+  background: rgba(200, 182, 255, 0.2);
+  border-color: rgba(200, 182, 255, 0.4);
+}
+
+/* 空状态 */
+.dream-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.dream-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.dream-empty p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.dream-empty-hint {
+  font-size: 12px;
+  color: #555;
+}
+
+/* 加载状态 */
+.dream-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  backdrop-filter: blur(5px);
+}
+
+.dream-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(200, 182, 255, 0.3);
+  border-top-color: #c8b6ff;
+  border-radius: 50%;
+  animation: dream-spin 1s linear infinite;
+}
+
+@keyframes dream-spin {
+  to { transform: rotate(360deg); }
+}
+
+.dream-loading-text {
+  margin-top: 16px;
+  color: #c8b6ff;
+  font-size: 14px;
+}
+
+/* 滚动条美化 */
+.dream-app {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 182, 255, 0.3) transparent;
+}
+
+.dream-app::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dream-app::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dream-app::-webkit-scrollbar-thumb {
+  background: rgba(200, 182, 255, 0.3);
+  border-radius: 3px;
+}
+
+.dream-app::-webkit-scrollbar-thumb:hover {
+  background: rgba(200, 182, 255, 0.5);
+}
+
+/* 展开状态 */
+.dream-archive-expanded .dream-archive-interpretation {
+  max-height: none;
+}
+
+/*============================================================App14 Dream END============================================================ */
+
 
 
 
