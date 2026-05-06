@@ -4044,7 +4044,7 @@
 
 /* ============================================================ end App08 */
 
-/* ============================================================ App10 · 异界探索  f10- 主题色#633806 ============================================================ */
+/* ============================================================ App10 · 异界探索  f10- 主题色#633806============================================================ */
 
 .f10-wrap {
   position: relative;
@@ -4056,16 +4056,151 @@
   overflow: hidden;
 }
 
-/* ── Canvas── */
+/* ── Tab栏 ── */
+.f10-tabs {
+  display: flex;
+  background: rgba(8,8,12,0.95);
+  border-bottom: 1px solid rgba(99,56,6,0.15);
+  flex-shrink: 0;
+  z-index: 6;
+}
+.f10-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: rgba(200,180,140,0.4);
+  font-size: 11px;
+  font-family: 'Courier New', monospace;
+  padding: 7px 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+}
+.f10-tab:hover { color: rgba(200,180,140,0.7); }
+.f10-tab-active {
+  color: #e8d5b0;
+  border-bottom-color: rgba(99,56,6,0.6);
+  background: rgba(99,56,6,0.06);
+}
+
+/* ── 地图区域 ── */
+.f10-map-area {
+  position: relative;
+  flex: 1;
+  overflow: hidden;min-height: 0;
+}
+
 .f10-canvas {
   display: block;
   width: 100%;
-  flex: 1;
+  height: 100%;
   background: #050508;
   cursor: grab;
   touch-action: none;
 }
 .f10-canvas:active { cursor: grabbing; }
+
+/* ── 地标列表 ── */
+.f10-list-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 6px 52px 6px;
+  min-height: 0;
+  background: rgba(5,5,8,0.95);
+  border-top: 1px solid rgba(99,56,6,0.12);
+}
+
+.f10-list-empty {
+  text-align: center;
+  color: rgba(200,180,140,0.3);
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  padding: 30px 10px;
+  line-height: 1.8;
+}
+
+.f10-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  background: rgba(15,15,20,0.6);
+  border: 1px solid rgba(99,56,6,0.08);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.f10-list-item:hover {
+  background: rgba(99,56,6,0.10);
+  border-color: rgba(99,56,6,0.25);
+}
+.f10-list-item-active {
+  background: rgba(99,56,6,0.15) !important;
+  border-color: rgba(99,56,6,0.4) !important;
+  box-shadow: inset 0 0 8px rgba(99,56,6,0.1);
+}
+
+.f10-list-item-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c47a1a;
+  box-shadow: 0 0 6px rgba(196,122,26,0.5);
+  flex-shrink: 0;animation: f10-dot-pulse 2.5s ease-in-out infinite;
+}
+.f10-list-item-dot-manual {
+  background: #6a8a4a;
+  box-shadow: 0 0 6px rgba(106,138,74,0.5);
+}
+
+@keyframes f10-dot-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.f10-list-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.f10-list-item-name {
+  color: #e8d5b0;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.f10-list-item-desc {
+  color: rgba(200,180,140,0.45);
+  font-size: 9px;
+  font-family: 'Courier New', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.f10-list-item-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.f10-list-item-type {
+  font-size: 12px;
+}
+.f10-list-item-char {
+  font-size: 8px;
+  color: rgba(196,122,26,0.45);
+  font-family: 'Courier New', monospace;
+}
+
+.f10-list-area::-webkit-scrollbar { width: 3px; }
+.f10-list-area::-webkit-scrollbar-track { background: transparent; }
+.f10-list-area::-webkit-scrollbar-thumb { background: rgba(99,56,6,0.2); border-radius: 3px; }
 
 /* ── 详情面板 ── */
 .f10-detail {
@@ -4085,7 +4220,7 @@
 }
 @keyframes f10-slide {
   from { transform: translateY(16px); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 .f10-d-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
@@ -4137,8 +4272,7 @@
 .f10-inp, .f10-ta {
   width: 100%; background: rgba(20,20,28,0.9); border: 1px solid rgba(99,56,6,0.2);
   border-radius: 6px; color: #e8d5b0; font-size: 12px; padding: 7px 9px; margin-bottom: 8px;
-  font-family: 'Courier New', monospace; outline: none; transition: border-color 0.2s;
-  box-sizing: border-box; resize: none;
+  font-family: 'Courier New', monospace; outline: none; transition: border-color 0.2s;box-sizing: border-box; resize: none;
 }
 .f10-inp:focus, .f10-ta:focus { border-color: rgba(99,56,6,0.5); box-shadow: 0 0 8px rgba(99,56,6,0.12); }
 .f10-inp::placeholder, .f10-ta::placeholder { color: rgba(200,180,140,0.2); }
@@ -4187,6 +4321,7 @@
 .f10-cnt { font-size: 8px; color: rgba(200,180,140,0.3); font-family: 'Courier New', monospace; margin-left: auto; }
 
 /* ============================================================ end App10 */
+
 
 
 
