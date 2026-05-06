@@ -5844,6 +5844,57 @@
   border-radius: 6px;
   z-index: 2;
 }
+/* ── 菜品展开/收起 ── */
+.f11-dish-toggle {
+  cursor: pointer;
+}
+
+.f11-dish-arrow {
+  margin-left: auto;
+  font-size: 0.7em;
+  color: #8a7a6a;
+  transition: transform 0.2s;
+}
+
+.f11-dish-hint {
+  font-size: 0.68em;
+  color: #7a6a5a;
+  text-align: right;
+  padding-top: 4px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.f11-dish-hint:hover {
+  color: #a0784a;
+}
+
+.f11-dish-reason {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(160,120,74,0.06);
+  border-radius: 6px;
+  border-left: 2px solid rgba(160,120,74,0.3);
+  animation: f11-reasonIn 0.3s ease-out;
+}
+
+@keyframes f11-reasonIn {
+  from { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+  to { opacity: 1; max-height: 200px; padding-top: 8px; padding-bottom: 8px; }
+}
+
+.f11-reason-label {
+  font-size: 0.7em;
+  color: #a0784a;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.f11-reason-text {
+  font-size: 0.78em;
+  color: #c0b0a0;
+  line-height: 1.6;
+}
 
 /* ============================================================ end App11 */
 
