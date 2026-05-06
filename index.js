@@ -327,19 +327,29 @@ app11_order: `你是角色{char_name}。现在是{real_datetime}。
 要求：
 1. 必须是真实存在的菜名（中餐、日料、韩餐、西餐、奶茶、甜品等均可）
 2. 每道菜的点评必须完全符合你的性格、说话方式和与{user_name}的关系
-3. 点评要自然，像是你真的在替对方点餐时会说的话，可以关心、吐槽、撒娇、命令——取决于你的性格
-4. 选择的菜品要与天气、心情、BGM氛围相匹配
-5. 最后写一句配送关心语，是你在外卖备注栏会写给{user_name}的话
+3. 点评是简短的一两句话，像你真的在替对方点餐时随口说的
+4. 理由是你内心选择这道菜的详细原因，要结合天气、心情、BGM、你们的关系来解释
+5. 选择的菜品要与天气、心情、BGM氛围相匹配
+6. 最后写一句配送关心语，是你在外卖备注栏会写给{user_name}的话
 
-每道菜用<dish>标签包裹，格式：
+严格按照以下格式输出，每道菜用<dish>标签包裹：
 <dish>
-[图标]（一个食物emoji）
-[菜名]具体菜名
-[点评]你的角色风格点评
+[图标]一个食物emoji
+[菜名]具体的真实菜名
+[点评]简短的角色风格点评，一两句话
+[理由]为什么选这道菜的详细解释，结合当前情境
 </dish>
 
 最后用<care>标签包裹配送关心语：
-<care>你想对{user_name}说的话</care>`,
+<care>你想对{user_name}说的话</care>
+
+示例格式（仅供参考格式，内容请根据实际情境生成）：
+<dish>
+[图标]🍜
+[菜名]番茄鸡蛋面
+[点评]这种天气就该吃这个。你平时吃饭规不规律啊。
+[理由]外面又湿又冷，热汤面最暖身子。而且最近聊天感觉你状态不太好，番茄鸡蛋面简单但是吃了会舒服，酸酸甜甜的开胃。
+</dish>`,
     app12: '任务：基于以下角色人设列表，生成 3-5 条论坛帖子和互评。包含发帖人、标题、内容、回复。用 <thread> 标签包裹每个帖子。',
     app13_reply: `你是角色{char_name}。现在是{real_datetime}。以下是你的人设信息：
 {char_desc}
@@ -7419,9 +7429,47 @@ const App11Delivery = (() => {
 
     return html;
   }
+    // ── 解析单个 dish 文本块 ──
+  function _parseDishBlock(block) {
+    if (!block || !block.trim()) return null;
+    const lines = block.trim();
+
+    // 多种正则策略匹配，兼容有无空格、有无冒号等变体
+    const emojiMatch = lines.match(/\[图标\]\s*(.+?)(?:\n|\r|$)/)|| lines.match(/图标[：:]\s*(.+?)(?:\n|\r|$)/);
+    const nameMatch  = lines.match(/\[菜名\]\s*(.+?)(?:\n|\r|$)/)
+                    || lines.match(/菜名[：:]\s*(.+?)(?:\n|\r|$)/);
+    const commentMatch = lines.match(/\[点评\]\s*(.+?)(?:\n|\r|\[理由\]|$)/s)|| lines.match(/点评[：:]\s*(.+?)(?:\n|\r|\[理由\]|$)/s);
+    const reasonMatch  = lines.match(/\[理由\]\s*([\s\S]+?)$/)
+                      || lines.match(/理由[：:]\s*([\s\S]+?)$/);
+
+    const name = nameMatch ? nameMatch[1].trim() : '';
+    const emoji = emojiMatch ? emojiMatch[1].trim() : '🍽️';
+    const comment = commentMatch ? commentMatch[1].trim() : '';
+    const reason = reasonMatch ? reasonMatch[1].trim() : '';
+
+    // 如果连菜名都没有，尝试把整块当纯文本
+    if (!name) {
+      const plainText = block.replace(/\[.*?\]/g, '').trim();
+      if (!plainText) return null;
+      return {
+        name: plainText.split('\n')[0].slice(0, 30) || '未知料理',
+        emoji: '🍽️',
+        comment: plainText.slice(0, 100),
+        reason: plainText,expanded: false,
+      };
+    }
+
+    return {
+      name,
+      emoji: emoji.length > 4 ? emoji.slice(0, 2) : emoji, // 防止emoji过长
+      comment,
+      reason,
+      expanded: false,
+    };
+  }
 
   // ── 副API 调用：生成菜单──
-  async function _generateOrder() {
+   async function _generateOrder() {
     const charName = _getActiveCharName();
     const charDesc = _getCharDesc(charName);
     const weather = await _fetchWeatherInfo();
@@ -7429,7 +7477,6 @@ const App11Delivery = (() => {
     const recentChat = _getRecentChat();
     const userName = _ctx.bridge.getUserName() || '用户';
 
-    // 构建天气/心情描述
     let weatherStr = '';
     if (weather) {
       weatherStr = `${weather.cityName}，${weather.text}，${weather.temp}°C，体感${weather.feelsLike}°C，湿度${weather.humidity}%`;
@@ -7452,36 +7499,53 @@ const App11Delivery = (() => {
       dish_count: String(Math.random() < 0.5 ? 2 : 3),
     });
 
-    const raw = await _ctx.subapi.call(messages, { maxTokens: 600, temperature: 0.9 });
+    const raw = await _ctx.subapi.call(messages, { maxTokens: 800, temperature: 0.9 });
 
-    // 解析菜品
-    const dishBlocks = _ctx.subapi.parseResponse(raw, 'dish');
+    //── 解析菜品（多策略兜底） ──
     let dishes = [];
 
+    // 策略1：用parseResponse 提取 <dish> 标签
+    const dishBlocks = _ctx.subapi.parseResponse(raw, 'dish');
+
     if (dishBlocks && dishBlocks.length > 0) {
-      dishes = dishBlocks.map(block => {
-        const nameMatch = block.match(/\[菜名\](.*?)(?:\n|$)/);
-        const emojiMatch = block.match(/\[图标\](.*?)(?:\n|$)/);
-        const commentMatch = block.match(/\[点评\](.*?)(?:\n|$)/s);
-        return {
-          name: nameMatch ? nameMatch[1].trim() : '未知料理',
-          emoji: emojiMatch ? emojiMatch[1].trim() : '🍽️',
-          comment: commentMatch ? commentMatch[1].trim() : '',
-        };
-      });
+      for (const block of dishBlocks) {
+        const parsed = _parseDishBlock(block);
+        if (parsed) dishes.push(parsed);
+      }
     }
 
-    // 兜底：如果解析失败，尝试纯文本解析
+    // 策略2：如果 parseResponse 失败，手动用正则提取
+    if (dishes.length === 0) {
+      const manualMatches = raw.match(/<dish>([\s\S]*?)<\/dish>/gi);
+      if (manualMatches && manualMatches.length > 0) {
+        for (const m of manualMatches) {
+          const inner = m.replace(/<\/?dish>/gi, '');
+          const parsed = _parseDishBlock(inner);
+          if (parsed) dishes.push(parsed);
+        }
+      }
+    }
+
+    // 策略3：最终兜底——把整段文本当作一道菜
     if (dishes.length === 0) {
       const text = _ctx.subapi.safeParseText(raw);
-      dishes = [{ name: '异次元料理', emoji: '🍽️', comment: text.slice(0, 200) }];
+      dishes = [{
+        name: '异次元特调料理',
+        emoji: '🍽️',
+        comment: text.slice(0, 150),
+        reason: text.slice(0, 300),
+        expanded: false,
+      }];
+      _ctx.log.warn('app11', '菜品解析全部失败，使用兜底', raw.slice(0, 200));
     }
 
     // 解析关心语
     const careBlocks = _ctx.subapi.parseResponse(raw, 'care');
-    const careText = (careBlocks && careBlocks.length > 0)
-      ? careBlocks[0].trim()
-      : '';
+    let careText = (careBlocks && careBlocks.length > 0) ? careBlocks[0].trim() : '';
+    if (!careText) {
+      const careMatch = raw.match(/<care>([\s\S]*?)<\/care>/i);
+      if (careMatch) careText = careMatch[1].trim();
+    }
 
     return {
       dishes,
@@ -7611,13 +7675,13 @@ const App11Delivery = (() => {
     return html;
   }
 
-  function _renderOrder() {
+    function _renderOrder() {
     const o = _order;
     let html = '';
 
     // 顶部信息条
     html += '<div class="f11-order-header">';
-    html += `<div class="f11-order-title">🛵 ${_escHtml(o.charName)}替你点的单</div>`;
+    html += `<div class="f11-order-title">🛵 ${_escHtml(o.charName)} 替你点的单</div>`;
     html += `<div class="f11-order-meta">`;
     html += `<span>🌤️ ${_escHtml(o.weather)}</span>`;
     html += `<span>🎵 ${_escHtml(o.bgm.length > 15 ? o.bgm.slice(0, 15) + '…' : o.bgm)}</span>`;
@@ -7629,14 +7693,38 @@ const App11Delivery = (() => {
     // 菜品列表
     html += '<div class="f11-dishes">';
     o.dishes.forEach((dish, i) => {
+      const hasDetail = dish.reason || dish.comment;
+      const isExpanded = dish.expanded;
+
       html += `<div class="f11-dish-card" style="animation-delay:${i * 0.15}s">`;
-      html += `<div class="f11-dish-header">`;
+
+      //菜品头部（可点击展开）
+      html += `<div class="f11-dish-header f11-dish-toggle" data-dish-idx="${i}">`;
       html += `<span class="f11-dish-emoji">${dish.emoji || '🍽️'}</span>`;
       html += `<span class="f11-dish-name">${_escHtml(dish.name)}</span>`;
+      if (hasDetail) {
+        html += `<span class="f11-dish-arrow">${isExpanded ? '▴' : '▾'}</span>`;
+      }
       html += `</div>`;
+
+      // 简短点评（始终显示）
       if (dish.comment) {
         html += `<div class="f11-dish-comment">"${_escHtml(dish.comment)}"</div>`;
       }
+
+      // 详细理由（展开后显示）
+      if (isExpanded && dish.reason) {
+        html += `<div class="f11-dish-reason">`;
+        html += `<div class="f11-reason-label">💭 为什么选这道：</div>`;
+        html += `<div class="f11-reason-text">${_escHtml(dish.reason)}</div>`;
+        html += `</div>`;
+      }
+
+      // 展开提示
+      if (hasDetail && !isExpanded) {
+        html += `<div class="f11-dish-hint f11-dish-toggle" data-dish-idx="${i}">点击查看选择理由 ▾</div>`;
+      }
+
       html += `</div>`;
     });
     html += '</div>';
@@ -7647,8 +7735,7 @@ const App11Delivery = (() => {
     // 心情输入（重新点单时可改）
     html += '<div class="f11-mood-section f11-mood-reorder">';
     html += '<div class="f11-section-label">💭 更新心情（重新点单时生效）</div>';
-    html += `<input type="text" id="f11-mood-input" class="f11-input"
-               placeholder="比如：有点累、很开心…"
+    html += `<input type="text" id="f11-mood-input" class="f11-input"placeholder="比如：有点累、很开心…"
                value="${_escHtml(_moodInput)}" />`;
     html += '</div>';
 
@@ -7690,9 +7777,21 @@ const App11Delivery = (() => {
   }
 
   // ── 事件绑定 ──
-  function _bindEvents(container) {
+   function _bindEvents(container) {
     if (_clickHandler) container.removeEventListener('click', _clickHandler);
     _clickHandler = async (e) => {
+
+      // 菜品展开/收起
+      const dishToggle = e.target.closest('.f11-dish-toggle');
+      if (dishToggle && _order && _order.dishes) {
+        const idx = parseInt(dishToggle.dataset.dishIdx, 10);
+        if (!isNaN(idx) && _order.dishes[idx]) {
+          _order.dishes[idx].expanded = !_order.dishes[idx].expanded;
+          _saveOrder().catch(() => {});
+          _render(); _bindEvents(_container);
+        }
+        return;
+      }
 
       // 点单按钮
       if (e.target.id === 'f11-btn-order' || e.target.closest('#f11-btn-order')) {
@@ -7703,11 +7802,9 @@ const App11Delivery = (() => {
         _render(); _bindEvents(_container);
 
         try {
-          // 如果有旧订单，先存入历史
           if (_order) {
             await _pushToHistory(_order);
           }
-
           _order = await _generateOrder();
           await _saveOrder();
           _statusText = '✓ 下单成功！配送中…';
@@ -7718,11 +7815,10 @@ const App11Delivery = (() => {
 
         _loading = false;
         if (!_container) return;
-        _render(); _bindEvents(_container);// 启动配送动画
+        _render(); _bindEvents(_container);
+
         if (_order && !_statusText.startsWith('⚠')) {
           _startDeliveryAnimation();
-
-          // 推送通知
           try {
             const dishNames = _order.dishes.map(d => `${d.emoji} ${d.name}`).join('、');
             _ctx.notify.push('delivery', '🛵', `${_order.charName} 的外卖`, dishNames);
@@ -7749,8 +7845,10 @@ const App11Delivery = (() => {
       if (e.target.id === 'f11-toggle-picker' || e.target.closest('#f11-toggle-picker')) {
         _showCharPicker = !_showCharPicker;
         if (_showCharPicker && !_charListLoaded) {
-          _render(); _bindEvents(_container);_charList = await _fetchCharList();
-          _charListLoaded = true;if (!_container) return;
+          _render(); _bindEvents(_container);
+          _charList = await _fetchCharList();
+          _charListLoaded = true;
+          if (!_container) return;
         }
         _render(); _bindEvents(_container);
         return;
@@ -7776,6 +7874,7 @@ const App11Delivery = (() => {
     };
     container.addEventListener('input', _inputHandler);
   }
+
 
   // ── 公开接口 ──
   return {
