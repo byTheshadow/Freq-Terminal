@@ -409,7 +409,98 @@ app14_dream: `你是角色{char_name}。现在是{real_datetime}。
 
 直接输出解读内容，不要加标签或前缀。`,
     app15: '任务：分析以下对话内容的情绪倾向，生成一句角色视角的感知描述。不超过 60 字。同时给出情绪关键词（用 <emotion> 标签包裹）。',
-    app16: '任务：生成一段角色之间不在User 面前的私下对话或内部通讯记录。像在偷窥一个不属于你的世界。用 <secret> 标签包裹。不超过 200 字。',
+    //── 在FREQ_DEFAULTS.prompts 对象中添加以下三个 key ──
+
+app16_dialogue: `你是一个多角色剧情生成器。现在是{real_datetime}。
+
+参与角色信息：
+{participants_info}
+
+最近剧情摘要：
+{last_meow_fm_plot}
+
+当前BGM：{current_bgm}
+
+最近对话上下文：
+{recent_chat}
+
+任务：生成一段上述角色之间的【私密对话】。这是他们在User（{user_name}）不在场时的秘密交流。
+
+要求：
+1. 对话必须涉及以下至少一项：对{user_name}的真实看法、不想让{user_name}知道的秘密、角色之间的私下约定、对当前局势的真实判断
+2. 每个角色的语气和用词必须严格符合其人设性格
+3. 对话自然流畅，有情绪起伏，至少4-6轮来回
+4. 绝对不能出现{user_name}参与对话或在场的描写
+5. 可以包含角色之间的分歧、争执、密谋或温情
+6. 必须与最近剧情有关联，不要凭空捏造无关内容
+7. 给对话起一个吸引人的标题（暗示内容但不完全剧透）
+
+严格按以下格式输出：
+<bb_title>对话标题</bb_title>
+<bb_dialogue>
+{第一个角色名}：对话内容
+{第二个角色名}：对话内容
+{第一个角色名}：对话内容
+...（至少4-6轮）
+</bb_dialogue>`,
+
+app16_draft: `你是一个虚构节目的幕后策划AI。现在是{real_datetime}。
+
+角色：{char_name}
+角色人设：
+{char_desc}
+
+最近剧情摘要：
+{last_meow_fm_plot}
+
+当前BGM：{current_bgm}
+
+任务：生成一份【被废弃的节目策划草稿】。这是meow_FM节目组内部的策划文档，因为内容"太危险/太真实/太暴露"而被删除，但被黑匣子系统拦截保存了下来。
+
+要求：
+1. 格式像一份半成品工作文档：有标题、有正文、有批注、有删除痕迹
+2. 内容必须涉及{char_name}不想被{user_name}知道的真相或设定
+3. 用【删除线标记】表示被划掉的内容，用「批注：...」表示旁注
+4. 语气是工作文档式的，但内容暗藏玄机
+5. 必须与角色人设和最近剧情相关
+6. 给草稿起一个文件编号式的标题
+
+严格按以下格式输出：
+<bb_title>草稿标题</bb_title>
+<bb_draft>
+草稿正文内容
+</bb_draft>`,
+
+app16_memo: `你是一个虚构世界的系统管理后台。现在是{real_datetime}。
+
+涉及角色信息：
+{participants_info}
+
+最近剧情摘要：
+{last_meow_fm_plot}
+
+当前BGM：{current_bgm}
+
+User名称：{user_name}
+
+任务：生成一段【内部通讯记录】。这是系统管理员、NPC、或幕后观察者之间的工作通讯，他们在监控和讨论{user_name}与角色之间的互动。
+
+要求：
+1. 格式为时间戳式的通讯记录
+2. 发送者使用代号或职位（如"观测员-07"、"频率管理局"、"档案管理员"等）
+3. 内容涉及：对{user_name}行为的分析、异常数据报告、干预建议、系统状态
+4. 语气专业冷静，偶尔流露出对{user_name}的好奇或担忧
+5. 暗示存在更大的系统/组织在幕后运作
+6. 必须与最近剧情有关联
+7. 给通讯记录起一个编号式标题
+
+严格按以下格式输出：
+<bb_title>通讯标题</bb_title>
+<bb_memo>
+[时间戳] 发送者 → 接收者：内容
+[时间戳] 发送者 → 接收者：内容
+...（至少4-6条）
+</bb_memo>`,
     app17: '任务：将以下文字用当前 BGM「{current_bgm}」的文风重新表达。只输出翻译结果。',
     bg_message: '任务：现在是 {real_datetime}。以角色身份，写一条主动发给 User 的消息。像是角色在某个瞬间想到了 User，随手发来的。结合当前时间和氛围，不超过 80 字。只输出消息本身。',},
 };
@@ -8961,6 +9052,707 @@ const App14Dream = (() => {
 //  App14Dream END
 // ============================================================
 
+// ============================================================
+//App16 — 黑匣子·禁区档案
+// ============================================================
+const App16Blackbox = (() => {
+  const APP_ID = 'blackbox';
+  const STORE_KEY = 'app16_records';
+  const STORE_UNLOCK_KEY = 'app16_unlocks_today';
+  const MAX_RECORDS = 10;
+  const MAX_MANUAL_UNLOCKS_PER_DAY = 3;
+  const MIN_LOCK_HOURS = 2;
+  const MAX_LOCK_HOURS = 6;
+
+  let _ctx = null;
+  let _container = null;
+  let _mounted = false;
+  let _loading = false;
+  let _statusText = '';
+  let _records = [];
+  let _unlockData = { date: '', count: 0 };
+  let _clickHandler = null;
+  let _changeHandler = null;
+  let _glitchTimer = null;
+  let _countdownTimer = null;
+  let _showTypeMenu = false;
+  let _charList = [];
+  let _charListLoaded = false;
+  let _selectedChars = []; // 用户选择的角色名
+  let _showCharPicker = false;
+  let _pendingType = null; // 等待角色选择的类型
+  let _fakeAlertActive = false;
+  let _fakeAlertText = '';
+  let _fakeAlertTimer = null;
+
+  //── 假警报文案池 ──
+  const FAKE_ALERTS = [
+    '⛔ 检测到非授权访问…正在追踪信号源…',
+    '🔴 警告：档案完整性校验失败，数据可能已被篡改',
+    '⚠️ 异常读取行为已记录，已上报频率管理局',
+    '🚨 入侵检测触发！正在启动反制协议…',
+    '⛔ 你的访问记录已被标记为[可疑]',
+    '🔴 系统提示：该档案已被列为最高机密',
+    '⚠️ 检测到未经授权的解密尝试…已记录设备指纹',
+    '🚨 警告：你正在接近信息禁区边界',
+    '⛔ 频率异常波动…是谁在偷看？',
+    '🔴 黑匣子防护层已激活…请立即离开',
+  ];
+
+  // ── 工具函数 ──
+  function _escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function _getCharDesc() {
+    try {
+      const chid = window.this_chid;
+      const chars = window.characters;
+      if (chid == null || !chars || !chars[chid]) return '';
+      const c = chars[chid];
+      return [c.description, c.personality, c.scenario]
+        .filter(Boolean).join('\n').slice(0, 800);
+    } catch (e) { return ''; }
+  }
+
+  function _getRecentChat() {
+    try {
+      const msgs = _ctx.bridge.getRecentMessages(10);
+      if (!msgs || !msgs.length) return '（无最近对话）';
+      return msgs.map(m => `${m.is_user ? _ctx.bridge.getUserName() : _ctx.bridge.getCharName()}：${String(m.mes).slice(0, 100)}`).join('\n');
+    } catch (e) { return '（无法获取）'; }
+  }
+
+  function _randomLockDuration() {
+    const hours = MIN_LOCK_HOURS + Math.random() * (MAX_LOCK_HOURS - MIN_LOCK_HOURS);
+    return Math.floor(hours * 60 * 60 * 1000);
+  }
+
+  function _formatCountdown(ms) {
+    if (ms <= 0) return '已解锁';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+  }
+
+  function _todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function _getManualUnlocksLeft() {
+    if (_unlockData.date !== _todayStr()) return MAX_MANUAL_UNLOCKS_PER_DAY;
+    return Math.max(0, MAX_MANUAL_UNLOCKS_PER_DAY - _unlockData.count);
+  }
+
+  function _useManualUnlock() {
+    const today = _todayStr();
+    if (_unlockData.date !== today) {
+      _unlockData = { date: today, count: 1 };
+    } else {
+      _unlockData.count++;
+    }
+    _ctx.store.set(STORE_UNLOCK_KEY, _unlockData);
+  }
+
+  // ── 角色列表获取 ──
+  async function _fetchCharList() {
+    let chars = null;
+    try {
+      if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
+        const stCtx = SillyTavern.getContext();
+        if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+          chars = stCtx.characters;
+        }
+      }
+    } catch (e) {}
+    if (!chars) {
+      try {
+        if (typeof getContext === 'function') {
+          const stCtx = getContext();
+          if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+            chars = stCtx.characters;
+          }
+        }
+      } catch (e) {}
+    }
+    if (!chars) {
+      if (window.characters && Array.isArray(window.characters) && window.characters.length > 0) {
+        chars = window.characters;
+      }
+    }
+    if (!chars) return [];
+    return chars.filter(c => c && c.name).map(c => ({
+      name: c.name,
+      avatar: c.avatar || '',
+      description: (c.description || '').slice(0, 400),
+      personality: (c.personality || '').slice(0, 200),
+      scenario: (c.scenario || '').slice(0, 200),
+    }));
+  }
+
+  // ── 自动检查解锁 ──
+  function _checkAutoUnlocks() {
+    const now = Date.now();
+    let changed = false;
+    for (const rec of _records) {
+      if (rec.locked && rec.unlockTime && now >= rec.unlockTime) {
+        rec.locked = false;
+        changed = true;
+      }
+    }
+    if (changed) {
+      _saveRecords();
+      if (_container) { _render(); _bindEvents(_container); }
+    }
+  }
+
+  // ── 随机假警报 ──
+  function _triggerFakeAlert() {
+    if (_fakeAlertActive) return;
+    _fakeAlertActive = true;
+    _fakeAlertText = FAKE_ALERTS[Math.floor(Math.random() * FAKE_ALERTS.length)];
+    if (_container) { _render(); _bindEvents(_container); }
+    _fakeAlertTimer = setTimeout(() => {
+      _fakeAlertActive = false;
+      _fakeAlertText = '';if (_container) { _render(); _bindEvents(_container); }
+    }, 3500);
+  }
+
+  function _maybeGlitch() {
+    if (Math.random() < 0.3) {
+      _triggerFakeAlert();
+    }
+  }
+
+  // ── 数据持久化 ──
+  async function _loadRecords() {
+    try {
+      const data = await _ctx.store.get(STORE_KEY);
+      _records = Array.isArray(data) ? data : [];
+      const ud = await _ctx.store.get(STORE_UNLOCK_KEY);
+      if (ud && ud.date) _unlockData = ud;
+    } catch (e) {
+      _ctx.log.error(APP_ID, '加载数据失败', e.message);
+      _records = [];
+    }
+  }
+
+  async function _saveRecords() {
+    try {
+      await _ctx.store.set(STORE_KEY, _records);
+    } catch (e) {
+      _ctx.log.error(APP_ID, '保存数据失败', e.message);
+    }
+  }
+
+  // ── 生成档案 ──
+  async function _generateRecord(type) {
+    if (!_ctx.settings.apiUrl || !_ctx.settings.apiKey || !_ctx.settings.apiModel) {
+      _ctx.notify.push(APP_ID, '⚠️', '黑匣子', '请先在设置中配置副API');
+      _ctx.log.warn(APP_ID, '副API未配置');
+      return;
+    }
+
+    if (_records.length >= MAX_RECORDS) {
+      _ctx.notify.push(APP_ID, '⚠️', '黑匣子', `档案已满（${MAX_RECORDS}条），请先清理旧档案`);
+      return;
+    }
+
+    _loading = true;
+    _statusText = '⏳ 正在截获机密数据…';
+    _showTypeMenu = false;
+    _showCharPicker = false;
+    if (_container) { _render(); _bindEvents(_container); }
+
+    _ctx.notify.push(APP_ID, '⏳', '黑匣子', '正在截获机密数据…');
+
+    try {
+      let taskKey, extraVars = {};
+      const charName = _ctx.bridge.getCharName() || '未知角色';
+      const charDesc = _getCharDesc();
+
+      if (type === 'dialogue' || type === 'memo') {
+        // 需要多角色
+        let participantsInfo = '';
+        const selectedNames = _selectedChars.length >= 2 ? _selectedChars : [];
+
+        if (selectedNames.length >= 2) {
+          // 用户选择了角色
+          for (const name of selectedNames) {
+            const ch = _charList.find(c => c.name === name);
+            if (ch) {
+              participantsInfo += `【${ch.name}】\n${[ch.description, ch.personality].filter(Boolean).join('\n')}\n\n`;
+            } else {
+              participantsInfo += `【${name}】\n（无详细信息）\n\n`;
+            }
+          }
+        } else {
+          // 自动选择：当前角色 + 随机1-2个其他角色
+          participantsInfo += `【${charName}】\n${charDesc}\n\n`;
+          const others = _charList.filter(c => c.name !== charName);
+          const pickCount = Math.min(others.length, 1 + Math.floor(Math.random() * 2));
+          const shuffled = others.sort(() => Math.random() - 0.5).slice(0, pickCount);
+          for (const ch of shuffled) {
+            participantsInfo += `【${ch.name}】\n${[ch.description, ch.personality].filter(Boolean).join('\n')}\n\n`;
+          }
+          if (!participantsInfo.trim()) {
+            participantsInfo = `【${charName}】\n${charDesc}\n\n【未知角色】\n（系统自动生成的对话伙伴）\n`;
+          }
+        }
+
+        extraVars.participants_info = participantsInfo;
+        extraVars.recent_chat = _getRecentChat();
+        taskKey = type === 'dialogue' ? 'app16_dialogue' : 'app16_memo';
+      } else {
+        // draft
+        extraVars.char_desc = charDesc;
+        extraVars.recent_chat = _getRecentChat();
+        taskKey = 'app16_draft';
+      }
+
+      const messages = _ctx.subapi.buildMessages(taskKey, extraVars);
+      const text = await _ctx.subapi.call(messages, { maxTokens: 1200, temperature: 0.9 });
+
+      if (!_mounted || !_container) return;
+
+      if (!text) {
+        throw new Error('API返回为空');
+      }
+
+      // 解析响应
+      const titles = _ctx.subapi.parseResponse(text,'bb_title');
+      let content = '';
+      if (type === 'dialogue') {
+        const parts = _ctx.subapi.parseResponse(text, 'bb_dialogue');
+        content = parts.length ? parts[0] : _ctx.subapi.safeParseText(text);
+      } else if (type === 'draft') {
+        const parts = _ctx.subapi.parseResponse(text, 'bb_draft');
+        content = parts.length ? parts[0] : _ctx.subapi.safeParseText(text);
+      } else {
+        const parts = _ctx.subapi.parseResponse(text, 'bb_memo');
+        content = parts.length ? parts[0] : _ctx.subapi.safeParseText(text);
+      }
+
+      const title = titles.length ? titles[0].trim() : _defaultTitle(type);
+
+      const record = {
+        id: Date.now(),
+        type,
+        title,
+        content: content.trim(),
+        locked: true,
+        unlockTime: Date.now() + _randomLockDuration(),
+        createdAt: Date.now(),
+        expanded: false,
+        participants: type === 'dialogue' || type === 'memo'
+          ? (_selectedChars.length >= 2 ? [..._selectedChars] : [charName, '...'])
+          : [charName],
+        charSnapshot: charDesc.slice(0, 300),
+      };
+
+      _records.unshift(record);
+      if (_records.length > MAX_RECORDS) {
+        _records = _records.slice(0, MAX_RECORDS);
+      }
+      await _saveRecords();
+
+      _statusText = '✅ 机密档案已截获';
+      _ctx.notify.push(APP_ID, '📦', '黑匣子', `新档案已截获：${title}`);
+      _ctx.log.info(APP_ID, '档案生成成功', title);
+
+    } catch (err) {
+      _statusText = `⚠ ${err.message}`;
+      _ctx.notify.push(APP_ID, '❌', '黑匣子', `截获失败：${err.message}`);
+      _ctx.log.error(APP_ID, '档案生成失败', err.message);
+    }
+
+    _loading = false;
+    _selectedChars = [];
+    if (!_container) return;
+    _render(); _bindEvents(_container);
+
+    setTimeout(() => {
+      if (_statusText.startsWith('✅') || _statusText.startsWith('⚠')) {
+        _statusText = '';
+        if (_container) { _render(); _bindEvents(_container); }
+      }
+    }, 3000);
+  }
+
+  function _defaultTitle(type) {
+    if (type === 'dialogue') return '未命名私密对话';
+    if (type === 'draft') return '未命名策划草稿';
+    return '未命名通讯记录';
+  }
+
+  // ── 类型图标/标签 ──
+  function _typeIcon(type) {
+    if (type === 'dialogue') return '🗣️';
+    if (type === 'draft') return '📝';
+    return '📡';
+  }
+  function _typeLabel(type) {
+    if (type === 'dialogue') return '私密对话';
+    if (type === 'draft') return '策划草稿';
+    return '内部通讯';
+  }
+
+  // ──渲染 ──
+  function _render() {
+    if (!_container) return;
+
+    const now = Date.now();
+    const unlocksLeft = _getManualUnlocksLeft();
+
+    // 假警报覆盖层
+    const fakeAlertHtml = _fakeAlertActive ? `
+      <div class="f16-fake-alert">
+        <div class="f16-fake-alert-inner">
+          <div class="f16-fake-alert-icon">🚨</div>
+          <div class="f16-fake-alert-text">${_escHtml(_fakeAlertText)}</div>
+          <div class="f16-fake-alert-bar"></div>
+        </div>
+      </div>
+    ` : '';
+
+    // 类型选择菜单
+    const typeMenuHtml = _showTypeMenu ? `
+      <div class="f16-type-menu">
+        <div class="f16-type-option" data-gen-type="dialogue">🗣️ 角色私密对话</div>
+        <div class="f16-type-option" data-gen-type="draft">📝 策划草稿</div>
+        <div class="f16-type-option" data-gen-type="memo">📡 内部通讯</div>
+      </div>
+    ` : '';
+
+    // 角色选择器
+    const charPickerHtml = _showCharPicker ? `
+      <div class="f16-char-picker">
+        <div class="f16-char-picker-title">选择参与角色（至少2个）</div>
+        <div class="f16-char-picker-hint">不选择则由系统自动分配</div>
+        <div class="f16-char-list">
+          ${_charList.map(c => `
+            <label class="f16-char-item ${_selectedChars.includes(c.name) ? 'f16-char-selected' : ''}">
+              <input type="checkbox" data-char-name="${_escHtml(c.name)}" ${_selectedChars.includes(c.name) ? 'checked' : ''} />
+              <span class="f16-char-name">${_escHtml(c.name)}</span>
+            </label>
+          `).join('')}
+          ${_charList.length === 0 ? '<div class="f16-char-empty">未找到角色列表</div>' : ''}
+        </div>
+        <div class="f16-char-picker-actions">
+          <button class="f16-btn f16-btn-sm" id="f16-btn-char-confirm" ${_loading ? 'disabled' : ''}>
+            ${_selectedChars.length >= 2 ? `确认（${_selectedChars.length}人）` : '跳过，自动分配'}
+          </button>
+          <button class="f16-btn f16-btn-sm f16-btn-ghost" id="f16-btn-char-cancel">取消</button>
+        </div>
+      </div>
+    ` : '';
+
+    // 档案列表
+    let recordsHtml = '';
+    if (_records.length === 0) {
+      recordsHtml = `
+        <div class="f16-empty">
+          <div class="f16-empty-icon">📦</div>
+          <div class="f16-empty-text">黑匣子为空</div>
+          <div class="f16-empty-hint">尚未截获任何机密档案</div>
+        </div>
+      `;
+    } else {
+      recordsHtml = _records.map((rec, idx) => {
+        const isLocked = rec.locked && rec.unlockTime && now < rec.unlockTime;
+        const remaining = isLocked ? rec.unlockTime - now : 0;
+
+        if (isLocked) {
+          //锁定状态
+          return `
+            <div class="f16-record f16-record-locked" data-idx="${idx}">
+              <div class="f16-record-header">
+                <span class="f16-record-lock">🔒</span>
+                <span class="f16-record-type">${_typeIcon(rec.type)} ${_typeLabel(rec.type)}</span>
+                <span class="f16-record-time">${new Date(rec.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <div class="f16-record-locked-body">
+                <div class="f16-locked-title">${_escHtml(rec.title).replace(/./g, '█')}</div>
+                <div class="f16-locked-glitch" data-text="${_escHtml(rec.title)}">${_escHtml(rec.title)}</div>
+                <div class="f16-countdown">
+                  <span class="f16-countdown-icon">⏳</span>
+                  <span class="f16-countdown-text">解锁倒计时：${_formatCountdown(remaining)}</span>
+                </div>
+              </div>
+              <div class="f16-record-actions">
+                <button class="f16-btn f16-btn-xs f16-btn-danger" data-action="force-unlock" data-idx="${idx}" ${unlocksLeft <= 0 || _loading ? 'disabled' : ''}>
+                  🔓 强制解锁（剩余${unlocksLeft}次）
+                </button>
+                <button class="f16-btn f16-btn-xs f16-btn-ghost" data-action="delete" data-idx="${idx}" ${_loading ? 'disabled' : ''}>🗑️</button>
+              </div>
+            </div>
+          `;
+        } else {
+          // 已解锁
+          const needsExpand = rec.content.length > 80;
+          const displayContent = (!needsExpand || rec.expanded)
+            ? _escHtml(rec.content)
+            : _escHtml(rec.content.slice(0, 80)) + '<span class="f16-ellipsis">…</span>';
+
+          return `
+            <div class="f16-record f16-record-unlocked" data-idx="${idx}">
+              <div class="f16-record-header">
+                <span class="f16-record-lock">🔓</span>
+                <span class="f16-record-type">${_typeIcon(rec.type)} ${_typeLabel(rec.type)}</span>
+                <span class="f16-record-time">${new Date(rec.createdAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <div class="f16-record-title">${_escHtml(rec.title)}</div>
+              ${rec.participants && rec.participants.length > 1 ? `<div class="f16-record-participants">${rec.participants.map(p => `<span class="f16-participant">${_escHtml(p)}</span>`).join('⇄ ')}</div>` : ''}
+              <div class="f16-record-content ${rec.type === 'dialogue' ? 'f16-content-dialogue' : rec.type === 'memo' ? 'f16-content-memo' :'f16-content-draft'}">${displayContent.replace(/\n/g, '<br>')}</div>
+              <div class="f16-record-actions">
+                ${needsExpand ? `<button class="f16-btn f16-btn-xs f16-btn-ghost f16-expand-btn" data-idx="${idx}">${rec.expanded ? '收起 ▴' : '展开 ▾'}</button>` : ''}
+                <button class="f16-btn f16-btn-xs f16-btn-ghost" data-action="delete" data-idx="${idx}" ${_loading ? 'disabled' : ''}>🗑️</button>
+              </div>
+            </div>
+          `;
+        }
+      }).join('');
+    }
+
+    _container.innerHTML = `
+      <div class="f16-wrap">
+        <div class="f16-header">
+          <div class="f16-header-title">
+            <span class="f16-header-icon">📦</span>
+            <span class="f16-header-text">黑匣子<span class="f16-header-sub">·禁区档案</span></span>
+          </div>
+          <div class="f16-header-badge">${_records.length}/${MAX_RECORDS}</div>
+        </div>
+
+        <div class="f16-scanline"></div>
+
+        <div class="f16-toolbar">
+          <button class="f16-btn f16-btn-primary" id="f16-btn-generate" ${_loading ? 'disabled' : ''}>
+            ${_loading ? '⏳ 截获中…' : '📡 截获新档案'}
+          </button>
+          <button class="f16-btn f16-btn-ghost" id="f16-btn-clear" ${_loading || _records.length === 0 ? 'disabled' : ''}>🗑️ 清空</button>
+        </div>
+
+        ${typeMenuHtml}
+        ${charPickerHtml}
+
+        <div class="f16-scroll">
+          ${recordsHtml}
+        </div>
+
+        ${_statusText ? `<div class="f16-status">${_escHtml(_statusText)}</div>` : ''}
+
+        ${fakeAlertHtml}
+      </div>
+    `;
+  }
+
+  // ── 事件绑定 ──
+  function _bindEvents(container) {
+    if (!container) return;
+
+    // click handler
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+    _clickHandler = async (e) => {
+
+      // 生成按钮
+      if (e.target.id === 'f16-btn-generate' || e.target.closest('#f16-btn-generate')) {
+        _showTypeMenu = !_showTypeMenu;
+        _showCharPicker = false;
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 类型选择
+      const typeOpt = e.target.closest('.f16-type-option');
+      if (typeOpt) {
+        const genType = typeOpt.dataset.genType;
+        _showTypeMenu = false;
+        if (genType === 'dialogue' || genType === 'memo') {
+          // 需要角色选择
+          _pendingType = genType;
+          _showCharPicker = true;
+          _selectedChars = [];
+          if (!_charListLoaded) {
+            _charList = await _fetchCharList();
+            _charListLoaded = true;
+          }
+          if (!_container) return;
+          _render(); _bindEvents(_container);
+        } else {
+          // draft直接生成
+          _generateRecord(genType);
+        }
+        return;
+      }
+
+      // 角色选择确认
+      if (e.target.id === 'f16-btn-char-confirm' || e.target.closest('#f16-btn-char-confirm')) {
+        _showCharPicker = false;
+        _generateRecord(_pendingType);
+        return;
+      }
+
+      // 角色选择取消
+      if (e.target.id === 'f16-btn-char-cancel' || e.target.closest('#f16-btn-char-cancel')) {
+        _showCharPicker = false;
+        _pendingType = null;
+        _selectedChars = [];
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 强制解锁
+      const forceBtn = e.target.closest('[data-action="force-unlock"]');
+      if (forceBtn) {
+        const idx = Number(forceBtn.dataset.idx);
+        const rec = _records[idx];
+        if (!rec || !rec.locked) return;
+        if (_getManualUnlocksLeft() <= 0) {
+          _ctx.notify.push(APP_ID, '⚠️', '黑匣子', '今日强制解锁次数已用完');
+          return;
+        }
+        rec.locked = false;
+        rec.unlockTime = null;
+        _useManualUnlock();
+        await _saveRecords();
+        _ctx.notify.push(APP_ID, '🔓', '黑匣子', `档案已强制解锁：${rec.title}`);
+        _triggerFakeAlert();
+        if (!_container) return;
+        _render(); _bindEvents(_container);return;
+      }
+
+      // 删除
+      const delBtn = e.target.closest('[data-action="delete"]');
+      if (delBtn) {
+        const idx = Number(delBtn.dataset.idx);
+        if (idx >= 0 && idx < _records.length) {
+          _records.splice(idx, 1);
+          await _saveRecords();
+          _ctx.notify.push(APP_ID, '🗑️', '黑匣子', '档案已销毁');
+          if (!_container) return;
+          _render(); _bindEvents(_container);
+        }
+        return;
+      }
+
+      // 展开/收起
+      const expandBtn = e.target.closest('.f16-expand-btn');
+      if (expandBtn) {
+        const idx = Number(expandBtn.dataset.idx);
+        const rec = _records[idx];
+        if (rec) {
+          rec.expanded = !rec.expanded;
+          _render(); _bindEvents(_container);
+          _maybeGlitch();
+        }
+        return;
+      }
+
+      // 清空
+      if (e.target.id === 'f16-btn-clear' || e.target.closest('#f16-btn-clear')) {
+        _records = [];
+        await _saveRecords();
+        _ctx.notify.push(APP_ID, '🗑️', '黑匣子', '所有档案已销毁');
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // 点击锁定的档案触发假警报
+      const lockedRec = e.target.closest('.f16-record-locked');
+      if (lockedRec && !e.target.closest('.f16-record-actions')) {
+        _triggerFakeAlert();
+        return;
+      }
+    };
+    container.addEventListener('click', _clickHandler);
+
+    // change handler（角色选择复选框）
+    if (_changeHandler) container.removeEventListener('change', _changeHandler);
+    _changeHandler = (e) => {
+      if (e.target.dataset.charName !== undefined) {
+        const name = e.target.dataset.charName;
+        if (e.target.checked) {
+          if (!_selectedChars.includes(name)) _selectedChars.push(name);
+        } else {
+          _selectedChars = _selectedChars.filter(n => n !== name);
+        }
+        _render(); _bindEvents(_container);
+      }
+    };
+    container.addEventListener('change', _changeHandler);
+  }
+
+  // ── 生命周期 ──
+  function init(ctx) {
+    _ctx = ctx;
+    _ctx.log.info(APP_ID, 'App已初始化');
+  }
+
+  async function mount(el) {
+    _container = el;
+    _mounted = true;
+    await _loadRecords();
+    _checkAutoUnlocks();
+    _render();
+    _bindEvents(_container);
+
+    // 倒计时刷新
+    _countdownTimer = setInterval(() => {
+      if (!_mounted || !_container) return;
+      _checkAutoUnlocks();
+      // 只在有锁定档案时刷新
+      const hasLocked = _records.some(r => r.locked && r.unlockTime && Date.now() < r.unlockTime);
+      if (hasLocked) {
+        _render(); _bindEvents(_container);
+      }
+    }, 30000); // 每30秒刷新
+
+    // 随机假警报
+    _glitchTimer = setInterval(() => {
+      if (!_mounted || !_container) return;
+      if (Math.random() < 0.15) {
+        _triggerFakeAlert();
+      }
+    }, 45000); // 约45秒有15%概率触发
+
+    // 入场假警报
+    setTimeout(() => {
+      if (_mounted && _container) _triggerFakeAlert();
+    }, 1500);
+  }
+
+  function unmount() {
+    _mounted = false;
+    if (_container && _clickHandler) _container.removeEventListener('click', _clickHandler);
+    if (_container && _changeHandler) _container.removeEventListener('change', _changeHandler);
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    if (_glitchTimer) { clearInterval(_glitchTimer); _glitchTimer = null; }
+    if (_fakeAlertTimer) { clearTimeout(_fakeAlertTimer); _fakeAlertTimer = null; }
+    _container = null;
+    _showTypeMenu = false;
+    _showCharPicker = false;
+    _fakeAlertActive = false;
+  }
+
+  return {
+    id: APP_ID,
+    name: '黑匣子',
+    icon: '📦',
+    init,
+    mount,
+    unmount,};
+})();
+// ============================================================
+//App16 END
+// ============================================================
+
 
 
 
@@ -9453,6 +10245,7 @@ const FreqTerminal = (() => {
     App11Delivery,
     App13Capsule,
     App14Dream,
+    App16Blackbox,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
   ];
   for (const app of implementations) {
@@ -9638,7 +10431,7 @@ const FreqTerminal = (() => {
       'freq-sp-prompt-app13': 'app13_reply',
       'freq-sp-prompt-app14': 'app14_dream',
       'freq-sp-prompt-app15': 'app15',
-      'freq-sp-prompt-app16': 'app16',
+      'freq-sp-prompt-app16': 'app16_dialogue',
       'freq-sp-prompt-app17': 'app17',
       'freq-sp-prompt-bg': 'bg_message',
     };
@@ -9752,7 +10545,7 @@ const FreqTerminal = (() => {
     $('#freq-sp-prompt-app13').val(prompts.app13_reply || defaults.app13_reply);
     $('#freq-sp-prompt-app14').val(prompts.app14_dream || defaults.app14_dream);
     $('#freq-sp-prompt-app15').val(prompts.app15 || defaults.app15);
-    $('#freq-sp-prompt-app16').val(prompts.app16 || defaults.app16);
+    $('#freq-sp-prompt-app16').val(prompts.app16_dialogue || defaults.app16_dialogue);
     $('#freq-sp-prompt-app17').val(prompts.app17 || defaults.app17);
     $('#freq-sp-prompt-bg').val(prompts.bg_message || defaults.bg_message);
 
