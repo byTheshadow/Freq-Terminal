@@ -1,22 +1,99 @@
 /* ═══════════════════════════════════════════════════════════════
-   Freq · Terminal — 配置面板样式
-   settings.css  v1.1.0
-   主强调色 #a32d2d · App04 强调色 #085041
+   Freq · Terminal — 配置面板样式 (双主题支持)
+   settings.css  v2.1.0
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── 面板总容器 ── */
+/* ── 核心变量与主题定义 ── */
 .freq-sp {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  /* 默认：黑红哥特深色主题 */
+  --freq-bg-glass: rgba(15, 10, 10, 0.55);
+  --freq-bg-solid: rgba(5, 0, 0, 0.75);
+  --freq-bg-header: linear-gradient(180deg, rgba(30, 5, 5, 0.6) 0%, rgba(10, 0, 0, 0.8) 100%);
+  --freq-bg-header-hover: linear-gradient(180deg, rgba(50, 10, 10, 0.6) 0%, rgba(20, 0, 0, 0.8) 100%);
+  --freq-text-main: #c8c8c8;
+  --freq-text-title: #f0f0f0;
+  --freq-text-hint: #888888;
+  --freq-accent: #b81d1d;
+  --freq-accent-glow: rgba(184, 29, 29, 0.4);
+  --freq-border: rgba(184, 29, 29, 0.25);
+  --freq-input-bg: rgba(0, 0, 0, 0.6);
+  --freq-input-border: rgba(255, 255, 255, 0.08);
+  --freq-btn-bg: linear-gradient(135deg, rgba(110, 10, 10, 0.7) 0%, rgba(40, 5, 5, 0.9) 100%);
+  --freq-btn-hover: linear-gradient(135deg, rgba(184, 29, 29, 0.8) 0%, rgba(110, 10, 10, 0.9) 100%);
+  --freq-btn-text: #e0e0e0;
+  --freq-green-main: #146b54;
+  --freq-green-title: #2eb896;
+  --freq-green-border: rgba(20, 107, 84, 0.3);
+  --freq-green-bg: rgba(20, 107, 84, 0.1);
+  --freq-danger-main: #ff4d4d;
+  --freq-danger-bg: rgba(150, 0, 0, 0.6);
+  --freq-shadow: rgba(0, 0, 0, 0.8);
+  --freq-watermark-bg: rgba(0, 0, 0, 0.3);
+
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-size: 14px;
-  color: #c8c8c8;
-  padding: 0;
-  --freq-red:   #a32d2d;
-  --freq-green: #085041;
-  --freq-red-glow:   rgba(163, 45, 45, 0.18);
-  --freq-green-glow: rgba(8, 80, 65, 0.18);
-  --freq-border: rgba(255, 255, 255, 0.07);
-  --freq-surface: rgba(255, 255, 255, 0.03);
-  --freq-input-bg: rgba(0, 0, 0, 0.28);
+  color: var(--freq-text-main);
+  
+  /* 毛玻璃面板基座 */
+  background: var(--freq-bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--freq-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px var(--freq-shadow), inset 0 0 40px rgba(184, 29, 29, 0.05);
+  transition: all 0.4s ease;
+}
+
+/* 切换浅色主题 */
+.freq-sp.freq-theme-light {
+  --freq-bg-glass: rgba(245, 245, 245, 0.65);
+  --freq-bg-solid: rgba(255, 255, 255, 0.85);
+  --freq-bg-header: linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(240, 240, 240, 0.9) 100%);
+  --freq-bg-header-hover: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(245, 245, 245, 1) 100%);
+  --freq-text-main: #333333;
+  --freq-text-title: #1a1a1a;
+  --freq-text-hint: #666666;
+  --freq-accent: #b81d1d;
+  --freq-accent-glow: rgba(184, 29, 29, 0.15);
+  --freq-border: rgba(184, 29, 29, 0.3);
+  --freq-input-bg: rgba(255, 255, 255, 0.8);
+  --freq-input-border: rgba(0, 0, 0, 0.15);
+  --freq-btn-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(240, 240, 240, 1) 100%);
+  --freq-btn-hover: linear-gradient(135deg, rgba(184, 29, 29, 0.9) 0%, rgba(140, 15, 15, 1) 100%);
+  --freq-btn-text: #b81d1d;
+  --freq-green-main: #0c5c46;
+  --freq-green-title: #0c5c46;
+  --freq-green-border: rgba(12, 92, 70, 0.3);
+  --freq-green-bg: rgba(12, 92, 70, 0.05);
+  --freq-danger-main: #d32f2f;
+  --freq-danger-bg: rgba(211, 47, 47, 0.1);
+  --freq-shadow: rgba(0, 0, 0, 0.08);
+  --freq-watermark-bg: rgba(255, 255, 255, 0.5);
+  
+  border-top: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 10px 30px var(--freq-shadow), inset 0 0 20px rgba(255, 255, 255, 0.5);
+}
+
+/* ── 专属水印 ── */
+.freq-sp-watermark {
+  text-align: center;
+  margin-bottom: 16px;
+  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--freq-accent);
+  letter-spacing: 1px;
+  padding: 10px 15px;
+  background: var(--freq-watermark-bg);
+  border: 1px dashed var(--freq-border);
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+.freq-sp-watermark::before, .freq-sp-watermark::after {
+  content: "✦";
+  margin: 0 8px;
+  opacity: 0.7;
 }
 
 /* ── 总折叠头 ── */
@@ -24,46 +101,47 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 16px;
+  padding: 16px 20px;
   cursor: pointer;
   user-select: none;
-  background: linear-gradient(135deg, rgba(163,45,45,0.1) 0%, rgba(0,0,0,0.15) 100%);
-  border: 1px solid rgba(163, 45, 45, 0.25);
-  border-radius: 10px;
-  transition: background 0.25s, border-color 0.25s, border-radius 0.2s;
+  background: var(--freq-bg-header);
+  border-radius: 12px;
+  border-bottom: 1px solid transparent;
+  transition: all 0.3s ease;
 }
 .freq-sp-master-toggle:hover {
-  background: linear-gradient(135deg, rgba(163,45,45,0.18) 0%, rgba(0,0,0,0.2) 100%);
-  border-color: rgba(163, 45, 45, 0.4);
+  background: var(--freq-bg-header-hover);
+  box-shadow: 0 0 15px var(--freq-accent-glow);
 }
 .freq-sp-master-toggle.freq-sp-open {
-  border-radius: 10px 10px 0 0;
-  border-bottom-color: transparent;
+  border-radius: 12px 12px 0 0;
+  border-bottom: 1px solid var(--freq-accent);
 }
 
 .freq-sp-master-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #ececec;
+  font-family: 'Palatino Linotype', 'Book Antiqua', serif;
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--freq-text-title);
   display: flex;
   align-items: center;
-  gap: 8px;
-  letter-spacing: 0.02em;
+  gap: 10px;
+  letter-spacing: 1px;
 }
 .freq-sp-master-ver {
-  font-size: 10px;
-  font-weight: 500;
-  color: rgba(163, 45, 45, 0.7);
-  background: rgba(163, 45, 45, 0.1);
-  border: 1px solid rgba(163, 45, 45, 0.2);
-  border-radius: 4px;
-  padding: 1px 6px;
-  letter-spacing: 0.05em;
+  font-family: 'SF Mono', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--freq-accent);
+  background: var(--freq-accent-glow);
+  border: 1px solid var(--freq-border);
+  border-radius: 3px;
+  padding: 2px 6px;
 }
 .freq-sp-master-arrow {
-  font-size: 11px;
-  color: rgba(163, 45, 45, 0.6);
-  transition: transform 0.3s ease;
+  font-size: 12px;
+  color: var(--freq-accent);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .freq-sp-master-toggle.freq-sp-open .freq-sp-master-arrow {
   transform: rotate(90deg);
@@ -72,40 +150,51 @@
 /* ── 总折叠体 ── */
 .freq-sp-master-body {
   display: none;
-  border: 1px solid rgba(163, 45, 45, 0.2);
-  border-top: none;
-  border-radius: 0 0 10px 10px;
-  padding: 14px;
-  background: rgba(0, 0, 0, 0.12);
-  gap: 10px;
+  padding: 16px;
+  gap: 16px;
 }
 .freq-sp-master-body.freq-sp-show {
   display: flex;
   flex-direction: column;
+  animation: freqFadeIn 0.3s ease forwards;
+}
+@keyframes freqFadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ── 分区 ── */
 .freq-sp-section {
-  background: var(--freq-surface);
+  background: var(--freq-bg-solid);
   border: 1px solid var(--freq-border);
-  border-radius: 10px;
-  padding: 14px;
-  transition: border-color 0.2s;
+  border-radius: 8px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, background 0.3s;
+}
+.freq-sp-section::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, transparent, var(--freq-accent), transparent);
+  opacity: 0.6;
 }
 .freq-sp-section:hover {
-  border-color: rgba(255, 255, 255, 0.11);
+  border-color: var(--freq-accent);
 }
 
 /* ── 标题 ── */
 .freq-sp-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #e0e0e0;
-  margin-bottom: 12px;
+  font-family: 'Palatino Linotype', 'Book Antiqua', serif;
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--freq-text-title);
+  margin-bottom: 14px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--freq-border);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  border-bottom: 1px dashed var(--freq-border);
+  letter-spacing: 1px;
 }
 
 /* ── 可折叠标题 ── */
@@ -115,352 +204,176 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transition: color 0.2s;
 }
 .freq-sp-collapsible:hover {
-  color: #fff;
+  color: var(--freq-accent);
 }
 .freq-sp-arrow {
   font-size: 11px;
-  transition: transform 0.25s ease;
-  color: rgba(163, 45, 45, 0.6);
+  transition: transform 0.3s ease;
+  color: var(--freq-accent);
 }
 .freq-sp-collapsible.freq-sp-open .freq-sp-arrow {
   transform: rotate(90deg);
 }
-
-/* ── 折叠体 ── */
-.freq-sp-collapse-body {
-  display: none;
-  padding-top: 10px;
-}
-.freq-sp-collapse-body.freq-sp-show {
-  display: block;
-}
+.freq-sp-collapse-body { display: none; padding-top: 12px; }
+.freq-sp-collapse-body.freq-sp-show { display: block; animation: freqFadeIn 0.3s ease; }
 
 /* ── 行 ── */
 .freq-sp-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 }
-.freq-sp-row:last-child {
-  margin-bottom: 0;
-}
+.freq-sp-row:last-child { margin-bottom: 0; }
 .freq-sp-row > span:first-child {
-  min-width: 110px;
+  min-width: 120px;
   flex-shrink: 0;
   font-size: 13px;
-  color: #b0b0b0;
+  color: var(--freq-text-hint);
+  font-weight: 500;
 }
-.freq-sp-col {
-  flex-direction: column;
-  align-items: flex-start;
-}
+.freq-sp-col { flex-direction: column; align-items: flex-start; gap: 6px;}
 .freq-sp-col > span:first-child {
-  margin-bottom: 5px;
   font-size: 12px;
-  color: #999;
-  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 /* ── 输入框 ── */
 .freq-sp-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 7px 11px;
+  padding: 8px 12px;
   background: var(--freq-input-bg);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #ddd;
+  border: 1px solid var(--freq-input-border);
+  border-radius: 4px;
+  color: var(--freq-text-main);
   font-size: 13px;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  -webkit-appearance: none;
+  transition: all 0.3s;
 }
 .freq-sp-input:focus {
-  border-color: rgba(163, 45, 45, 0.55);
-  box-shadow: 0 0 0 3px rgba(163, 45, 45, 0.1);
+  border-color: var(--freq-accent);
+  box-shadow: 0 0 8px var(--freq-accent-glow);
 }
-.freq-sp-input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
-}
+.freq-sp-input::placeholder { color: var(--freq-text-hint); font-style: italic; opacity: 0.6; }
+
 select.freq-sp-input {
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(163,45,45,0.6)'/%3E%3C/svg%3E");
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23b81d1d'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 28px;
+  background-position: right 12px center;
+  padding-right: 30px;
 }
 
 /* ── 按钮 ── */
 .freq-sp-btn {
-  padding: 7px 16px;
-  background: linear-gradient(135deg, rgba(163,45,45,0.22) 0%, rgba(163,45,45,0.12) 100%);
-  border: 1px solid rgba(163, 45, 45, 0.35);
-  border-radius: 8px;
-  color: #e0e0e0;
+  padding: 8px 18px;
+  background: var(--freq-btn-bg);
+  border: 1px solid var(--freq-border);
+  border-radius: 4px;
+  color: var(--freq-btn-text);
   font-size: 13px;
-  font-weight: 500;
+  font-weight: bold;
   cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.5px;
 }
 .freq-sp-btn:hover {
-  background: linear-gradient(135deg, rgba(163,45,45,0.4) 0%, rgba(163,45,45,0.25) 100%);
-  border-color: rgba(163, 45, 45, 0.6);
+  background: var(--freq-btn-hover);
+  border-color: var(--freq-accent);
   color: #fff;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(163, 45, 45, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--freq-accent-glow);
 }
-.freq-sp-btn:active {
-  transform: translateY(0);
-  box-shadow: none;
-}
-.freq-sp-btn-danger {
-  background: linear-gradient(135deg, rgba(200,50,50,0.18) 0%, rgba(200,50,50,0.08) 100%);
-  border-color: rgba(200, 50, 50, 0.35);
-}
-.freq-sp-btn-danger:hover {
-  background: linear-gradient(135deg, rgba(200,50,50,0.4) 0%, rgba(200,50,50,0.25) 100%);
-  border-color: rgba(200, 50, 50, 0.6);
-  box-shadow: 0 3px 10px rgba(200, 50, 50, 0.2);
-}
+.freq-sp-btn:active { transform: translateY(1px); }
 
-/* ── 提示文字 ── */
-.freq-sp-hint {
-  font-size: 11.5px;
-  color: #666;
-  line-height: 1.5;
-  margin-top: 2px;
-}
-
-/* ── checkbox ── */
+/* ── Checkbox 复选框 ── */
 .freq-sp-row input[type="checkbox"] {
-  width: 17px;
-  height: 17px;
-  accent-color: var(--freq-red);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--freq-input-bg);
+  border: 1px solid var(--freq-border);
+  border-radius: 3px;
   cursor: pointer;
-  flex-shrink: 0;
+  position: relative;
+  transition: all 0.2s;
+}
+.freq-sp-row input[type="checkbox"]:checked {
+  background: var(--freq-accent);
+  border-color: var(--freq-accent);
+}
+.freq-sp-row input[type="checkbox"]:checked::after {
+  content: "✖";
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 12px;
 }
 
-/* ── 提示词编辑区 ── */
-.freq-sp-prompt-block {
-  margin-bottom: 14px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+/* ── 提示文字与输入区 ── */
+.freq-sp-hint {
+  font-size: 12px;
+  color: var(--freq-text-hint);
+  line-height: 1.6;
+  margin-top: 4px;
+  font-style: italic;
 }
-.freq-sp-prompt-block:last-child {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
-}
+.freq-sp-prompt-block { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed var(--freq-input-border); }
+.freq-sp-prompt-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
 .freq-sp-prompt-label {
-  display: block;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #888;
-  margin-bottom: 5px;
-  letter-spacing: 0.03em;
+  display: block; font-size: 12px; font-weight: bold; color: var(--freq-text-hint); margin-bottom: 6px;
 }
 .freq-sp-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 9px 11px;
-  background: var(--freq-input-bg);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 8px;
-  color: #d0d0d0;
-  font-size: 12.5px;
+  width: 100%; box-sizing: border-box; padding: 10px 12px;
+  background: var(--freq-input-bg); border: 1px solid var(--freq-input-border);
+  border-radius: 4px; color: var(--freq-text-main); font-size: 12px;
   font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
-  line-height: 1.6;
-  resize: vertical;
-  outline: none;
-  min-height: 62px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  line-height: 1.6; resize: vertical; outline: none; min-height: 70px;
+  transition: all 0.3s;
 }
-.freq-sp-textarea:focus {
-  border-color: rgba(163, 45, 45, 0.45);
-  box-shadow: 0 0 0 3px rgba(163, 45, 45, 0.08);
-}
+.freq-sp-textarea:focus { border-color: var(--freq-accent); box-shadow: 0 0 8px var(--freq-accent-glow); }
 
-/* ── 报错日志列表 ── */
-.freq-sp-log-list {
-  max-height: 380px;
-  overflow-y: auto;
-  background: rgba(0, 0, 0, 0.22);
-  border-radius: 8px;
-  padding: 6px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(163,45,45,0.3) transparent;
-}
-.freq-sp-log-list::-webkit-scrollbar {
-  width: 4px;
-}
-.freq-sp-log-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.freq-sp-log-list::-webkit-scrollbar-thumb {
-  background: rgba(163, 45, 45, 0.3);
-  border-radius: 2px;
-}
-.freq-sp-log-empty {
-  text-align: center;
-  color: #444;
-  padding: 24px;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-}
-.freq-sp-log-item {
-  padding: 7px 10px;
-  margin-bottom: 3px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
-  line-height: 1.55;
-  word-break: break-all;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  border-left: 3px solid transparent;
-}
-.freq-sp-log-item.freq-log-info {
-  background: rgba(60, 130, 200, 0.08);
-  border-left-color: rgba(60, 130, 200, 0.45);
-  color: #8cb8d8;
-}
-.freq-sp-log-item.freq-log-warn {
-  background: rgba(200, 170, 50, 0.08);
-  border-left-color: rgba(200, 170, 50, 0.45);
-  color: #d4c46a;
-}
-.freq-sp-log-item.freq-log-error {
-  background: rgba(200, 50, 50, 0.08);
-  border-left-color: rgba(200, 50, 50, 0.55);
-  color: #e08080;
-}
-.freq-sp-log-time {
-  color: #555;
-  margin-right: 6px;
-}
-.freq-sp-log-level {
-  font-weight: 700;
-  margin-right: 6px;
-}
-.freq-sp-log-src {
-  color: #777;
-  margin-right: 6px;
-}
+/* ── 滚动条 ── */
+.freq-sp-textarea::-webkit-scrollbar, .freq-sp-log-list::-webkit-scrollbar { width: 6px; height: 6px; }
+.freq-sp-textarea::-webkit-scrollbar-track, .freq-sp-log-list::-webkit-scrollbar-track { background: transparent; }
+.freq-sp-textarea::-webkit-scrollbar-thumb, .freq-sp-log-list::-webkit-scrollbar-thumb { background: var(--freq-border); border-radius: 3px; }
+.freq-sp-textarea::-webkit-scrollbar-thumb:hover, .freq-sp-log-list::-webkit-scrollbar-thumb:hover { background: var(--freq-accent); }
 
-/* ── App04 · 信号气象站 专属 ── */
-
-/* section 整体用绿色主题 */
-.freq-sp-section:has(#freq-sp-hefeng-key) {
-  border-color: rgba(8, 80, 65, 0.25);
-  background: linear-gradient(160deg, rgba(8,80,65,0.06) 0%, var(--freq-surface) 100%);
-}
-.freq-sp-section:has(#freq-sp-hefeng-key):hover {
-  border-color: rgba(8, 80, 65, 0.38);
-}
-
-/* section 标题用绿色 */
-.freq-sp-section:has(#freq-sp-hefeng-key) .freq-sp-title {
-  color: #2aad8a;
-  border-bottom-color: rgba(8, 80, 65, 0.25);
-}
-
-/* 输入框 focus 用绿色 */
-#freq-sp-hefeng-key:focus {
-  border-color: rgba(8, 80, 65, 0.6);
-  box-shadow: 0 0 0 3px rgba(8, 80, 65, 0.12);
-}
-
-/* checkbox 用绿色 */
-#freq-sp-app04-auto-push,
-#freq-sp-app04-location-enabled {
-  accent-color: #085041;
-}
-
-/* 免责声明 */
+/* ── App04 气象站专属 (绿) ── */
+.freq-sp-section:has(#freq-sp-hefeng-key) { border-color: var(--freq-green-border); }
+.freq-sp-section:has(#freq-sp-hefeng-key)::before { background: linear-gradient(to bottom, transparent, var(--freq-green-main), transparent); }
+.freq-sp-section:has(#freq-sp-hefeng-key):hover { border-color: var(--freq-green-main); }
+.freq-sp-section:has(#freq-sp-hefeng-key) .freq-sp-title { color: var(--freq-green-title); border-bottom-color: var(--freq-green-border); }
+#freq-sp-hefeng-key:focus { border-color: var(--freq-green-main); box-shadow: 0 0 8px var(--freq-green-border); }
+.freq-sp-section:has(#freq-sp-hefeng-key) input[type="checkbox"]:checked { background: var(--freq-green-main); border-color: var(--freq-green-main); }
 .freq-sp-disclaimer {
-  background: rgba(8, 80, 65, 0.08);
-  border: 1px solid rgba(8, 80, 65, 0.22);
-  border-radius: 8px;
-  padding: 9px 12px;
-  font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.38);
-  line-height: 1.65;
-  margin-top: 8px;
-  position: relative;
-  padding-left: 14px;
+  background: var(--freq-green-bg); border: 1px solid var(--freq-green-border);
+  border-radius: 4px; padding: 10px 14px; font-size: 11.5px; color: var(--freq-green-title); margin-top: 12px;
+  position: relative; padding-left: 16px;
 }
 .freq-sp-disclaimer::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(to bottom, #085041, rgba(8,80,65,0.3));
-  border-radius: 8px 0 0 8px;
-}
-.f16-char-badge {
-  margin-left: auto;
-  font-size: 9px;
-  color: #666;
-  background: rgba(255,255,255,0.05);
-  padding: 1px 5px;
-  border-radius: 3px;
-}
-.f16-char-npc .f16-char-badge {
-  color: #c07070;
-  background: rgba(163, 45, 45, 0.15);
-}
-.f16-char-npc {
-  border-left: 2px solid rgba(163, 45, 45, 0.3);
-}
-.freq-sp-section-danger {
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin-top: 16px;
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--freq-green-main); border-radius: 4px 0 0 4px;
 }
 
-.freq-sp-danger-desc {
-  font-size: 12px;
-  color: rgba(252, 165, 165, 0.6);
-  line-height: 1.6;
-  margin-bottom: 12px;
-}
+/* ── 危险操作 ── */
+.freq-sp-section-danger { border-color: var(--freq-danger-bg); background: var(--freq-danger-bg); }
+.freq-sp-section-danger::before { background: linear-gradient(to bottom, transparent, var(--freq-danger-main), transparent); }
+.freq-sp-section-danger .freq-sp-title { color: var(--freq-danger-main); border-bottom-color: var(--freq-danger-bg); }
+.freq-sp-danger-desc { font-size: 12px; color: var(--freq-text-main); margin-bottom: 14px; opacity: 0.8; }
+.freq-sp-btn-danger { border-color: var(--freq-danger-main); color: var(--freq-danger-main); }
+.freq-sp-btn-danger:hover { background: var(--freq-danger-main); color: #fff; box-shadow: 0 0 15px rgba(255, 0, 0, 0.4); }
 
-.freq-sp-btn-danger {
-  background: rgba(127, 29, 29, 0.4);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  padding: 8px 20px;
-  border-radius: 8px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.3s;
-  font-family: inherit;
+/* ── 日志 ── */
+.freq-sp-log-list {
+  max-height: 300px; overflow-y: auto; background: var(--freq-input-bg);
+  border: 1px solid var(--freq-input-border); border-radius: 4px; padding: 8px;
 }
-
-.freq-sp-btn-danger:hover {
-  background: rgba(127, 29, 29, 0.7);
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
-}
-
-.freq-sp-btn-danger:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.freq-sp-format-status {
-  font-size: 11px;
-  margin-top: 8px;
-  min-height: 16px;
-  color: rgba(167, 139, 250, 0.7);
-  transition: opacity 0.3s;
-}
+.freq-sp-log-empty { text-align: center; color: var(--freq-text-hint); padding: 30px; font-size: 13px; font-style: italic; }
