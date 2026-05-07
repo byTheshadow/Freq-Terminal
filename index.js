@@ -11358,7 +11358,7 @@ const App15Emotion = (() => {
 
       if (!signalBlocks || !signalBlocks.length) throw new Error('未能解析情绪信号');
 
-      const signalStr = signalBlocks[0].trim();
+      const signalStr = _stripTags(signalBlocks[0]).trim();
       const signals = _parseSignals(signalStr);
 
       if (!signals.length) throw new Error('情绪维度解析失败');
@@ -11371,8 +11371,8 @@ const App15Emotion = (() => {
       }
 
       const perception = perceptionBlocks && perceptionBlocks.length
-        ? _ctx.subapi.safeParseText(perceptionBlocks[0]).replace(/^["「『]|["」』]$/g, '').trim()
-        : '';
+  ? _stripTags(_ctx.subapi.safeParseText(perceptionBlocks[0])).replace(/^["「『]|["」』]$/g, '').trim()
+  : '';
 
       const charName = _ctx.bridge.getCharName() || '';
 
@@ -11408,6 +11408,11 @@ const App15Emotion = (() => {
       }
     }, 3000);
   }
+// ── Strip any residual XML/HTML tags ──
+function _stripTags(s) {
+  if (!s) return '';
+  return String(s).replace(/<[^>]*>/g, '').trim();
+}
 
   // ── Parse "维度:分数|维度:分数|..." ──
   function _parseSignals(str) {
