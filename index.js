@@ -488,7 +488,25 @@ app14_dream: `你是角色{char_name}。现在是{real_datetime}。
 7. 长度控制在200-400字
 
 直接输出解读内容，不要加标签或前缀。`,
-    app15: '任务：分析以下对话内容的情绪倾向，生成一句角色视角的感知描述。不超过 60 字。同时给出情绪关键词（用 <emotion> 标签包裹）。',
+  app15_emotion: `你是{char_name}。现在是{real_datetime}。
+以下是你的人设信息：
+{char_desc}
+
+以下是最近的对话记录：
+{recent_chat}
+
+任务：以{char_name}的身份，分析上面对话中弥漫的情绪信号。
+你需要自由选择5~8个你认为最能描述当前对话情绪氛围的维度词（例如：温柔、紧张、期待、忧郁、愉悦、困惑、平静、愤怒、暧昧、疲惫、兴奋、悲伤、戏谑、怀念、不安、甜蜜……不限于这些，你可以自由创造），并为每个维度打分（0-100）。
+
+然后用{char_name}的语气写一句感知描述——就像你是一个电台主播，正在播报你接收到的情绪电波信号。这句话要有角色个性，简短有力，不超过50字。
+
+严格按以下格式输出，不要输出任何其他内容：
+<emotion_signal>
+维度词1:分数|维度词2:分数|维度词3:分数|维度词4:分数|维度词5:分数
+</emotion_signal>
+<emotion_perception>
+你的一句话感知描述
+</emotion_perception>`,
     //── 在FREQ_DEFAULTS.prompts 对象中添加以下三个 key ──
 
 app16_dialogue: `你是一个多角色剧情生成器。现在是{real_datetime}。
@@ -11024,6 +11042,433 @@ const App12Forum = (() => {
 //============================================================
 //App12 END
 // ============================================================
+// ============================================================
+//App15 — 情绪电波仪
+// ============================================================
+const App15Emotion = (() => {
+  const APP_ID = 'emotion';
+  let _ctx = null;
+  let _container = null;
+  let _mounted = false;
+  let _loading = false;
+  let _statusText = '';
+  let _clickHandler = null;
+  let _data = null;          // { timestamp, signals, dominant, perception, charName }
+  let _animFrame = null;     // animation frame id
+
+  const COLORS = [
+    '#a78bfa', '#67e8f9', '#f9a8d4', '#86efac',
+    '#fcd34d', '#fb923c', '#f87171', '#c084fc'
+  ];
+  const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+  // ── Init ──
+  function init(ctx) {
+    _ctx = ctx;
+    _ctx.log.info(APP_ID, 'App已初始化');
+  }
+
+  // ── Mount ──
+  async function mount(el) {
+    _container = el;
+    _mounted = true;
+    // load cached data
+    try {
+      const cached = await _ctx.store.get('app15_data');
+      if (cached) _data = cached;
+    } catch (e) { /* ignore */ }
+    _render();
+    _bindEvents(_container);
+  }
+
+  // ── Unmount ──
+  function unmount() {
+    _mounted = false;
+    if (_animFrame) { cancelAnimationFrame(_animFrame); _animFrame = null; }
+    if (_container && _clickHandler) _container.removeEventListener('click', _clickHandler);
+    _container = null;
+  }
+
+  // ── Render ──
+  function _render() {
+    if (!_container) return;
+
+    if (_loading) {
+      _container.innerHTML = _renderLoading();
+      return;
+    }
+
+    if (!_data) {
+      _container.innerHTML = _renderIdle();
+      return;
+    }
+
+    _container.innerHTML = _renderResult();
+    // start waveform animation after DOM is ready
+    requestAnimationFrame(() => {
+      if (_mounted && _container) _startWaveAnimation();
+    });
+  }
+
+  // ── Idle View ──
+  function _renderIdle() {
+    return `<div class="f15-wrap">
+      <div class="f15-scroll">
+        <div class="f15-header">
+          <span class="f15-header-icon">💓</span>
+          <div class="f15-header-title">情绪电波仪</div>
+          <div class="f15-header-sub">EMOTION FREQUENCY ANALYZER</div>
+        </div>
+        <div class="f15-idle">
+          <div class="f15-idle-icon">📡</div>
+          <div class="f15-idle-text">
+            信号待机中……<br>
+            点击下方按钮扫描最近对话的情绪电波
+          </div>
+          <button class="f15-scan-btn" id="f15-btn-scan"${_loading ? ' disabled' : ''}>
+            ◉ 开始扫描
+          </button>
+        </div>
+      </div>
+      ${_statusText ? `<div class="f15-status">${_escHtml(_statusText)}</div>` : ''}
+    </div>`;
+  }
+
+  // ── Loading View ──
+  function _renderLoading() {
+    return `<div class="f15-wrap">
+      <div class="f15-scroll">
+        <div class="f15-header">
+          <span class="f15-header-icon">💓</span>
+          <div class="f15-header-title">情绪电波仪</div>
+          <div class="f15-header-sub">EMOTION FREQUENCY ANALYZER</div>
+        </div>
+        <div class="f15-loading">
+          <div class="f15-loading-wave">
+            <svg viewBox="0 0 320 80" preserveAspectRatio="none">
+              ${_renderLoadingSVGPaths()}
+            </svg>
+          </div>
+          <div class="f15-loading-text">⏳ 正在扫描情绪电波…</div>
+        </div>
+      </div>
+      ${_statusText ? `<div class="f15-status">${_escHtml(_statusText)}</div>` : ''}
+    </div>`;
+  }
+
+  function _renderLoadingSVGPaths() {
+    let paths = '';
+    for (let i = 0; i < 4; i++) {
+      const opacity = 0.15 + i * 0.1;
+      const speed = 1.5 + i * 0.5;
+      const amp = 8 + i * 6;
+      let d = 'M0,40';
+      for (let x = 0; x <= 320; x += 4) {
+        const y = 40 + Math.sin((x / 320) * Math.PI * (3 + i) + i * 1.2) * amp;
+        d += ` L${x},${y.toFixed(1)}`;
+      }
+      paths += `<path d="${d}" fill="none" stroke="${COLORS[i]}" stroke-width="1.5" opacity="${opacity}">
+        <animate attributeName="d" dur="${speed}s" repeatCount="indefinite"
+          values="${d};${_shiftPath(d, amp)};${d}" />
+      </path>`;
+    }
+    return paths;
+  }
+
+  function _shiftPath(d, amp) {
+    return d.replace(/L([\d.]+),([\d.]+)/g, (_, x, y) => {
+      const ny = parseFloat(y) + (Math.random() - 0.5) * amp * 0.6;
+      return `L${x},${ny.toFixed(1)}`;
+    });
+  }
+
+  // ── Result View ──
+  function _renderResult() {
+    const signals = _data.signals || [];
+    const dominant = _data.dominant || '';
+    const perception = _data.perception || '';
+    const charName = _data.charName || '';
+    const ts = _data.timestamp ? new Date(_data.timestamp).toLocaleString('zh-CN', {
+      month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+    }) : '';
+
+    // find max value for dominant highlight
+    let maxVal = 0;
+    signals.forEach(s => { if (s.value > maxVal) maxVal = s.value; });
+
+    return `<div class="f15-wrap">
+      <div class="f15-scroll">
+        <div class="f15-header">
+          <span class="f15-header-icon">💓</span>
+          <div class="f15-header-title">情绪电波仪</div>
+          <div class="f15-header-sub">EMOTION FREQUENCY ANALYZER</div>
+        </div>
+
+        ${ts ? `<div class="f15-timestamp">LAST SCAN: ${_escHtml(ts)}</div>` : ''}
+
+        <div class="f15-dominant-badge">
+          <span class="f15-dominant-icon">◉</span>
+          <span class="f15-dominant-text">${_escHtml(dominant)}</span>
+          <span class="f15-dominant-freq">${maxVal}%</span>
+        </div>
+
+        <div class="f15-waveform-container">
+          <div class="f15-scanline"></div>
+          <svg class="f15-waveform-svg" id="f15-waveform" viewBox="0 0 320 160" preserveAspectRatio="none"></svg>
+          <div class="f15-waveform-label">SIGNAL WAVEFORM</div>
+        </div>
+
+        <div class="f15-signals">
+          ${signals.map((s, i) => {
+            const color = COLORS[i % COLORS.length];
+            const isDominant = s.label === dominant;
+            return `<div class="f15-signal-row">
+              <span class="f15-signal-label" style="color:${color}">${_escHtml(s.label)}</span>
+              <div class="f15-signal-bar-bg">
+                <div class="f15-signal-bar-fill${isDominant ? ' f15-dominant' : ''}"style="width:${s.value}%;background:${color};color:${color}"></div>
+              </div>
+              <span class="f15-signal-value">${s.value}</span>
+            </div>`;
+          }).join('')}
+        </div>
+
+        ${perception ? `<div class="f15-perception">
+          <div class="f15-perception-label">SIGNAL PERCEPTION</div>
+          <div class="f15-perception-text">"${_escHtml(perception)}"</div>
+          ${charName ? `<div class="f15-perception-char">— ${_escHtml(charName)}</div>` : ''}
+        </div>` : ''}
+      </div>
+
+      <div class="f15-bottom-bar">
+        <button class="f15-refresh-btn" id="f15-btn-rescan"${_loading ? ' disabled' : ''}>
+          🔄 重新扫描
+        </button>
+      </div>
+      ${_statusText ? `<div class="f15-status">${_escHtml(_statusText)}</div>` : ''}
+    </div>`;
+  }
+
+  // ── Waveform Animation (SVG) ──
+  function _startWaveAnimation() {
+    const svgEl = _container ? _container.querySelector('#f15-waveform') : null;
+    if (!svgEl || !_data || !_data.signals) return;
+
+    const signals = _data.signals;
+    const W = 320, H = 160, MID = H / 2;
+    let tick = 0;
+
+    // pre-calculate wave params
+    const waves = signals.map((s, i) => ({
+      amplitude: (s.value / 100) * (H * 0.35),
+      frequency: 2 + i * 0.7,
+      phase: i * 1.3,
+      speed: 0.02 + i * 0.005,
+      color: COLORS[i % COLORS.length],
+      opacity: s.label === _data.dominant ? 0.9 : 0.3,
+      lineWidth: s.label === _data.dominant ? 2.5 : 1.2,}));
+
+    function frame() {
+      if (!_mounted || !_container) return;
+      tick++;
+
+      let paths = '';
+
+      // draw each wave
+      for (const w of waves) {
+        let d = '';
+        for (let x = 0; x <= W; x += 2) {
+          const t = x / W;
+          const y = MID + Math.sin(t * Math.PI * w.frequency + tick * w.speed + w.phase) * w.amplitude+ Math.sin(t * Math.PI * w.frequency * 2.3 + tick * w.speed * 1.7) * w.amplitude * 0.15;
+          d += (x === 0 ? 'M' : ' L') + `${x},${y.toFixed(1)}`;
+        }
+        paths += `<path d="${d}" fill="none" stroke="${w.color}" stroke-width="${w.lineWidth}" opacity="${w.opacity}" stroke-linecap="round"/>`;
+      }
+
+      // center baseline
+      paths += `<line x1="0" y1="${MID}" x2="${W}" y2="${MID}" stroke="rgba(167,139,250,0.08)" stroke-width="0.5" stroke-dasharray="4,4"/>`;
+
+      svgEl.innerHTML = paths;
+      _animFrame = requestAnimationFrame(frame);
+    }
+
+    if (_animFrame) cancelAnimationFrame(_animFrame);
+    _animFrame = requestAnimationFrame(frame);
+  }
+
+  // ── Events ──
+  function _bindEvents(container) {
+    if (!container) return;
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+    _clickHandler = async (e) => {
+      // Scan button (idle state)
+      if (e.target.id === 'f15-btn-scan') {
+        await _doScan();
+        return;
+      }
+      // Rescan button (result state)
+      if (e.target.id === 'f15-btn-rescan') {
+        await _doScan();
+        return;
+      }
+    };
+    container.addEventListener('click', _clickHandler);
+  }
+
+  // ── Scan Logic ──
+  async function _doScan() {
+    if (_loading) return;
+
+    // check API config
+    if (!_ctx.settings.apiUrl || !_ctx.settings.apiKey || !_ctx.settings.apiModel) {
+      _ctx.notify.push(APP_ID, '⚠️', '情绪电波仪', '请先在设置中配置副API');
+      _ctx.log.warn(APP_ID, '副API未配置');
+      return;
+    }
+
+    // check if recent messages exist
+    const recentChat = _getRecentChat();
+    if (recentChat === '（无最近对话）') {
+      _ctx.notify.push(APP_ID, '⚠️', '情绪电波仪', '没有检测到最近对话记录');
+      _statusText = '⚠ 无对话记录可分析';
+      _render(); _bindEvents(_container);
+      setTimeout(() => {
+        if (_statusText.startsWith('⚠')) { _statusText = ''; if (_container) { _render(); _bindEvents(_container); } }
+      }, 3000);
+      return;
+    }
+
+    _loading = true;
+    _statusText = '⏳ 正在扫描情绪电波…';
+    _render(); _bindEvents(_container);
+    _ctx.notify.push(APP_ID, '⏳', '情绪电波仪', '正在扫描情绪电波…');
+
+    try {
+      const messages = _ctx.subapi.buildMessages('app15_emotion', {
+        char_desc: _getCharDesc(),
+        recent_chat: recentChat,});
+
+      const text = await _ctx.subapi.call(messages, { maxTokens: 400, temperature: 0.85 });
+
+      if (!_mounted || !_container) return;
+      if (!text) throw new Error('API返回为空');
+
+      // parse signals
+      const signalBlocks = _ctx.subapi.parseResponse(text, 'emotion_signal');
+      const perceptionBlocks = _ctx.subapi.parseResponse(text, 'emotion_perception');
+
+      if (!signalBlocks || !signalBlocks.length) throw new Error('未能解析情绪信号');
+
+      const signalStr = signalBlocks[0].trim();
+      const signals = _parseSignals(signalStr);
+
+      if (!signals.length) throw new Error('情绪维度解析失败');
+
+      // find dominant
+      let dominant = signals[0].label;
+      let maxVal = signals[0].value;
+      for (const s of signals) {
+        if (s.value > maxVal) { maxVal = s.value; dominant = s.label; }
+      }
+
+      const perception = perceptionBlocks && perceptionBlocks.length
+        ? _ctx.subapi.safeParseText(perceptionBlocks[0]).replace(/^["「『]|["」』]$/g, '').trim()
+        : '';
+
+      const charName = _ctx.bridge.getCharName() || '';
+
+      _data = {
+        timestamp: Date.now(),
+        signals,
+        dominant,
+        perception,
+        charName,
+      };
+
+      // save to store
+      await _ctx.store.set('app15_data', _data);
+
+      _statusText = '✅ 扫描完成';
+      _ctx.notify.push(APP_ID, '✅', '情绪电波仪', `主导信号：${dominant} (${maxVal}%)`);
+      _ctx.log.info(APP_ID, '扫描完成', `${signals.length}个维度, 主导: ${dominant}`);
+
+    } catch (err) {
+      _statusText = `⚠ ${err.message}`;
+      _ctx.log.error(APP_ID, '扫描失败', err.message);
+      _ctx.notify.push(APP_ID, '❌', '情绪电波仪', `扫描失败：${err.message}`);
+    }
+
+    _loading = false;
+    if (!_container) return;
+    _render(); _bindEvents(_container);
+
+    setTimeout(() => {
+      if (_statusText.startsWith('✅') || _statusText.startsWith('⚠')) {
+        _statusText = '';
+        if (_container) { _render(); _bindEvents(_container); }
+      }
+    }, 3000);
+  }
+
+  // ── Parse "维度:分数|维度:分数|..." ──
+  function _parseSignals(str) {
+    const signals = [];
+    const parts = str.split('|');
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
+      // support both : and ：
+      const sep = trimmed.includes('：') ? '：' : ':';
+      const idx = trimmed.lastIndexOf(sep);
+      if (idx < 0) continue;
+      const label = trimmed.slice(0, idx).trim();
+      const valStr = trimmed.slice(idx + sep.length).trim();
+      const value = Math.max(0, Math.min(100, parseInt(valStr, 10) || 0));
+      if (label) signals.push({ label, value });
+    }
+    return signals;
+  }
+
+  // ── Helpers ──
+  function _getCharDesc() {
+    try {
+      const chid = window.this_chid;
+      const chars = window.characters;
+      if (chid == null || !chars || !chars[chid]) return '';
+      const c = chars[chid];
+      return [c.description, c.personality, c.scenario]
+        .filter(Boolean).join('\n').slice(0, 800);
+    } catch (e) { return ''; }
+  }
+
+  function _getRecentChat() {
+    try {
+      const msgs = _ctx.bridge.getRecentMessages(20);
+      if (!msgs || !msgs.length) return '（无最近对话）';
+      return msgs.map(m =>
+        `${m.is_user ? (_ctx.bridge.getUserName() || 'User') : (_ctx.bridge.getCharName() || 'Char')}：${String(m.mes).slice(0, 150)}`
+      ).join('\n');
+    } catch (e) { return '（无法获取）'; }
+  }
+
+  function _escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Public──
+  return {
+    id: APP_ID,
+    name: '情绪电波仪',
+    icon: '💓',
+    init,
+    mount,
+    unmount,
+  };
+})();
+// ============================================================
+//App15 END
+// ============================================================
+
 
 
 
@@ -11519,6 +11964,7 @@ const FreqTerminal = (() => {
     App12Forum,
     App13Capsule,
     App14Dream,
+    App15Emotion,
     App16Blackbox,
     // 后续 App 在这里追加：App02Studio, App03Moments, ...
   ];
@@ -11704,7 +12150,7 @@ const FreqTerminal = (() => {
       'freq-sp-prompt-app12': 'app12_post',
       'freq-sp-prompt-app13': 'app13_reply',
       'freq-sp-prompt-app14': 'app14_dream',
-      'freq-sp-prompt-app15': 'app15',
+      'freq-sp-prompt-app15': 'app15_emotion',
       'freq-sp-prompt-app16': 'app16_dialogue',
       'freq-sp-prompt-app17': 'app17',
       'freq-sp-prompt-bg': 'bg_message',
@@ -11818,7 +12264,7 @@ const FreqTerminal = (() => {
     $('#freq-sp-prompt-app12').val(prompts.app12_post || defaults.app12_post);
     $('#freq-sp-prompt-app13').val(prompts.app13_reply || defaults.app13_reply);
     $('#freq-sp-prompt-app14').val(prompts.app14_dream || defaults.app14_dream);
-    $('#freq-sp-prompt-app15').val(prompts.app15 || defaults.app15);
+    $('#freq-sp-prompt-app15').val(prompts.app15_emotion || defaults.app15_emotion);
     $('#freq-sp-prompt-app16').val(prompts.app16_dialogue || defaults.app16_dialogue);
     $('#freq-sp-prompt-app17').val(prompts.app17 || defaults.app17);
     $('#freq-sp-prompt-bg').val(prompts.bg_message || defaults.bg_message);
