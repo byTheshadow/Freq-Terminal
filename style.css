@@ -7455,6 +7455,8 @@
   font-weight: 700;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  padding-left: 36px;   /* ← 加这一行 */
+  text-align: center;   /* ← 可选，让标题居中更好看 */
 }
 .f12-header-sub {
   font-size: 11px;
