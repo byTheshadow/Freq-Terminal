@@ -16,6 +16,7 @@ const FREQ_DEFAULTS = {
   fabPosX: -1,
   fabPosY: -1,
   notifyPosition: 'top-right',
+  themeLight: false,
 
   apiUrl: '',
   apiKey: '',
@@ -12019,6 +12020,11 @@ const FreqTerminal = (() => {
         body.addClass('freq-sp-show');
         $(this).addClass('freq-sp-open');
       }});
+      $(document).on('change', '#freq-sp-theme-toggle', function () {
+  $('#freq-settings-panel').toggleClass('freq-theme-light', this.checked);
+  _settings.themeLight = this.checked;
+  _saveSettings();
+});
 
     // 启用插件
     $(document).on('change', '#freq-sp-enabled', function () {
@@ -12242,6 +12248,8 @@ $(document).off('click', '#freq-sp-btn-format').on('click', '#freq-sp-btn-format
     $('#freq-sp-cosmic-enabled').prop('checked', _settings.cosmicFreqEnabled !== false);
     $('#freq-sp-api-url').val(_settings.apiUrl || '');
     $('#freq-sp-api-key').val(_settings.apiKey || '');
+    $('#freq-sp-theme-toggle').prop('checked', _settings.themeLight || false);
+    $('#freq-settings-panel').toggleClass('freq-theme-light', !!_settings.themeLight);
 
     // 模型下拉
     const selectEl = document.getElementById('freq-sp-model-select');

@@ -75,8 +75,11 @@
   box-shadow: 0 10px 30px var(--freq-shadow), inset 0 0 20px rgba(255, 255, 255, 0.5);
 }
 
-/* ── 专属水印 ── */
+/* ── 🌟 专属水印 (强制显示增强版) 🌟 ── */
 .freq-sp-watermark {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
   text-align: center;
   margin-bottom: 16px;
   font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
@@ -89,11 +92,18 @@
   border: 1px dashed var(--freq-border);
   border-radius: 6px;
   transition: all 0.3s;
+  z-index: 10;
 }
 .freq-sp-watermark::before, .freq-sp-watermark::after {
   content: "✦";
   margin: 0 8px;
   opacity: 0.7;
+}
+
+/* 确保主题切换的父级行也能强制显示 */
+#freq-sp-theme-toggle {
+  display: inline-block !important;
+  visibility: visible !important;
 }
 
 /* ── 总折叠头 ── */
