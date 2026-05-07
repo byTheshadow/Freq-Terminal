@@ -7428,6 +7428,572 @@
 /* ============================================================
    App16 END
    ============================================================ */
+   /* ============================================================
+   App12 Forum — 频道留言板
+   ============================================================ */
+
+.f12-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: #1a1018;
+  color: #e8ddd5;
+  font-family: -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* ── Header ── */
+.f12-header {
+  padding: 12px 14px 10px;
+  background: linear-gradient(135deg, #72243E 0%, #4a1528 100%);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;position: relative;
+}
+.f12-header-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.f12-header-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  margin-top: 2px;
+}
+.f12-back {
+  position: absolute;
+  top: 12px;
+  left: 10px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  z-index: 2;
+}
+.f12-back:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+/* ── Scroll── */
+.f12-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px 80px;
+  -webkit-overflow-scrolling: touch;scrollbar-width: thin;
+  scrollbar-color: rgba(114,36,62,0.4) transparent;
+}
+.f12-scroll::-webkit-scrollbar { width: 4px; }
+.f12-scroll::-webkit-scrollbar-thumb { background: rgba(114,36,62,0.5); border-radius: 2px; }
+
+/* ── Status ── */
+.f12-status {
+  text-align: center;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: rgba(114,36,62,0.25);
+  color: #f0c0d0;
+  border: 1px solid rgba(114,36,62,0.3);
+}
+
+/* ── Buttons ── */
+.f12-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.f12-btn {
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.f12-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.f12-btn-primary {
+  background: linear-gradient(135deg, #72243E, #a03358);
+  color: #fff;box-shadow: 0 2px 6px rgba(114,36,62,0.4);
+}
+.f12-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8a2c4a, #b83d68);
+  transform: translateY(-1px);
+}
+.f12-btn-accent {
+  background: rgba(114,36,62,0.3);
+  color: #f0c0d0;
+  border: 1px solid rgba(114,36,62,0.4);
+}
+.f12-btn-accent:hover:not(:disabled) {
+  background: rgba(114,36,62,0.5);
+}
+.f12-btn-sm {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+.f12-btn-full {
+  width: 100%;margin-top: 10px;
+}
+.f12-btn-icon {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #e8ddd5;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.f12-btn-icon:hover {
+  background: rgba(114,36,62,0.3);
+  border-color: rgba(114,36,62,0.5);
+}
+
+/* ── Section Title ── */
+.f12-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f0c0d0;
+  margin: 12px 0 6px;
+  padding-left: 2px;
+}
+
+/* ── Empty Hint ── */
+.f12-empty-hint {
+  text-align: center;
+  padding: 20px 10px;
+  color: rgba(255,255,255,0.35);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* ── Avatar ── */
+.f12-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.f12-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #72243E, #a03358);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ── Author User Tag ── */
+.f12-author-user {
+  color: #6dd5fa !important;
+}
+.f12-author-user::after {
+  content: ' [楼主]';
+  font-size: 9px;
+  color: rgba(109,213,250,0.6);
+}
+
+/* ══════════════════════════════════════
+   首页 — 最新动态
+   ══════════════════════════════════════ */
+.f12-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.f12-recent-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.f12-recent-item:hover {
+  background: rgba(114,36,62,0.15);
+  border-color: rgba(114,36,62,0.3);
+}
+.f12-recent-avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.f12-recent-body {
+  flex: 1;
+  min-width: 0;
+}
+.f12-recent-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.f12-recent-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f0c0d0;
+}
+.f12-recent-board {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.f12-recent-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.f12-recent-snippet {
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.4;
+}
+.f12-recent-foot {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+}
+
+/* ══════════════════════════════════════
+   首页 — 版块列表
+   ══════════════════════════════════════ */
+.f12-board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.f12-board-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.f12-board-card:hover {
+  background: rgba(114,36,62,0.15);
+  border-color: rgba(114,36,62,0.3);transform: translateX(2px);
+}
+.f12-board-icon {
+  font-size: 24px;
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.f12-board-info {
+  flex: 1;min-width: 0;
+}
+.f12-board-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+.f12-board-desc {
+  font-size: 10px;
+  color: rgba(255,255,255,0.45);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.f12-board-stat {
+  font-size: 10px;
+  color: rgba(114,36,62,0.8);
+  margin-top: 2px;
+}
+.f12-board-arrow {
+  font-size: 18px;
+  color: rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════
+   版块 — 帖子列表
+   ══════════════════════════════════════ */
+.f12-post-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.f12-post-card {
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.f12-post-card:hover {
+  background: rgba(114,36,62,0.12);
+  border-color: rgba(114,36,62,0.25);
+}
+.f12-post-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.f12-post-card-avatar {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.f12-post-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.f12-post-card-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f0c0d0;
+}
+.f12-post-card-time {
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+}
+.f12-post-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.f12-post-card-body {
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  line-height: 1.5;
+}
+.f12-post-card-foot {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+}
+
+/* ══════════════════════════════════════
+   帖子详情
+   ══════════════════════════════════════ */
+.f12-detail-post {
+  padding: 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 10px;
+}
+.f12-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.f12-detail-avatar {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.f12-detail-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.f12-detail-author {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f0c0d0;
+}
+.f12-detail-time {
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+}
+.f12-detail-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+.f12-detail-body {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.7;
+  white-space: pre-wrap;word-break: break-word;
+}
+
+/* ──回复列表 ── */
+.f12-reply-header {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f0c0d0;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 6px;
+}
+.f12-reply-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.f12-reply-item {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  border-left: 3px solid rgba(114,36,62,0.4);
+  position: relative;
+}
+.f12-reply-item:nth-child(even) {
+  border-left-color: rgba(114,36,62,0.25);
+}
+.f12-reply-floor {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 9px;
+  color: rgba(255,255,255,0.2);
+}
+.f12-reply-avatar {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.f12-reply-avatar .f12-avatar-fallback {
+  font-size: 11px;
+}
+.f12-reply-body {
+  flex: 1;
+  min-width: 0;
+}
+.f12-reply-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.f12-reply-author {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f0c0d0;
+}
+.f12-reply-time {
+  font-size: 9px;
+  color: rgba(255,255,255,0.25);
+}
+.f12-reply-content {
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── 回复操作区 ── */
+.f12-reply-actions {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, #1a1018 80%, transparent);
+  padding: 10px 04px;
+}
+.f12-reply-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;align-items: center;
+}
+.f12-reply-char-row {
+  margin-bottom: 0;
+}
+
+/* ── Form ── */
+.f12-input, .f12-textarea, .f12-select {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #e8ddd5;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.f12-input:focus, .f12-textarea:focus, .f12-select:focus {
+  outline: none;
+  border-color: rgba(114,36,62,0.6);
+  background: rgba(255,255,255,0.08);
+}
+.f12-input:disabled, .f12-textarea:disabled, .f12-select:disabled {
+  opacity: 0.5;
+}
+.f12-textarea {
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.5;
+}
+.f12-select {
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.f12-select option {
+  background: #2a1a22;
+  color: #e8ddd5;
+}
+.f12-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  margin: 10px 0 4px;text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.f12-form {
+  padding: 4px 0;
+}
+
+/* ============================================================
+   App12 END
+   ============================================================ */
+
 
 
 
