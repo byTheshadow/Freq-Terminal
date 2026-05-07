@@ -371,7 +371,87 @@ app11_order: `你是角色{char_name}。现在是{real_datetime}。
 [点评]这种天气就该吃这个。你平时吃饭规不规律啊。
 [理由]外面又湿又冷，热汤面最暖身子。而且最近聊天感觉你状态不太好，番茄鸡蛋面简单但是吃了会舒服，酸酸甜甜的开胃。
 </dish>`,
-    app12: '任务：基于以下角色人设列表，生成 3-5 条论坛帖子和互评。包含发帖人、标题、内容、回复。用 <thread> 标签包裹每个帖子。',
+    // 在 FREQ_DEFAULTS.prompts 中添加以下 3 个 key：
+
+app12_post: `你是"{poster_name}"。
+以下是你的人设：
+{poster_desc}
+
+当前时间：{real_datetime}
+当前版块：【{board_name}】— {board_desc}
+
+{context_hint}
+
+任务：你正在一个论坛的【{board_name}】版块发帖。
+要求：
+1. 以你的性格和口吻写一篇帖子，包含标题和正文
+2. 内容必须符合版块主题
+3. 帖子要有个性，体现你的人设特点
+4. 标题简短有力（10字以内），正文50-200字
+5. 可以用emoji，可以口语化，可以带情绪
+6. 不要写任何OOC内容，不要解释你在做什么
+
+严格按以下格式输出：
+<forum_post>
+<title>帖子标题</title>
+<body>帖子正文内容</body>
+</forum_post>`,
+
+app12_reply: `你是"{replier_name}"。
+以下是你的人设：
+{replier_desc}
+
+当前时间：{real_datetime}
+你正在论坛【{board_name}】版块浏览帖子。
+
+原帖作者：{post_author}
+原帖标题：{post_title}
+原帖内容：{post_body}
+
+{existing_replies}
+
+任务：你看到了这篇帖子{reply_context}，请以你的性格写一条回复。
+要求：
+1. 以你的真实性格和口吻回复，体现你的人设
+2. 可以赞同、反驳、吐槽、八卦、跑题、阴阳怪气，取决于你的性格
+3. 回复20-100字，口语化
+4. 如果已有其他人的回复，你可以回应他们（@某人），也可以只回应原帖
+5. 不要写任何OOC内容
+
+严格按以下格式输出：
+<forum_reply>
+回复内容
+</forum_reply>`,
+
+app12_multi: `你需要模拟多个角色在论坛上的互动。
+
+当前时间：{real_datetime}
+版块：【{board_name}】— {board_desc}
+
+可用角色列表（含人设摘要）：
+{char_list}
+
+{context_hint}
+
+任务：从上面的角色中选择1-2个角色，让他们在【{board_name}】版块发帖或回复。
+要求：
+1. 每个角色必须符合自己的人设性格
+2. 内容必须符合版块主题
+3. 角色之间可以互动（回复对方的帖子）
+4. 每个帖子标题10字以内，正文50-150字
+5. 回复20-80字
+6. 体现角色间的性格碰撞，可以有分歧和争论
+
+严格按以下格式输出（可以有多个post和reply）：
+<forum_activity>
+<post author="角色名">
+<title>帖子标题</title>
+<body>帖子正文</body>
+</post>
+<reply author="角色名" to="被回复的帖子标题">
+回复内容
+</reply>
+</forum_activity>`,
     app13_reply: `你是角色{char_name}。现在是{real_datetime}。以下是你的人设信息：
 {char_desc}
 用户在 {delay_desc} 前给你写了一封信，刚刚送达到你手中。
@@ -9848,6 +9928,1103 @@ async function _fetchCharList() {
 // ============================================================
 //App16 END
 // ============================================================
+// ============================================================
+//  App12 — 频道留言板 (Forum)
+// ============================================================
+const App12Forum = (() => {
+  const APP_ID = 'forum';
+  let _ctx = null;
+  let _container = null;
+  let _mounted = false;
+  let _loading = false;
+  let _statusText = '';
+  let _clickHandler = null;
+  let _inputHandler = null;
+
+  /* ── 版块定义 ── */
+  const BOARDS = [
+    { id: 'gossip',icon: '📻', name: '电台八卦',   desc: '明星绯闻、CP讨论、剧情吐槽，越八越开心' },
+    { id: 'news',     icon: '🌍', name: '世界新闻',   desc: '世界观内的大事小事、时事评论、突发事件' },
+    { id: 'occult',   icon: '🔮', name: '玄学讨论区', desc: '占卜、塔罗、宇宙频率、灵异事件、命理分析' },
+    { id: 'casual',   icon: '💬', name: '日常闲聊',   desc: '随便聊聊，分享日常，无主题限制' },
+    { id: 'midnight', icon: '🌙', name: '深夜树洞',   desc: '说出你的秘密、情绪、心事，这里没有人会judge你' },
+    { id: 'entertain',icon: '🎪', name: '娱乐专区',   desc: '搞笑段子、游戏、挑战、整活、无厘头' },
+    { id: 'realguess',icon: '🔍', name: '现实猜测',   desc: '讨论User的现实生活，大胆猜测，小心求证' },
+  ];
+
+  /* ── 状态 ── */
+  let _posts = [];            // 所有帖子
+  let _view = 'boards';       // 'boards' | 'board' | 'post' | 'new_post'
+  let _currentBoard = null;   // 当前版块 id
+  let _currentPostId = null;  // 当前查看的帖子 id
+  let _inputValue = '';       // 输入框内容
+  let _titleValue = '';       // 标题输入
+  let _selectedBoard = '';    // 新帖选择的版块
+  let _charList = [];         // 缓存的角色列表
+  let _replyCharName = '';    // 选中的回复角色
+  let _autoTimerId = null;    // 自动发帖定时器
+
+  /* ── 初始化 ── */
+  function init(ctx) {
+    _ctx = ctx;
+    _ctx.log.info(APP_ID, 'App已初始化');
+    // 监听后台消息事件，用于自动发帖
+    _ctx.bus.on('bg:message', _onBackgroundTick);
+  }
+
+  /* ── 挂载 ── */
+  async function mount(el) {
+    _container = el;
+    _mounted = true;
+    await _loadData();
+    await _refreshCharList();
+    _render();
+    _bindEvents(_container);
+  }
+
+  /* ── 卸载 ── */
+  function unmount() {
+    _mounted = false;
+    if (_container && _clickHandler) _container.removeEventListener('click', _clickHandler);
+    if (_container && _inputHandler) _container.removeEventListener('input', _inputHandler);
+    _container = null;
+  }
+
+  /* ══════════════════════════════════════数据层══════════════════════════════════════ */
+
+  async function _loadData() {
+    try {
+      const saved = await _ctx.store.get('app12_posts');
+      _posts = Array.isArray(saved) ? saved : [];
+    } catch (e) {
+      _posts = [];
+    }
+  }
+
+  async function _saveData() {
+    try {
+      await _ctx.store.set('app12_posts', _posts);
+    } catch (e) {
+      _ctx.log.error(APP_ID, '保存失败', e.message);
+    }
+  }
+
+  function _genId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  /* ── 角色列表获取 ── */
+  async function _refreshCharList() {
+    const list = [];
+    // 优先级1：SillyTavern.getContext()
+    try {
+      if (typeof SillyTavern !== 'undefined' && SillyTavern.getContext) {
+        const stCtx = SillyTavern.getContext();
+        if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+          for (const c of stCtx.characters) {
+            if (c && c.name) list.push({
+              name: c.name,
+              avatar: c.avatar || '',
+              description: [c.description, c.personality, c.scenario].filter(Boolean).join('\n').slice(0, 600),
+              source: 'char',
+            });
+          }
+        }
+      }
+    } catch (e) {}
+    // 优先级2：getContext()
+    if (!list.length) {
+      try {
+        if (typeof getContext === 'function') {
+          const stCtx = getContext();
+          if (stCtx.characters && Array.isArray(stCtx.characters) && stCtx.characters.length > 0) {
+            for (const c of stCtx.characters) {
+              if (c && c.name) list.push({
+                name: c.name,
+                avatar: c.avatar || '',
+                description: [c.description, c.personality, c.scenario].filter(Boolean).join('\n').slice(0, 600),
+                source: 'char',
+              });
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    // 优先级3：window.characters
+    if (!list.length) {
+      try {
+        if (window.characters && Array.isArray(window.characters) && window.characters.length > 0) {
+          for (const c of window.characters) {
+            if (c && c.name) list.push({
+              name: c.name,
+              avatar: c.avatar || '',
+              description: [c.description, c.personality, c.scenario].filter(Boolean).join('\n').slice(0, 600),
+              source: 'char',
+            });
+          }
+        }
+      } catch (e) {}
+    }
+    // 从聊天记录提取NPC
+    try {
+      const npcs = _extractNPCsFromChat();
+      for (const npc of npcs) {
+        if (!list.find(c => c.name === npc.name)) {
+          list.push(npc);
+        }
+      }
+    } catch (e) {}
+    _charList = list;
+  }
+
+  function _extractNPCsFromChat() {
+    try {
+      const msgs = _ctx.bridge.getRecentMessages(50);
+      if (!msgs || !msgs.length) return [];
+      const currentChar = _ctx.bridge.getCharName() || '';
+      const userName = _ctx.bridge.getUserName() || 'User';
+      const npcSet = new Set();
+      const patterns = [
+        /^([^：:\n]+)[：:]/m,
+        /【([^】]+)】/g,
+        /\*\*([^*]+)\*\*/g,
+        /^([A-Z][a-zA-Z\s]+):/m,
+      ];
+      for (const msg of msgs) {
+        if (!msg.mes || msg.is_user) continue;
+        const text = String(msg.mes);
+        for (const pattern of patterns) {
+          pattern.lastIndex = 0;
+          const matches = text.matchAll(new RegExp(pattern.source, pattern.flags));
+          for (const match of matches) {
+            const name = match[1].trim();
+            if (name && name !== userName && name !== currentChar &&
+                name.length >= 2 && name.length <= 20 &&!/^[。，！？、…\s]+$/.test(name)) {
+              npcSet.add(name);
+            }
+          }
+        }
+      }
+      return Array.from(npcSet).map(name => ({
+        name, source: 'npc', avatar: '',description: '（剧情中出现的角色）',}));
+    } catch (e) { return []; }
+  }
+
+  function _getCharDesc(charName) {
+    const c = _charList.find(ch => ch.name === charName);
+    return c ? c.description : '';
+  }
+
+  function _getAvatarUrl(authorName, authorType) {
+    if (authorType === 'user') return '';
+    const c = _charList.find(ch => ch.name === authorName);
+    if (c && c.avatar) {
+      // ST角色头像路径
+      if (c.avatar.startsWith('http') || c.avatar.startsWith('/')) return c.avatar;
+      return `/characters/${encodeURIComponent(c.avatar)}`;
+    }
+    return '';
+  }
+
+  /* ══════════════════════════════════════
+     副API调用
+     ══════════════════════════════════════ */
+
+  function _checkAPI() {
+    if (!_ctx.settings.apiUrl || !_ctx.settings.apiKey || !_ctx.settings.apiModel) {
+      _ctx.notify.push(APP_ID, '⚠️', '频道留言板', '请先在设置中配置副API');
+      _ctx.log.warn(APP_ID, '副API未配置');
+      return false;
+    }
+    return true;
+  }
+
+  /* ── 单角色发帖 ── */
+  async function _generatePost(charName, boardId) {
+    const board = BOARDS.find(b => b.id === boardId);
+    if (!board) return null;
+    const charDesc = _getCharDesc(charName);
+    let contextHint = '';
+    try {
+      const recent = _ctx.bridge.getRecentMessages(5);
+      if (recent && recent.length) {
+        contextHint = '最近的故事动态：\n' + recent.map(m =>
+          `${m.is_user ? (_ctx.bridge.getUserName() || 'User') : (_ctx.bridge.getCharName() || '???')}：${String(m.mes).slice(0, 80)}`
+        ).join('\n');
+      }
+    } catch (e) {}
+
+    const messages = _ctx.subapi.buildMessages('app12_post', {
+      poster_name: charName,
+      poster_desc: charDesc || '（无详细人设）',
+      board_name: board.name,
+      board_desc: board.desc,
+      context_hint: contextHint || '（无额外上下文）',
+    });
+
+    const text = await _ctx.subapi.call(messages, { maxTokens: 600, temperature: 0.9 });
+    if (!text) return null;
+
+    // 解析
+    const postMatch = text.match(/<forum_post>([\s\S]*?)<\/forum_post>/i);
+    if (!postMatch) {
+      //尝试宽松解析
+      return {
+        title: charName + '的帖子',
+        body: _ctx.subapi.safeParseText(text).slice(0, 500),
+      };
+    }
+    const inner = postMatch[1];
+    const titleMatch = inner.match(/<title>([\s\S]*?)<\/title>/i);
+    const bodyMatch = inner.match(/<body>([\s\S]*?)<\/body>/i);
+    return {
+      title: titleMatch ? titleMatch[1].trim() : charName + '的帖子',
+      body: bodyMatch ? bodyMatch[1].trim() : _ctx.subapi.safeParseText(inner).slice(0, 500),
+    };
+  }
+
+  /* ── 单角色回复 ── */
+  async function _generateReply(charName, post) {
+    const board = BOARDS.find(b => b.id === post.boardId);
+    const charDesc = _getCharDesc(charName);
+    let existingReplies = '';
+    if (post.replies && post.replies.length) {
+      existingReplies = '已有回复：\n' + post.replies.slice(-5).map(r =>
+        `${r.authorName}：${r.content.slice(0, 80)}`
+      ).join('\n');
+    }
+    let replyContext = '';
+    if (post.replies && post.replies.length) {
+      replyContext = '，以及下面的回复';}
+
+    const messages = _ctx.subapi.buildMessages('app12_reply', {
+      replier_name: charName,
+      replier_desc: charDesc || '（无详细人设）',
+      board_name: board ? board.name : '未知版块',
+      post_author: post.authorName,
+      post_title: post.title,
+      post_body: post.content.slice(0, 300),
+      existing_replies: existingReplies || '（暂无回复）',
+      reply_context: replyContext,
+    });
+
+    const text = await _ctx.subapi.call(messages, { maxTokens: 300, temperature: 0.9 });
+    if (!text) return null;
+
+    const replyMatch = text.match(/<forum_reply>([\s\S]*?)<\/forum_reply>/i);
+    return replyMatch ? replyMatch[1].trim() : _ctx.subapi.safeParseText(text).slice(0, 300);
+  }
+
+  /* ── 多角色自动活动 ── */
+  async function _generateMultiActivity(boardId) {
+    const board = BOARDS.find(b => b.id === boardId) || BOARDS[Math.floor(Math.random() * BOARDS.length)];
+    // 随机选2-4个角色
+    const shuffled = [..._charList].sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, Math.min(4, shuffled.length));
+    if (!selected.length) return [];
+
+    const charListStr = selected.map(c =>
+      `- ${c.name}：${(c.description || '无描述').slice(0, 150)}`
+    ).join('\n');
+
+    let contextHint = '';
+    try {
+      const recent = _ctx.bridge.getRecentMessages(5);
+      if (recent && recent.length) {
+        contextHint = '最近的故事动态：\n' + recent.map(m =>
+          `${m.is_user ? (_ctx.bridge.getUserName() || 'User') : (_ctx.bridge.getCharName() || '???')}：${String(m.mes).slice(0, 80)}`
+        ).join('\n');
+      }
+    } catch (e) {}
+
+    const messages = _ctx.subapi.buildMessages('app12_multi', {
+      board_name: board.name,
+      board_desc: board.desc,
+      char_list: charListStr,
+      context_hint: contextHint || '（无额外上下文）',
+    });
+
+    const text = await _ctx.subapi.call(messages, { maxTokens: 1000, temperature: 0.95 });
+    if (!text) return [];
+
+    const results = [];
+    const activityMatch = text.match(/<forum_activity>([\s\S]*?)<\/forum_activity>/i);
+    const content = activityMatch ? activityMatch[1] : text;
+
+    // 解析 posts
+    const postRegex = /<post\s+author="([^"]+)">([\s\S]*?)<\/post>/gi;
+    let m;
+    while ((m = postRegex.exec(content)) !== null) {
+      const author = m[1].trim();
+      const inner = m[2];
+      const tMatch = inner.match(/<title>([\s\S]*?)<\/title>/i);
+      const bMatch = inner.match(/<body>([\s\S]*?)<\/body>/i);
+      if (tMatch && bMatch) {
+        results.push({
+          type: 'post',
+          author: author,
+          title: tMatch[1].trim(),
+          body: bMatch[1].trim(),
+        });
+      }
+    }
+
+    // 解析 replies
+    const replyRegex = /<reply\s+author="([^"]+)"\s+to="([^"]+)">([\s\S]*?)<\/reply>/gi;
+    while ((m = replyRegex.exec(content)) !== null) {
+      results.push({
+        type: 'reply',
+        author: m[1].trim(),
+        toTitle: m[2].trim(),
+        content: m[3].trim(),
+      });
+    }
+
+    return results;
+  }
+
+  /* ── 后台自动触发 ── */
+  async function _onBackgroundTick() {
+    if (!_ctx.settings.apiUrl || !_ctx.settings.apiKey || !_ctx.settings.apiModel) return;
+    if (_charList.length === 0) await _refreshCharList();
+    if (_charList.length === 0) return;
+
+    // 30%概率触发自动发帖
+    if (Math.random() > 0.3) return;
+
+    try {
+      const board = BOARDS[Math.floor(Math.random() * BOARDS.length)];
+      const char = _charList[Math.floor(Math.random() * _charList.length)];
+      const result = await _generatePost(char.name, board.id);
+      if (result) {
+        const post = {
+          id: _genId(),
+          boardId: board.id,
+          authorName: char.name,
+          authorType: char.source || 'char',
+          title: result.title,
+          content: result.body,
+          timestamp: Date.now(),
+          likes: Math.floor(Math.random() * 10),
+          expanded: false,
+          replies: [],};
+        _posts.unshift(post);
+        if (_posts.length > 200) _posts = _posts.slice(0, 200);
+        await _saveData();
+        _ctx.notify.push(APP_ID, '💬', '频道留言板', `${char.name} 在【${board.name}】发了新帖`);
+        if (_mounted && _container) {
+          _render();
+          _bindEvents(_container);
+        }
+      }
+    } catch (e) {
+      _ctx.log.error(APP_ID, '自动发帖失败', e.message);
+    }
+  }
+
+  /* ══════════════════════════════════════
+     渲染
+     ══════════════════════════════════════ */
+
+  function _render() {
+    if (!_container) return;
+    let html = '';
+    switch (_view) {
+      case 'boards':    html = _renderBoards(); break;
+      case 'board':     html = _renderBoard(); break;
+      case 'post':      html = _renderPost(); break;
+      case 'new_post':  html = _renderNewPost(); break;
+      default:          html = _renderBoards();
+    }
+    _container.innerHTML = html;
+  }
+
+  /* ── 版块列表（首页） ── */
+  function _renderBoards() {
+    const userName = _ctx.bridge.getUserName() || 'User';
+    // 统计每个版块帖子数和最新帖
+    const boardStats = BOARDS.map(b => {
+      const bPosts = _posts.filter(p => p.boardId === b.id);
+      const latest = bPosts.length > 0 ? bPosts[0] : null;
+      return { ...b, count: bPosts.length, latest };
+    });
+
+    // 最新3条帖子
+    const recentPosts = _posts.slice(0, 3);
+
+    return `<div class="f12-wrap">
+      <div class="f12-header">
+        <div class="f12-header-title">💬 频道留言板</div>
+        <div class="f12-header-sub">欢迎回来，${_escHtml(userName)}</div>
+      </div>
+      <div class="f12-scroll">
+        ${_statusText ? `<div class="f12-status">${_escHtml(_statusText)}</div>` : ''}
+
+        <!-- 快捷操作 -->
+        <div class="f12-actions-row">
+          <button class="f12-btn f12-btn-primary" id="f12-btn-new" ${_loading ? 'disabled' : ''}>✏️ 发帖</button>
+          <button class="f12-btn f12-btn-accent" id="f12-btn-auto" ${_loading ? 'disabled' : ''}>🔄 刷新动态</button>
+        </div>
+
+        <!-- 最新动态 -->
+        ${recentPosts.length > 0 ? `
+        <div class="f12-section-title">📢 最新动态</div>
+        <div class="f12-recent-list">
+          ${recentPosts.map(p => {
+            const board = BOARDS.find(b => b.id === p.boardId);
+            const avatarUrl = _getAvatarUrl(p.authorName, p.authorType);
+            return `<div class="f12-recent-item" data-goto-post="${p.id}">
+              <div class="f12-recent-avatar">${avatarUrl
+                ? `<img src="${_escHtml(avatarUrl)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" class="f12-avatar-img"/><span class="f12-avatar-fallback" style="display:none">${_getInitial(p.authorName)}</span>`
+                : `<span class="f12-avatar-fallback">${_getInitial(p.authorName)}</span>`}</div>
+              <div class="f12-recent-body">
+                <div class="f12-recent-meta">
+                  <span class="f12-recent-author ${p.authorType === 'user' ? 'f12-author-user' : ''}">${_escHtml(p.authorName)}</span>
+                  <span class="f12-recent-board">${board ? board.icon : '💬'} ${board ? _escHtml(board.name) : ''}</span>
+                </div>
+                <div class="f12-recent-title">${_escHtml(p.title)}</div>
+                <div class="f12-recent-snippet">${_escHtml(p.content.slice(0, 50))}${p.content.length > 50 ? '…' : ''}</div>
+                <div class="f12-recent-foot">
+                  <span>💬 ${p.replies ? p.replies.length : 0}</span>
+                  <span>👍 ${p.likes || 0}</span>
+                  <span>${_timeAgo(p.timestamp)}</span>
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>` : `<div class="f12-empty-hint">还没有帖子，点击「刷新动态」让角色们开始发帖吧！</div>`}
+
+        <!-- 版块列表 -->
+        <div class="f12-section-title">📋 版块</div>
+        <div class="f12-board-list">
+          ${boardStats.map(b => `<div class="f12-board-card" data-board="${b.id}">
+            <div class="f12-board-icon">${b.icon}</div>
+            <div class="f12-board-info">
+              <div class="f12-board-name">${_escHtml(b.name)}</div>
+              <div class="f12-board-desc">${_escHtml(b.desc)}</div>
+              <div class="f12-board-stat">${b.count} 帖子${b.latest ? ` · 最新：${_escHtml(b.latest.title.slice(0, 12))}` : ''}</div>
+            </div>
+            <div class="f12-board-arrow">›</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* ── 版块详情 ── */
+  function _renderBoard() {
+    const board = BOARDS.find(b => b.id === _currentBoard);
+    if (!board) return _renderBoards();
+    const bPosts = _posts.filter(p => p.boardId === _currentBoard);
+
+    return `<div class="f12-wrap">
+      <div class="f12-header">
+        <span class="f12-back" id="f12-back-boards">‹ 返回</span>
+        <div class="f12-header-title">${board.icon} ${_escHtml(board.name)}</div>
+        <div class="f12-header-sub">${_escHtml(board.desc)}</div>
+      </div>
+      <div class="f12-scroll">
+        ${_statusText ? `<div class="f12-status">${_escHtml(_statusText)}</div>` : ''}
+
+        <div class="f12-actions-row">
+          <button class="f12-btn f12-btn-primary" id="f12-btn-new-inboard" ${_loading ? 'disabled' : ''}>✏️ 在此版块发帖</button>
+          <button class="f12-btn f12-btn-accent" id="f12-btn-auto-board" ${_loading ? 'disabled' : ''}>🔄 刷新</button>
+        </div>
+
+        ${bPosts.length === 0 ? `<div class="f12-empty-hint">这个版块还没有帖子</div>` : ''}<div class="f12-post-list">
+          ${bPosts.map(p => _renderPostCard(p)).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* ── 帖子卡片 ── */
+  function _renderPostCard(p) {
+    const avatarUrl = _getAvatarUrl(p.authorName, p.authorType);
+    return `<div class="f12-post-card" data-goto-post="${p.id}">
+      <div class="f12-post-card-head">
+        <div class="f12-post-card-avatar">${avatarUrl
+          ? `<img src="${_escHtml(avatarUrl)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" class="f12-avatar-img"/><span class="f12-avatar-fallback" style="display:none">${_getInitial(p.authorName)}</span>`
+          : `<span class="f12-avatar-fallback">${_getInitial(p.authorName)}</span>`}</div>
+        <div class="f12-post-card-meta">
+          <span class="f12-post-card-author ${p.authorType === 'user' ? 'f12-author-user' : ''}">${_escHtml(p.authorName)}</span>
+          <span class="f12-post-card-time">${_timeAgo(p.timestamp)}</span>
+        </div>
+      </div>
+      <div class="f12-post-card-title">${_escHtml(p.title)}</div>
+      <div class="f12-post-card-body">${_escHtml(p.content.slice(0, 100))}${p.content.length > 100 ? '…' : ''}</div>
+      <div class="f12-post-card-foot">
+        <span>💬 ${p.replies ? p.replies.length : 0}</span>
+        <span>👍 ${p.likes || 0}</span>
+      </div>
+    </div>`;
+  }
+
+  /* ── 帖子详情 ── */
+  function _renderPost() {
+    const post = _posts.find(p => p.id === _currentPostId);
+    if (!post) return _renderBoards();
+    const board = BOARDS.find(b => b.id === post.boardId);
+    const avatarUrl = _getAvatarUrl(post.authorName, post.authorType);
+
+    // 角色选择下拉
+    const charOptions = _charList.map(c =>
+      `<option value="${_escHtml(c.name)}" ${_replyCharName === c.name ? 'selected' : ''}>${_escHtml(c.name)}${c.source === 'npc' ? ' (NPC)' : ''}</option>`
+    ).join('');
+
+    return `<div class="f12-wrap">
+      <div class="f12-header">
+        <span class="f12-back" id="f12-back-board">‹ 返回</span>
+        <div class="f12-header-title">${board ? board.icon : '💬'} ${board ? _escHtml(board.name) : ''}</div>
+      </div>
+      <div class="f12-scroll">
+        ${_statusText ? `<div class="f12-status">${_escHtml(_statusText)}</div>` : ''}
+
+        <!-- 原帖 -->
+        <div class="f12-detail-post">
+          <div class="f12-detail-head">
+            <div class="f12-detail-avatar">${avatarUrl
+              ? `<img src="${_escHtml(avatarUrl)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" class="f12-avatar-img"/><span class="f12-avatar-fallback" style="display:none">${_getInitial(post.authorName)}</span>`
+              : `<span class="f12-avatar-fallback">${_getInitial(post.authorName)}</span>`}</div>
+            <div class="f12-detail-meta">
+              <span class="f12-detail-author ${post.authorType === 'user' ? 'f12-author-user' : ''}">${_escHtml(post.authorName)}</span>
+              <span class="f12-detail-time">${_timeAgo(post.timestamp)}</span>
+            </div>
+            <button class="f12-btn-icon" id="f12-btn-like-post" title="点赞">👍 ${post.likes || 0}</button>
+          </div>
+          <div class="f12-detail-title">${_escHtml(post.title)}</div>
+          <div class="f12-detail-body">${_escHtml(post.content)}</div>
+        </div>
+
+        <!-- 回复列表 -->
+        <div class="f12-reply-header">
+          <span>💬 回复 (${post.replies ? post.replies.length : 0})</span>
+        </div>
+        <div class="f12-reply-list">
+          ${(post.replies || []).map((r, i) => {
+            const rAvatar = _getAvatarUrl(r.authorName, r.authorType);
+            return `<div class="f12-reply-item">
+              <div class="f12-reply-floor">#${i + 1}</div>
+              <div class="f12-reply-avatar">${rAvatar
+                ? `<img src="${_escHtml(rAvatar)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" class="f12-avatar-img"/><span class="f12-avatar-fallback" style="display:none">${_getInitial(r.authorName)}</span>`
+                : `<span class="f12-avatar-fallback">${_getInitial(r.authorName)}</span>`}</div>
+              <div class="f12-reply-body">
+                <div class="f12-reply-meta">
+                  <span class="f12-reply-author ${r.authorType === 'user' ? 'f12-author-user' : ''}">${_escHtml(r.authorName)}</span>
+                  <span class="f12-reply-time">${_timeAgo(r.timestamp)}</span>
+                </div>
+                <div class="f12-reply-content">${_escHtml(r.content)}</div>
+              </div>
+            </div>`;
+          }).join('')}
+          ${(!post.replies || !post.replies.length) ? '<div class="f12-empty-hint">还没有回复，来说点什么吧</div>' : ''}
+        </div>
+
+        <!-- 回复操作区 -->
+        <div class="f12-reply-actions">
+          <div class="f12-reply-row">
+            <input type="text" id="f12-reply-input" class="f12-input" placeholder="说点什么…" value="${_escHtml(_inputValue)}" ${_loading ? 'disabled' : ''}/>
+            <button class="f12-btn f12-btn-primary f12-btn-sm" id="f12-btn-user-reply" ${_loading ? 'disabled' : ''}>发送</button>
+          </div>
+          <div class="f12-reply-row f12-reply-char-row">
+            <select id="f12-reply-char-select" class="f12-select" ${_loading ? 'disabled' : ''}>
+              <option value="">随机角色</option>
+              ${charOptions}
+            </select>
+            <button class="f12-btn f12-btn-accent f12-btn-sm" id="f12-btn-char-reply" ${_loading ? 'disabled' : ''}>让TA回复</button>
+            <button class="f12-btn f12-btn-accent f12-btn-sm" id="f12-btn-multi-reply" ${_loading ? 'disabled' : ''}>群聊</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* ── 发帖页── */
+  function _renderNewPost() {
+    const boardOptions = BOARDS.map(b =>
+      `<option value="${b.id}" ${_selectedBoard === b.id ? 'selected' : ''}>${b.icon} ${_escHtml(b.name)}</option>`
+    ).join('');
+
+    return `<div class="f12-wrap">
+      <div class="f12-header">
+        <span class="f12-back" id="f12-back-from-new">‹ 返回</span>
+        <div class="f12-header-title">✏️ 发新帖</div>
+      </div>
+      <div class="f12-scroll">
+        ${_statusText ? `<div class="f12-status">${_escHtml(_statusText)}</div>` : ''}
+
+        <div class="f12-form">
+          <label class="f12-label">选择版块</label>
+          <select id="f12-new-board" class="f12-select" ${_loading ? 'disabled' : ''}>
+            ${boardOptions}
+          </select>
+
+          <label class="f12-label">标题</label>
+          <input type="text" id="f12-new-title" class="f12-input" placeholder="帖子标题（10字以内）" value="${_escHtml(_titleValue)}" maxlength="30" ${_loading ? 'disabled' : ''}/>
+
+          <label class="f12-label">内容</label>
+          <textarea id="f12-new-content" class="f12-textarea" placeholder="写下你想说的…" rows="5" ${_loading ? 'disabled' : ''}>${_escHtml(_inputValue)}</textarea>
+
+          <button class="f12-btn f12-btn-primary f12-btn-full" id="f12-btn-submit-post" ${_loading ? 'disabled' : ''}>📤 发布</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* ══════════════════════════════════════事件绑定
+     ══════════════════════════════════════ */
+
+  function _bindEvents(container) {
+    if (!container) return;
+
+    // click
+    if (_clickHandler) container.removeEventListener('click', _clickHandler);
+    _clickHandler = async (e) => {
+      //── 返回按钮 ──
+      if (e.target.id === 'f12-back-boards') {
+        _view = 'boards'; _statusText = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+      if (e.target.id === 'f12-back-board') {
+        _view = 'board'; _statusText = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+      if (e.target.id === 'f12-back-from-new') {
+        _view = _currentBoard ? 'board' : 'boards'; _statusText = '';
+        _inputValue = ''; _titleValue = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // ── 进入版块 ──
+      const boardCard = e.target.closest('.f12-board-card');
+      if (boardCard) {
+        _currentBoard = boardCard.dataset.board;
+        _view = 'board'; _statusText = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // ── 进入帖子详情 ──
+      const gotoPost = e.target.closest('[data-goto-post]');
+      if (gotoPost) {
+        _currentPostId = gotoPost.dataset.gotoPost;
+        _view = 'post'; _statusText = ''; _inputValue = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // ── 发帖按钮（首页） ──
+      if (e.target.id === 'f12-btn-new') {
+        _view = 'new_post';
+        _selectedBoard = BOARDS[0].id;
+        _titleValue = ''; _inputValue = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // ── 在版块内发帖 ──
+      if (e.target.id === 'f12-btn-new-inboard') {
+        _view = 'new_post';
+        _selectedBoard = _currentBoard || BOARDS[0].id;
+        _titleValue = ''; _inputValue = '';
+        _render(); _bindEvents(_container);
+        return;
+      }
+
+      // ── 刷新动态（首页，多角色自动） ──
+      if (e.target.id === 'f12-btn-auto') {
+        if (_loading) return;
+        if (!_checkAPI()) return;
+        _loading = true; _statusText = '⏳ 角色们正在发帖…';
+        _render(); _bindEvents(_container);
+        _ctx.notify.push(APP_ID, '⏳', '频道留言板', '正在刷新动态…');
+
+        try {
+          await _refreshCharList();
+          if (_charList.length === 0) throw new Error('没有找到任何角色');
+          const board = BOARDS[Math.floor(Math.random() * BOARDS.length)];
+          const activities = await _generateMultiActivity(board.id);
+
+          if (!_mounted || !_container) return;
+
+          if (!activities || !activities.length) throw new Error('角色们暂时没有想说的');
+
+          let newCount = 0;
+          for (const act of activities) {
+            if (act.type === 'post') {
+              const post = {
+                id: _genId(),
+                boardId: board.id,
+                authorName: act.author,
+                authorType: _charList.find(c => c.name === act.author)?.source || 'char',
+                title: act.title,
+                content: act.body,
+                timestamp: Date.now() - Math.floor(Math.random() * 60000),
+                likes: Math.floor(Math.random() * 15),
+                expanded: false,
+                replies: [],};
+              _posts.unshift(post);
+              newCount++;
+            } else if (act.type === 'reply') {
+              // 找到对应帖子
+              const targetPost = _posts.find(p => p.title === act.toTitle) || _posts[0];
+              if (targetPost) {
+                if (!targetPost.replies) targetPost.replies = [];
+                targetPost.replies.push({
+                  id: _genId(),
+                  authorName: act.author,
+                  authorType: _charList.find(c => c.name === act.author)?.source || 'char',
+                  content: act.content,
+                  timestamp: Date.now(),
+                  likes: Math.floor(Math.random() * 5),
+                });
+              }
+            }
+          }
+          if (_posts.length > 200) _posts = _posts.slice(0, 200);
+          await _saveData();
+          _statusText = `✅ 新增 ${newCount} 条帖子`;
+          _ctx.notify.push(APP_ID, '✅', '频道留言板', `动态已刷新，新增 ${newCount} 条`);
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error(APP_ID, '刷新动态失败', err.message);
+          _ctx.notify.push(APP_ID, '❌', '频道留言板', `刷新失败：${err.message}`);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+        _autoClearStatus();
+        return;
+      }
+
+      // ── 版块内刷新 ──
+      if (e.target.id === 'f12-btn-auto-board') {
+        if (_loading) return;
+        if (!_checkAPI()) return;
+        _loading = true; _statusText = '⏳ 正在刷新版块…';
+        _render(); _bindEvents(_container);
+        _ctx.notify.push(APP_ID, '⏳', '频道留言板', '正在刷新版块…');
+
+        try {
+          await _refreshCharList();
+          if (_charList.length === 0) throw new Error('没有找到任何角色');
+          const char = _charList[Math.floor(Math.random() * _charList.length)];
+          const result = await _generatePost(char.name, _currentBoard);
+
+          if (!_mounted || !_container) return;
+          if (!result) throw new Error('生成失败');
+
+          const post = {
+            id: _genId(),
+            boardId: _currentBoard,
+            authorName: char.name,
+            authorType: char.source || 'char',
+            title: result.title,
+            content: result.body,
+            timestamp: Date.now(),
+            likes: Math.floor(Math.random() * 10),
+            expanded: false,
+            replies: [],
+          };
+          _posts.unshift(post);
+          if (_posts.length > 200) _posts = _posts.slice(0, 200);
+          await _saveData();
+          _statusText = `✅ ${char.name} 发了新帖`;
+          _ctx.notify.push(APP_ID, '✅', '频道留言板', `${char.name} 发了新帖`);
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error(APP_ID, '版块刷新失败', err.message);
+          _ctx.notify.push(APP_ID, '❌', '频道留言板', `刷新失败：${err.message}`);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+        _autoClearStatus();
+        return;
+      }
+
+      // ── 提交发帖 ──
+      if (e.target.id === 'f12-btn-submit-post') {
+        const titleEl = container.querySelector('#f12-new-title');
+        const contentEl = container.querySelector('#f12-new-content');
+        const boardEl = container.querySelector('#f12-new-board');
+        const title = titleEl ? titleEl.value.trim() : _titleValue.trim();
+        const content = contentEl ? contentEl.value.trim() : _inputValue.trim();
+        const boardId = boardEl ? boardEl.value : _selectedBoard;
+
+        if (!title) {
+          _statusText = '⚠ 请输入标题';
+          _render(); _bindEvents(_container);
+          _autoClearStatus();
+          return;
+        }
+        if (!content) {
+          _statusText = '⚠ 请输入内容';
+          _render(); _bindEvents(_container);
+          _autoClearStatus();
+          return;
+        }
+
+        const userName = _ctx.bridge.getUserName() || 'User';
+        const post = {
+          id: _genId(),
+          boardId: boardId,
+          authorName: userName,
+          authorType: 'user',
+          title: title,
+          content: content,
+          timestamp: Date.now(),
+          likes: 0,
+          expanded: false,
+          replies: [],
+        };
+        _posts.unshift(post);
+        if (_posts.length > 200) _posts = _posts.slice(0, 200);
+        await _saveData();
+
+        _titleValue = ''; _inputValue = '';
+        _currentPostId = post.id;
+        _view = 'post';
+        _statusText = '✅ 发帖成功';
+        _ctx.notify.push(APP_ID, '✅', '频道留言板', '发帖成功！');
+        _render(); _bindEvents(_container);
+        _autoClearStatus();
+        return;
+      }
+
+      // ── User回复 ──
+      if (e.target.id === 'f12-btn-user-reply') {
+        const input = container.querySelector('#f12-reply-input');
+        const text = input ? input.value.trim() : _inputValue.trim();
+        if (!text) {
+          _statusText = '⚠ 请输入回复内容';
+          _render(); _bindEvents(_container);
+          _autoClearStatus();
+          return;
+        }
+        const post = _posts.find(p => p.id === _currentPostId);
+        if (!post) return;
+        if (!post.replies) post.replies = [];
+        const userName = _ctx.bridge.getUserName() || 'User';
+        post.replies.push({
+          id: _genId(),
+          authorName: userName,
+          authorType: 'user',
+          content: text,
+          timestamp: Date.now(),
+          likes: 0,
+        });
+        await _saveData();
+        _inputValue = '';
+        _statusText = '✅ 回复成功';
+        _ctx.notify.push(APP_ID, '💬', '频道留言板', '回复成功');
+        _render(); _bindEvents(_container);
+        _autoClearStatus();
+        return;
+      }
+
+      // ── 让角色回复 ──
+      if (e.target.id === 'f12-btn-char-reply') {
+        if (_loading) return;
+        if (!_checkAPI()) return;
+        const post = _posts.find(p => p.id === _currentPostId);
+        if (!post) return;
+
+        const selectEl = container.querySelector('#f12-reply-char-select');
+        let charName = selectEl ? selectEl.value : _replyCharName;
+
+        // 随机选角色
+        if (!charName) {
+          await _refreshCharList();
+          if (_charList.length === 0) {
+            _statusText = '⚠ 没有找到任何角色';
+            _render(); _bindEvents(_container);
+            _autoClearStatus();
+            return;
+          }
+          // 排除已回复过的角色，增加多样性
+          const repliedNames = new Set((post.replies || []).map(r => r.authorName));
+          const available = _charList.filter(c => !repliedNames.has(c.name));
+          const pool = available.length > 0 ? available : _charList;
+          charName = pool[Math.floor(Math.random() * pool.length)].name;
+        }
+
+        _loading = true; _statusText = `⏳ ${charName} 正在回复…`;
+        _render(); _bindEvents(_container);
+        _ctx.notify.push(APP_ID, '⏳', '频道留言板', `${charName} 正在回复…`);
+
+        try {
+          const replyText = await _generateReply(charName, post);
+          if (!_mounted || !_container) return;
+          if (!replyText) throw new Error('生成失败');
+
+          if (!post.replies) post.replies = [];
+          post.replies.push({
+            id: _genId(),
+            authorName: charName,
+            authorType: _charList.find(c => c.name === charName)?.source || 'char',
+            content: replyText,
+            timestamp: Date.now(),
+            likes: Math.floor(Math.random() * 8),
+          });
+          await _saveData();
+          _statusText = `✅ ${charName} 已回复`;
+          _ctx.notify.push(APP_ID, '✅', '频道留言板', `${charName} 已回复`);
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error(APP_ID, '角色回复失败', err.message);
+          _ctx.notify.push(APP_ID, '❌', '频道留言板', `回复失败：${err.message}`);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+        _autoClearStatus();
+        return;
+      }
+
+      // ── 群聊（多角色连续回复） ──
+      if (e.target.id === 'f12-btn-multi-reply') {
+        if (_loading) return;
+        if (!_checkAPI()) return;
+        const post = _posts.find(p => p.id === _currentPostId);
+        if (!post) return;
+
+        _loading = true; _statusText = '⏳ 角色们正在讨论…';
+        _render(); _bindEvents(_container);
+        _ctx.notify.push(APP_ID, '⏳', '频道留言板', '角色们正在讨论…');
+
+        try {
+          await _refreshCharList();
+          if (_charList.length === 0) throw new Error('没有找到任何角色');
+
+          // 选2-3个角色连续回复
+          const repliedNames = new Set((post.replies || []).map(r => r.authorName));
+          const shuffled = [..._charList].sort(() => Math.random() - 0.5);
+          const count = Math.min(2 + Math.floor(Math.random() * 2), shuffled.length);
+          let addedCount = 0;
+
+          for (let i = 0; i < count; i++) {
+            if (!_mounted || !_container) return;
+            const char = shuffled[i];
+            try {
+              const replyText = await _generateReply(char.name, post);
+              if (replyText) {
+                if (!post.replies) post.replies = [];
+                post.replies.push({
+                  id: _genId(),
+                  authorName: char.name,
+                  authorType: char.source || 'char',
+                  content: replyText,
+                  timestamp: Date.now() + i * 1000,
+                  likes: Math.floor(Math.random() * 5),
+                });
+                addedCount++;
+              }
+            } catch (e) {
+              _ctx.log.warn(APP_ID, `${char.name} 回复失败`, e.message);
+            }
+          }
+
+          await _saveData();
+          _statusText = `✅ ${addedCount} 位角色参与了讨论`;
+          _ctx.notify.push(APP_ID, '✅', '频道留言板', `${addedCount} 位角色参与了讨论`);
+        } catch (err) {
+          _statusText = `⚠ ${err.message}`;
+          _ctx.log.error(APP_ID, '群聊失败', err.message);
+          _ctx.notify.push(APP_ID, '❌', '频道留言板', `群聊失败：${err.message}`);
+        }
+
+        _loading = false;
+        if (!_container) return;
+        _render(); _bindEvents(_container);
+        _autoClearStatus();
+        return;
+      }
+
+      // ── 点赞帖子 ──
+      if (e.target.id === 'f12-btn-like-post' || e.target.closest('#f12-btn-like-post')) {
+        const post = _posts.find(p => p.id === _currentPostId);
+        if (post) {
+          post.likes = (post.likes || 0) + 1;
+          await _saveData();
+          _render(); _bindEvents(_container);}
+        return;
+      }
+    };container.addEventListener('click', _clickHandler);
+
+    // input
+    if (_inputHandler) container.removeEventListener('input', _inputHandler);
+    _inputHandler = (e) => {
+      if (e.target.id === 'f12-reply-input') _inputValue = e.target.value;
+      if (e.target.id === 'f12-new-title') _titleValue = e.target.value;
+      if (e.target.id === 'f12-new-content') _inputValue = e.target.value;
+    };
+    container.addEventListener('input', _inputHandler);
+
+    // change (select)
+    const boardSelect = container.querySelector('#f12-new-board');
+    if (boardSelect) {
+      boardSelect.addEventListener('change', (e) => { _selectedBoard = e.target.value; });
+    }
+    const charSelect = container.querySelector('#f12-reply-char-select');
+    if (charSelect) {
+      charSelect.addEventListener('change', (e) => { _replyCharName = e.target.value; });
+    }}
+
+  /* ══════════════════════════════════════
+     工具函数
+     ══════════════════════════════════════ */
+
+  function _escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function _getInitial(name) {
+    if (!name) return '?';
+    return name.charAt(0).toUpperCase();
+  }
+
+  function _timeAgo(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - ts;
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+    if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+    if (diff < 604800000) return Math.floor(diff / 86400000) + '天前';
+    return new Date(ts).toLocaleDateString();
+  }
+
+  function _autoClearStatus() {
+    setTimeout(() => {
+      if (_statusText.startsWith('✅') || _statusText.startsWith('⚠')) {
+        _statusText = '';
+        if (_container) { _render(); _bindEvents(_container); }
+      }
+    }, 3000);
+  }
+
+  /* ── 公开接口 ── */
+  return {
+    id: APP_ID,
+    name: '频道留言板',
+    icon: '💬',
+    init,
+    mount,
+    unmount,
+  };
+})();
+//============================================================
+//App12 END
+// ============================================================
+
 
 
 
@@ -10339,6 +11516,7 @@ const FreqTerminal = (() => {
     App09Novel,
     App10Map,
     App11Delivery,
+    App12Forum,
     App13Capsule,
     App14Dream,
     App16Blackbox,
@@ -10523,7 +11701,7 @@ const FreqTerminal = (() => {
       'freq-sp-prompt-app09': 'app09_book',
       'freq-sp-prompt-app10': 'app10_landmark',
       'freq-sp-prompt-app11': 'app11_order',
-      'freq-sp-prompt-app12': 'app12',
+      'freq-sp-prompt-app12': 'app12_post',
       'freq-sp-prompt-app13': 'app13_reply',
       'freq-sp-prompt-app14': 'app14_dream',
       'freq-sp-prompt-app15': 'app15',
@@ -10637,7 +11815,7 @@ const FreqTerminal = (() => {
     $('#freq-sp-prompt-app09').val(prompts.app09_book || defaults.app09_book || '');
     $('#freq-sp-prompt-app10').val(prompts.app10_landmark || defaults.app10_landmark || '');
     $('#freq-sp-prompt-app11').val(prompts.app11_order || defaults.app11_order || '');
-    $('#freq-sp-prompt-app12').val(prompts.app12 || defaults.app12);
+    $('#freq-sp-prompt-app12').val(prompts.app12_post || defaults.app12_post);
     $('#freq-sp-prompt-app13').val(prompts.app13_reply || defaults.app13_reply);
     $('#freq-sp-prompt-app14').val(prompts.app14_dream || defaults.app14_dream);
     $('#freq-sp-prompt-app15').val(prompts.app15 || defaults.app15);
