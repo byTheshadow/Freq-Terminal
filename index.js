@@ -12042,6 +12042,44 @@ const FreqTerminal = (() => {
         _fab.classList.add('freq-fab-hidden');
       }
     });
+    // ── 格式化按钮 ──
+$(document).off('click', '#freq-sp-btn-format').on('click', '#freq-sp-btn-format', async function () {
+  const $btn = $(this);
+  const $status = $('#freq-sp-format-status');
+
+  // 二次确认，防止误触
+  if (!$btn.data('confirm')) {
+    $btn.data('confirm', true).text('⚠ 再次点击确认清除');
+    $status.text('所有App数据将被清除，此操作不可撤销。');
+    setTimeout(() => {
+      $btn.data('confirm', false).text('🗑 格式化数据');
+      $status.text('');
+    }, 4000);
+    return;
+  }
+
+  // 执行格式化
+  $btn.prop('disabled', true).text('⏳ 正在清除…');
+  $status.text('');
+
+  try {
+    const keys = await FreqStore.keys();
+    for (const key of keys) {
+      await FreqStore.del(key);
+    }
+    $status.text(`✅ 已清除 ${keys.length} 条数据`);
+    $btn.text('✅ 格式化完成');
+    FreqLog.info('settings', `格式化完成，共清除 ${keys.length} 条数据`);
+    setTimeout(() => {
+      $btn.prop('disabled', false).text('🗑 格式化数据');
+      $status.text('');
+    }, 3000);
+  } catch (err) {
+    $status.text(`⚠ 清除失败：${err.message}`);
+    $btn.prop('disabled', false).text('🗑 格式化数据');
+    FreqLog.error('settings', '格式化失败', err.message);
+  }
+});
     // 宇宙频率开关
   $(document).on('change', '#freq-sp-cosmic-enabled', function () {
     _settings.cosmicFreqEnabled = this.checked;
